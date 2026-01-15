@@ -4,6 +4,8 @@ class Liamisawesome {
 
         while(1 =1){
             System.out.println("Liam is hot and cool");
+
+            //deez
         }
     }
 }
