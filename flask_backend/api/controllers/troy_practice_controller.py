@@ -10,13 +10,4 @@ practice = Blueprint("practice", __name__, url_prefix="/example")
 @practice.route("/test", methods=("POST", "GET"))
 def get_practice():
     if request.method == "GET":
-        return (
-            jsonify(
-                [
-                    {
-                        'course' : 'cosc224'
-                    }
-                ]
-            ),
-            200,
-        )
+        return jsonify({'course': 'cosc224'}), 200
