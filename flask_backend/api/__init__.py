@@ -13,6 +13,7 @@ from .controllers import (
     fake_api_controller,
     user_controller,
     assignment_controller,
+    troy_practice_controller
 )
 from .models.db import db, ma
 
