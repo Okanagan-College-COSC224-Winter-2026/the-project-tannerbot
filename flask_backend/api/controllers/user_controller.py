@@ -111,12 +111,12 @@ def delete_user(user_id):
 @bp.route("/password", methods=["PATCH"])
 @jwt_required()
 def change_password():
-    """Change current user's password (only if must_change_password is True)"""
+    """Change current user's password"""
     if not request.is_json:
         return jsonify({"msg": "Missing JSON in request"}), 400
 
-    current_password = request.json.get("current_password", None)
-    new_password = request.json.get("new_password", None)
+    current_password = request.json.get("current_password")
+    new_password = request.json.get("new_password")
 
     if not current_password:
         return jsonify({"msg": "Current password is required"}), 400
@@ -131,17 +131,35 @@ def change_password():
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
-    # Security: Only allow password changes if must_change_password is True
-    if not user.must_change_password:
-        return jsonify({"msg": "Password change not required for this account"}), 403
-
     # Verify current password
     if not check_password_hash(user.hash_pass, current_password):
         return jsonify({"msg": "Current password is incorrect"}), 401
 
-    # Update password and clear must_change_password flag
+    # Update password
     user.hash_pass = generate_password_hash(new_password)
-    user.must_change_password = False
+    user.must_change_password = False  # Clear flag if set
     user.update()
 
     return jsonify({"msg": "Password updated successfully"}), 200
+
+
+@bp.route("/users/<int:user_id>/force-password-change", methods=["PATCH"])
+@jwt_admin_required()
+def force_password_change(user_id):
+    """Admin endpoint: Force user to change password on next login"""
+    user = User.get_by_id(user_id)
+    
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+    
+    # Prevent self-demotion (admin can't force themselves to change password)
+    current_email = get_jwt_identity()
+    current_user = User.get_by_email(current_email)
+    
+    if current_user.id == user_id:
+        return jsonify({"msg": "Cannot force password change on your own account"}), 403
+    
+    user.must_change_password = True
+    user.update()
+    
+    return jsonify({"msg": f"User {user.name} must change password on next login"}), 200
