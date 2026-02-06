@@ -1,21 +1,8 @@
-"""
-Fake API endpoints for testing/development
-"""
+from flask import Blueprint, jsonify
 
-from flask import Blueprint, jsonify, request
-
-practice = Blueprint("practice", __name__, url_prefix="/example")
+practice = Blueprint("practice", __name__, url_prefix="/practice")
 
 
-@practice.route("/test", methods=("POST", "GET"))
+@practice.route("/test", methods=["GET"])
 def get_practice():
-    if request.method == "GET":
-        return (
-            jsonify(
-                    {
-                        'course': 'cosc224'
-                    }          
-            ),
-            200,
-        )
-
+    return jsonify({'course': 'cosc 224'}), 200
