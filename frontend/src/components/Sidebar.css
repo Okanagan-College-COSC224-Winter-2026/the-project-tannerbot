@@ -1,11 +1,13 @@
 .Sidebar {
   width: 200px;
   min-width: 200px;
-  height: 100vh;
+  min-height: 100vh;
+  height: auto;
   background-color: var(--background-secondary);
 
   display: flex;
   flex-direction: column;
+  align-self: stretch;
 }
 
 .SidebarLogo {

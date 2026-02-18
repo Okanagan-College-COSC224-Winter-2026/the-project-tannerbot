@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta, timezone
 
 import click
 from flask.cli import with_appcontext
@@ -153,12 +154,14 @@ def add_sample_courses_command():
         click.echo(f"Course '{course.name}' created (id={course.id})")
 
         # Add an example assignment to the course
+        start_date = datetime.now(timezone.utc)
+        due_date = start_date + timedelta(days=7)
         assignment = Assignment(
             courseID=course.id,
             name="Example Assignment",
             rubric_text="Example rubric",
-            # due_date=None
-            # due_date is currently not in the Assignment table
+            start_date=start_date,
+            due_date=due_date,
         )
         Assignment.create(assignment)
         click.echo(f"  - Assignment 'Example Assignment' added to '{course.name}'")
