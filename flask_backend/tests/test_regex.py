@@ -51,6 +51,7 @@ def test_register_invalid_email(test_client):
         "NOLOWER123!",  # no lowercase
         "NoNumber!",  # no number
         "NoSpecial1",  # no special character
+        "Test", #extra test
     ],
 )
 def test_register_invalid_passwords(test_client, password):
