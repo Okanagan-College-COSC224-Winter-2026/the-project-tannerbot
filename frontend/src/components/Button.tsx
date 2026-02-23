@@ -12,6 +12,7 @@ export default function Button(props: Props) {
     <button
       className={'Button ' + (props.disabled ? 'disabled ' : ' ') + (props.type || 'regular')}
       onClick={props.onClick}
+      disabled={props.disabled}
     >
       {props.children}
     </button>
