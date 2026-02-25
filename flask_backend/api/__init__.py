@@ -14,6 +14,7 @@ from .controllers import (
     user_controller,
     assignment_controller,
     practice_liam_controller,
+    practice_tanner_controller,
 )
 from .models.db import db, ma
 
@@ -110,5 +111,6 @@ def create_app(test_config=None):
     app.register_blueprint(assignment_controller.bp)
     app.register_blueprint(fake_api_controller.fake)
     app.register_blueprint(practice_liam_controller.practice)
+    app.register_blueprint(practice_tanner_controller.practice)
 
     return app
