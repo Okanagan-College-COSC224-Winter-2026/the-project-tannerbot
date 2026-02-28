@@ -187,7 +187,7 @@ def test_teacher_can_edit_assignment_before_due_date(test_client, make_admin):
                 "courseID": class_id,
                 "name": "Lab Report 1",
                 "rubric": "Completeness",
-                "due_date": datetime.datetime(2025, 12, 31, 23, 59, 59).isoformat(),
+                "due_date": datetime.datetime(2027, 12, 31, 23, 59, 59).isoformat(),
             }
         ),
         headers={"Content-Type": "application/json"},
@@ -200,7 +200,7 @@ def test_teacher_can_edit_assignment_before_due_date(test_client, make_admin):
             {
                 "name": "Updated Lab Report 1",
                 "rubric": "Thoroughness",
-                "due_date": datetime.datetime(2025, 11, 30, 23, 59, 59).isoformat(),
+                "due_date": datetime.datetime(2027, 11, 30, 23, 59, 59).isoformat(),
             }
         ),
         headers={"Content-Type": "application/json"},
@@ -209,7 +209,7 @@ def test_teacher_can_edit_assignment_before_due_date(test_client, make_admin):
     assert edit_response.json["msg"] == "Assignment updated"
     assert edit_response.json["assignment"]["name"] == "Updated Lab Report 1"
     assert edit_response.json["assignment"]["rubric_text"] == "Thoroughness"
-    assert edit_response.json["assignment"]["due_date"] == "2025-11-30T23:59:59"
+    assert edit_response.json["assignment"]["due_date"] == "2027-11-30T23:59:59"
 
 def test_teacher_cannot_edit_assignment_after_due_date(test_client, make_admin):
     """

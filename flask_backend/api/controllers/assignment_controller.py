@@ -16,10 +16,17 @@ def create_assignment():
     assignment_name = data.get("name")
     rubric_text = data.get("rubric")
     due_date = data.get("due_date")
+    start_date = data.get("start_date")
+    
     if not due_date:
         due_date = None
     else:
         due_date = datetime.fromisoformat(due_date)
+    
+    if not start_date:
+        start_date = None
+    else:
+        start_date = datetime.fromisoformat(start_date)
 
     if not course_id:
         return jsonify({"msg": "Course ID is required"}), 400
@@ -37,7 +44,7 @@ def create_assignment():
     if course.teacherID != user.id:
         return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
 
-    new_assignment = Assignment(courseID=course_id, name=assignment_name, rubric_text=rubric_text, due_date=due_date)
+    new_assignment = Assignment(courseID=course_id, name=assignment_name, rubric_text=rubric_text, due_date=due_date, start_date=start_date)
     Assignment.create(new_assignment)
     return (
         jsonify(
@@ -78,6 +85,10 @@ def edit_assignment(assignment_id):
     due_date = data.get("due_date")
     if due_date:
         assignment.due_date = datetime.fromisoformat(due_date)
+    
+    start_date = data.get("start_date")
+    if start_date:
+        assignment.start_date = datetime.fromisoformat(start_date)
 
     assignment.update()
     return (
