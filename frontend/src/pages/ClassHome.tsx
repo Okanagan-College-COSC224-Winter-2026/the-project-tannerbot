@@ -19,7 +19,9 @@ export default function ClassHome() {
   const [statusMessage, setStatusMessage] = useState('');
   const [statusType, setStatusType] = useState<'error' | 'success'>('error');
 
-  useEffect(() => {
+  useEffect(() => { 
+    if (!id) return;
+
     (async () => {
       const resp = await listAssignments(String(id));
       const classes = await listClasses();
@@ -27,7 +29,7 @@ export default function ClassHome() {
       setAssignments(resp);
       setClassName(currentClass?.name || null);
     })();
-  }, []);
+  }, [id]);
     
     const tryCreateAssingment = async () => {
       try {
@@ -82,18 +84,25 @@ export default function ClassHome() {
       <StatusMessage message={statusMessage} type={statusType} />
 
       <div className="Class">
-        <div className="Assignments">
-          <ul className="Assignment">
-            {assignments.map((assignment) => {
-              return (
+        <div className="Assignments"> 
+          {assignments.length === 0 ? (
+            <p>No assignments yet.</p>
+          ) : (
+            <ul className="Assignment">
+              {assignments.map((assignment) => (
                 <li key={assignment.id}>
                   <AssignmentCard id={assignment.id}>
-                    {assignment.name}
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{assignment.name}</div>
+                      <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>
+                        Due: {assignment.due_date ? new Date(assignment.due_date).toLocaleDateString() : "Not set"}
+                      </div>
+                    </div>
                   </AssignmentCard>
                 </li>
-              );
-            })}
+            ))}
           </ul>
+          )}
         </div>
 
         {isTeacher() ? (
