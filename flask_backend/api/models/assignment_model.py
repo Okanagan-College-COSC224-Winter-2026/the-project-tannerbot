@@ -18,6 +18,7 @@ class Assignment(db.Model):
 
     # NEW: due date field (acceptance criteria: edit/delete allowed before due date)
     due_date = db.Column(db.DateTime, nullable=True, index=True)
+    start_date = db.Column(db.DateTime, nullable=True)
 
     # relationships
     course = db.relationship("Course", back_populates="assignments", lazy="joined")
@@ -37,11 +38,12 @@ class Assignment(db.Model):
         "Group_Members", back_populates="assignment", cascade="all, delete-orphan", lazy="dynamic"
     )
 
-    def __init__(self, courseID, name, rubric_text, due_date=None):
+    def __init__(self, courseID, name, rubric_text, due_date=None, start_date=None):
         self.courseID = courseID
         self.name = name
         self.rubric_text = rubric_text
         self.due_date = due_date
+        self.start_date = start_date
 
     def __repr__(self):
         return f"<Assignment id={self.id} name={self.name}>"

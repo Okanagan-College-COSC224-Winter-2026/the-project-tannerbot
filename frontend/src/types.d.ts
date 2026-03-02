@@ -46,6 +46,7 @@ interface Assignment {
   courseID: number;
   rubric?: string;
   due_date?: string;
+  start_date?: string;
 }
 
 interface CourseWithAssignments extends Course {
