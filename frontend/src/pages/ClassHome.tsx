@@ -21,19 +21,6 @@ export default function ClassHome() {
   const [editingAssignment, setEditingAssignment] = useState<Assignment | undefined>(undefined);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
 
-<<<<<<< US4
-  useEffect(() => {
-    loadAssignments();
-  }, []);
-
-  const loadAssignments = async () => {
-    const resp = await listAssignments(String(id));
-    const classes = await listClasses();
-    const currentClass = classes.find((c: { id: number }) => c.id === Number(id));
-    setAssignments(resp);
-    setClassName(currentClass?.name || null);
-  };
-=======
   useEffect(() => { 
     if (!id) return;
 
@@ -45,7 +32,6 @@ export default function ClassHome() {
       setClassName(currentClass?.name || null);
     })();
   }, [id]);
->>>>>>> Presentation
     
   const handleCreateAssignment = async (name: string, dueDate: string, startDate: string) => {
     try {
@@ -172,7 +158,6 @@ export default function ClassHome() {
             <ul className="Assignment">
               {assignments.map((assignment) => (
                 <li key={assignment.id}>
-<<<<<<< US4
                   <AssignmentCard 
                     id={assignment.id}
                     assignment={assignment}
@@ -180,15 +165,6 @@ export default function ClassHome() {
                     onDelete={isTeacher() ? () => handleDeleteAssignment(assignment.id) : undefined}
                   >
                     {assignment.name}
-=======
-                  <AssignmentCard id={assignment.id}>
-                    <div>
-                      <div style={{ fontWeight: 600 }}>{assignment.name}</div>
-                      <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>
-                        Due: {assignment.due_date ? new Date(assignment.due_date).toLocaleDateString() : "Not set"}
-                      </div>
-                    </div>
->>>>>>> Presentation
                   </AssignmentCard>
                 </li>
             ))}
