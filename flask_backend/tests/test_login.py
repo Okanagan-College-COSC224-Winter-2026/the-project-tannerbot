@@ -12,7 +12,7 @@ def test_register(test_client):
     """
     response = test_client.post(
         "/auth/register",
-        data=json.dumps({"name": "testuser", "password": "123456", "email": "test@example.com"}),
+        data=json.dumps({"name": "testuser", "password": "Password123!", "email": "test@example.com"}),
         headers={"Content-Type": "application/json"},
     )
     assert response.status_code == 201
@@ -28,14 +28,14 @@ def test_register_duplicate(test_client):
     # Create first user
     test_client.post(
         "/auth/register",
-        data=json.dumps({"name": "testuser", "password": "123456", "email": "test@example.com"}),
+        data=json.dumps({"name": "testuser", "password": "Password123!", "email": "test@example.com"}),
         headers={"Content-Type": "application/json"},
     )
 
     # Try to create duplicate
     response = test_client.post(
         "/auth/register",
-        data=json.dumps({"name": "testuser", "password": "123456", "email": "test@example.com"}),
+        data=json.dumps({"name": "testuser", "password": "Password123!", "email": "test@example.com"}),
         headers={"Content-Type": "application/json"},
     )
     assert response.status_code == 400
@@ -51,14 +51,14 @@ def test_login(test_client):
     # First register a user
     test_client.post(
         "/auth/register",
-        data=json.dumps({"name": "example", "password": "123456", "email": "example@example.com"}),
+        data=json.dumps({"name": "example", "password": "Password123!", "email": "example@example.com"}),
         headers={"Content-Type": "application/json"},
     )
 
     # Then login
     token_request = test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "example@example.com", "password": "123456"}),
+        data=json.dumps({"email": "example@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     assert token_request.status_code == 200
@@ -95,13 +95,13 @@ def test_logout(test_client):
     # Register and login first
     test_client.post(
         "/auth/register",
-        data=json.dumps({"name": "example", "password": "123456", "email": "example@example.com"}),
+        data=json.dumps({"name": "example", "password": "Password123!", "email": "example@example.com"}),
         headers={"Content-Type": "application/json"},
     )
 
     test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "example@example.com", "password": "123456"}),
+        data=json.dumps({"email": "example@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     # Cookie is automatically stored in test_client

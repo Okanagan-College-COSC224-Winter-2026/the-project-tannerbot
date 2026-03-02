@@ -14,13 +14,13 @@ def test_get_current_user(test_client):
     # Register and login
     test_client.post(
         "/auth/register",
-        data=json.dumps({"name": "testuser", "password": "123456", "email": "test@example.com"}),
+        data=json.dumps({"name": "testuser", "password": "Password123!", "email": "test@example.com"}),
         headers={"Content-Type": "application/json"},
     )
 
     test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "test@example.com", "password": "123456"}),
+        data=json.dumps({"email": "test@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     # Cookie is automatically stored in test_client
@@ -55,13 +55,13 @@ def test_update_current_user(test_client):
     # Register and login
     test_client.post(
         "/auth/register",
-        data=json.dumps({"name": "testuser", "password": "123456", "email": "test@example.com"}),
+        data=json.dumps({"name": "testuser", "password": "Password123!", "email": "test@example.com"}),
         headers={"Content-Type": "application/json"},
     )
 
     test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "test@example.com", "password": "123456"}),
+        data=json.dumps({"email": "test@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     # Cookie is automatically stored in test_client
@@ -84,13 +84,13 @@ def test_get_user_by_id(test_client):
     # Register and login
     test_client.post(
         "/auth/register",
-        data=json.dumps({"name": "testuser", "password": "123456", "email": "test@example.com"}),
+        data=json.dumps({"name": "testuser", "password": "Password123!", "email": "test@example.com"}),
         headers={"Content-Type": "application/json"},
     )
 
     test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "test@example.com", "password": "123456"}),
+        data=json.dumps({"email": "test@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     # Cookie is automatically stored in test_client
@@ -116,20 +116,20 @@ def test_get_other_user_by_id_forbidden(test_client):
     # Register two users
     test_client.post(
         "/auth/register",
-        data=json.dumps({"name": "user1", "password": "123456", "email": "user1@example.com"}),
+        data=json.dumps({"name": "user1", "password": "Password123!", "email": "user1@example.com"}),
         headers={"Content-Type": "application/json"},
     )
 
     test_client.post(
         "/auth/register",
-        data=json.dumps({"name": "user2", "password": "123456", "email": "user2@example.com"}),
+        data=json.dumps({"name": "user2", "password": "Password123!", "email": "user2@example.com"}),
         headers={"Content-Type": "application/json"},
     )
 
     # Login as user1
     test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "user1@example.com", "password": "123456"}),
+        data=json.dumps({"email": "user1@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     # Cookie is automatically stored in test_client
@@ -151,13 +151,13 @@ def test_delete_own_user(test_client):
     # Register and login
     test_client.post(
         "/auth/register",
-        data=json.dumps({"name": "testuser", "password": "123456", "email": "test@example.com"}),
+        data=json.dumps({"name": "testuser", "password": "Password123!", "email": "test@example.com"}),
         headers={"Content-Type": "application/json"},
     )
 
     test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "test@example.com", "password": "123456"}),
+        data=json.dumps({"email": "test@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     # Cookie is automatically stored in test_client
@@ -184,8 +184,8 @@ def test_change_password_success(test_client):
     THEN password is updated, old password no longer works, and new password works
     """
     email = "password_user@example.com"
-    old_password = "123456"
-    new_password = "newpass123"
+    old_password = "Password123!"
+    new_password = "NewPass456!"
 
     # Register and login
     test_client.post(
