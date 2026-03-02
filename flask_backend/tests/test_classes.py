@@ -41,13 +41,13 @@ def test_create_class_not_teacher(test_client):
     test_client.post(
         "/auth/register",
         data=json.dumps(
-            {"name": "studentuser", "password": "123456", "email": "student@example.com"}
+            {"name": "studentuser", "password": "Password123!", "email": "student@example.com"}
         ),
         headers={"Content-Type": "application/json"},
     )
     test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "student@example.com", "password": "123456"}),
+        data=json.dumps({"email": "student@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     # Attempt to create class
@@ -164,12 +164,12 @@ def test_get_courses_for_student(test_client, make_admin, enroll_user_in_course)
     test_client.post(
         "/auth/register",
         data=json.dumps(
-            {"name": "studentuser", "password": "123456", "email": "student@example.com"}),
+            {"name": "studentuser", "password": "Password123!", "email": "student@example.com"}),
         headers={"Content-Type": "application/json"},
     )
     login_response = test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "student@example.com", "password": "123456"}),
+        data=json.dumps({"email": "student@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     student_id = login_response.json["id"]
@@ -193,12 +193,12 @@ def test_get_courses_for_student_not_enrolled(test_client):
     test_client.post(
         "/auth/register",
         data=json.dumps(
-            {"name": "studentuser2", "password": "123456", "email": "student2@example.com"}),
+            {"name": "studentuser2", "password": "Password123!", "email": "student2@example.com"}),
         headers={"Content-Type": "application/json"},
     )
     test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "student2@example.com", "password": "123456"}),
+        data=json.dumps({"email": "student2@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     # Get classes
@@ -261,12 +261,12 @@ def test_enroll_in_class_not_teacher(test_client):
     test_client.post(
         "/auth/register",
         data=json.dumps(
-            {"name": "studentuser", "password": "123456", "email": "student@example.com"}),
+            {"name": "studentuser", "password": "Password123!", "email": "student@example.com"}),
         headers={"Content-Type": "application/json"},
     )
     test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "student@example.com", "password": "123456"}),
+        data=json.dumps({"email": "student@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     # Attempt to enroll students

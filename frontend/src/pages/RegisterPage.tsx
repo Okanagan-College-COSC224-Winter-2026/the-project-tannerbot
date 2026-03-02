@@ -16,15 +16,41 @@ export default function RegisterPage() {
 
   
   const attemptRegister = async () => {
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (await tryRegister(name, email, password)) {
-      navigate('/');
-    }
+  // Check for empty fields first
+  if (!name || !email || !password || !confirmPassword) {
+    setError('Incomplete data');
+    return;
   }
+
+  // Passwords match check
+  if (password !== confirmPassword) {
+    setError('Passwords do not match');
+    return;
+  }
+
+  // Email format check
+  const emailRegex = /^[\w.-]+@[\w.-]+\.\w+$/;
+  if (!emailRegex.test(email)) {
+    setError('Invalid email format');
+    return;
+  }
+
+  // Password strength check
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
+  if (!passwordRegex.test(password)) {
+    setError(
+      'Password must be at least 8 characters, include one uppercase, one lowercase, one number, and one special character'
+    );
+    return;
+  }
+
+  // Clear any previous errors before trying
+  setError('');
+
+  // Attempt backend registration
+  await tryRegister(name, email, password);
+  navigate('/');
+};
 
   return (
     <div className="RegisterPage">
