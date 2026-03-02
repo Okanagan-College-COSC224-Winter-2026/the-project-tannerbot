@@ -12,6 +12,8 @@ from .rubric_model import Rubric
 from .submission_model import Submission
 from .user_course_model import User_Course
 from .user_model import User
+from marshmallow import fields, validate, ValidationError
+import re
 
 # ============================================================
 # USER SCHEMAS
@@ -38,13 +40,33 @@ class UserSchema(ma.SQLAlchemyAutoSchema):
     must_change_password = fields.Bool(dump_default=False)
 
 
+def validate_password_strength(password):
+    """Custom validator for password strength"""
+    if len(password) < 8:
+        raise ValidationError("Password must be at least 8 characters long")
+    if not re.search(r"[A-Z]", password):
+        raise ValidationError("Password must contain at least one uppercase letter")
+    if not re.search(r"[a-z]", password):
+        raise ValidationError("Password must contain at least one lowercase letter")
+    if not re.search(r"[0-9]", password):
+        raise ValidationError("Password must contain at least one number")
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        raise ValidationError("Password must contain at least one special character")
+
 class UserRegistrationSchema(ma.Schema):
     """Schema for user registration input"""
 
     name = fields.Str(required=True, validate=validate.Length(min=1, max=255))
     email = fields.Email(required=True)
-    password = fields.Str(required=True, load_only=True, validate=validate.Length(min=6))
-
+    
+    password = fields.Str(
+        required=True,
+        load_only=True,
+        validate=[
+            validate.Length(min=8),
+            validate_password_strength  # put it in a list instead of validate.And
+        ]
+    )
 
 class UserLoginSchema(ma.Schema):
     """Schema for login credentials"""
