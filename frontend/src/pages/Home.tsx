@@ -3,7 +3,7 @@ import ClassCard from "../components/ClassCard";
 
 import './Home.css'
 import { listClasses, listAssignments } from "../util/api";
-import { isTeacher, isAdmin } from "../util/login";
+import { isTeacher, isAdmin, isStudent } from "../util/login";
 
 export default function Home() {
   const [courses, setCourses] = useState<CourseWithAssignments[]>([]);
@@ -58,10 +58,10 @@ export default function Home() {
       <h1>Peer Review Dashboard</h1>
 
       <div className="Classes">
-        {
+        {courses.length > 0 ? (
           courses.map((course) => {
             const assignmentText = `${course.assignmentCount || 0} assignments`;
-            
+
             return (
               <ClassCard
                 key={course.id}
@@ -74,7 +74,18 @@ export default function Home() {
               />
             )
           })
-        }
+        ) : (
+          <div className="EmptyCoursesState" role="status">
+            <h2>No courses yet</h2>
+            {isStudent() ? (
+              <p>
+                You are not registered in any courses yet. Ask your instructor to add you to a course.
+              </p>
+            ) : (
+              <p>No courses are available right now.</p>
+            )}
+          </div>
+        )}
 
         {isTeacher() && <div className="ClassCreateButton" onClick={() => window.location.href = '/classes/create'}>
           <h2>Create Class</h2>

@@ -68,6 +68,42 @@ def get_user_classes():
 
     return jsonify([{"id": c.id, "name": c.name} for c in courses]), 200
 
+
+@bp.route("/members", methods=["POST"])
+@jwt_required()
+def get_class_members():
+    """Retrieve members for a given class.
+
+    Access allowed for:
+    - class teacher
+    - admins
+    - students enrolled in that class
+    """
+    data = request.get_json() or {}
+    class_id = data.get("id")
+
+    if not class_id:
+        return jsonify({"msg": "Class ID is required"}), 400
+
+    course = Course.get_by_id(class_id)
+    if not course:
+        return jsonify({"msg": "Class not found"}), 404
+
+    email = get_jwt_identity()
+    current_user = User.get_by_email(email)
+    if not current_user:
+        return jsonify({"msg": "User not found"}), 404
+
+    is_teacher_of_class = course.teacherID == current_user.id
+    is_admin = current_user.is_admin()
+    is_enrolled_student = current_user.is_student() and User_Course.get(current_user.id, class_id)
+
+    if not (is_teacher_of_class or is_admin or is_enrolled_student):
+        return jsonify({"msg": "Insufficient permissions"}), 403
+
+    members = course.students
+    return jsonify([{"id": m.id, "name": m.name, "email": m.email, "role": m.role} for m in members]), 200
+
 REQUIRED_HEADERS = {"id", "name", "email"}
 def csv_to_list(csv_text):
     """Convert CSV text to a list of emails"""
@@ -138,6 +174,8 @@ def enroll_students():
         return jsonify({"msg": "Errors in CSV", "errors": parse_errors}), 400
 
     enrolled_students = []
+    created_accounts = []
+    already_enrolled = []
     for student_info in students:
         email = student_info["email"]
         # validate email format with regex
@@ -153,14 +191,24 @@ def enroll_students():
             student = User(name=name, email=email, hash_pass=generate_password_hash("password123"), role="student")
             try:
                 User.create_user(student)
+                created_accounts.append(email)
             except Exception as e:
                 return jsonify({"msg": f"Error creating user {email}: {str(e)}"}), 500
 
         # Check if already enrolled
         enrollment = User_Course.get(student.id, class_id)
-        if not enrollment:
-            # Enroll student
-            User_Course.add(student.id, class_id)
-            enrolled_students.append(email)
+        if enrollment:
+            already_enrolled.append(email)
+            continue
 
-    return jsonify({"msg": f"{len(enrolled_students)} students added to course {course.name}"}), 200
+        # Enroll student
+        User_Course.add(student.id, class_id)
+        enrolled_students.append(email)
+
+    return jsonify({
+        "msg": f"{len(enrolled_students)} students added to course {course.name}",
+        "added_count": len(enrolled_students),
+        "created_accounts_count": len(created_accounts),
+        "already_enrolled_count": len(already_enrolled),
+        "already_enrolled": already_enrolled,
+    }), 200

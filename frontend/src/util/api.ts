@@ -122,8 +122,23 @@ export const importStudentsForCourse = async (courseID: number, students: string
   maybeHandleExpire(response);
 
   if (!response.ok) {
-    throw new Error(`Response status: ${response.status}`);
+    let errorMessage = `Response status: ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody?.msg) {
+        errorMessage = errorBody.msg;
+        if (Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
+          errorMessage += ` (${errorBody.errors.join('; ')})`;
+        }
+      }
+    } catch {
+      // keep default errorMessage when response body is not JSON
+    }
+    throw new Error(errorMessage);
   }
+
+  const json = await response.json();
+  return json;
 }
 
 export const listAssignments = async (classId: string) => {
@@ -196,7 +211,7 @@ export const listUnassignedGroups = async (assignmentId : number) => {
 }
 
 export const listCourseMembers = async (classId: string) => {
-  const resp = await fetch(`${BASE_URL}/classes/members`, {
+  const resp = await fetch(`${BASE_URL}/class/members`, {
     method: 'POST',
     body: JSON.stringify({
       id: classId,
