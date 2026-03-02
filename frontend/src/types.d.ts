@@ -45,7 +45,14 @@ interface Assignment {
   name: string;
   courseID: number;
   rubric?: string;
+  start_date?: string;
   due_date?: string;
+  time_until_due?: {
+    days: number;
+    hours: number;
+    minutes: number;
+    expired: boolean;
+  };
 }
 
 interface CourseWithAssignments extends Course {
