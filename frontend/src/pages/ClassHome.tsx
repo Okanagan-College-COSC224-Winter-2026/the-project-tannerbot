@@ -79,7 +79,9 @@ export default function ClassHome() {
     } catch (error: any) {
       console.error('Error updating assignment:', error);
       setStatusType('error');
-      setStatusMessage(error.message || 'Error updating assignment.');
+      // Show the error message from backend, or a default message
+      const errorMsg = error.message || 'Error updating assignment.';
+      setStatusMessage(errorMsg);
     }
   };
 

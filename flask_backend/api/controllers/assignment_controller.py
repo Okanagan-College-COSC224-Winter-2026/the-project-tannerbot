@@ -6,7 +6,7 @@ from ..models import Course, Assignment, User, AssignmentSchema
 from .auth_controller import jwt_teacher_required
 
 bp = Blueprint("assignment", __name__, url_prefix="/assignment")
-
+#not too much changed here except for the addition of start_date when creating and editing an assignment
 @bp.route("/create_assignment", methods=["POST"])
 @jwt_teacher_required
 def create_assignment():
@@ -33,6 +33,11 @@ def create_assignment():
     if not assignment_name:
         return jsonify({"msg": "Assignment name is required"}), 400
 
+    # Validate that start_date does not exceed due_date
+    if start_date and due_date:
+        if start_date > due_date:
+            return jsonify({"msg": "Start date cannot be after the due date"}), 400
+
     email = get_jwt_identity()
     user = User.get_by_email(email)
     if not user:
@@ -43,7 +48,7 @@ def create_assignment():
         return jsonify({"msg": "Class not found"}), 404
     if course.teacherID != user.id:
         return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
-
+#edited line below to include start_date when creating a new assignment
     new_assignment = Assignment(courseID=course_id, name=assignment_name, rubric_text=rubric_text, due_date=due_date, start_date=start_date)
     Assignment.create(new_assignment)
     return (
@@ -82,13 +87,27 @@ def edit_assignment(assignment_id):
 
     assignment.name = data.get("name", assignment.name)
     assignment.rubric_text = data.get("rubric", assignment.rubric_text)
-    due_date = data.get("due_date")
-    if due_date:
-        assignment.due_date = datetime.fromisoformat(due_date)
     
-    start_date = data.get("start_date")
-    if start_date:
-        assignment.start_date = datetime.fromisoformat(start_date)
+    # Handle due_date update - only update if the key is present in request
+    if "due_date" in data:
+        due_date = data.get("due_date")
+        if due_date:
+            assignment.due_date = datetime.fromisoformat(due_date)
+        else:
+            assignment.due_date = None
+    
+    # Handle start_date update - only update if the key is present in request
+    if "start_date" in data:
+        start_date = data.get("start_date")
+        if start_date:
+            assignment.start_date = datetime.fromisoformat(start_date)
+        else:
+            assignment.start_date = None
+    
+    # Validate that start_date does not exceed due_date
+    if assignment.start_date and assignment.due_date:
+        if assignment.start_date > assignment.due_date:
+            return jsonify({"msg": "Start date cannot be after the due date"}), 400
 
     assignment.update()
     return (

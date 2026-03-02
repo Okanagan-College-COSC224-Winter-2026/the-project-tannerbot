@@ -180,7 +180,7 @@ def migrate_add_start_date_command():
             click.echo("Column 'start_date' already exists in Assignment table")
             return
         
-        # Add the column
+        # Add the column if it doesn't exist already
         with db.engine.connect() as conn:
             conn.execute(db.text("ALTER TABLE Assignment ADD COLUMN start_date DATETIME"))
             conn.commit()

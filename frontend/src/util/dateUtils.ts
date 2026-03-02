@@ -3,6 +3,9 @@
  * @param dueDate - ISO 8601 date string
  * @returns Object containing days, hours, minutes, and isPast flag
  */
+
+// This file contains utility functions for handling date and time calculations related to assignments
+// such as calculating time until due dates and formatting date strings for display.
 export function calculateTimeUntilDue(dueDate?: string): {
   days: number;
   hours: number;

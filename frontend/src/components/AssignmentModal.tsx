@@ -14,6 +14,7 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
   const [name, setName] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [startDate, setStartDate] = useState("");
+  const [validationError, setValidationError] = useState("");
 
   useEffect(() => {
     if (assignment && mode === "edit") {
@@ -25,11 +26,25 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
       setDueDate("");
       setStartDate("");
     }
+    setValidationError("");
   }, [assignment, mode, isOpen]);
+//checks if the start date is after the due date and shows an error message if it is
+  const validateDates = () => {
+    setValidationError("");
+    
+    if (startDate && dueDate && startDate > dueDate) {
+      setValidationError("Start date cannot be after the due date");
+      return false;
+    }
+    return true;
+  };
 
   const handleSave = () => {
-    onSave(name, dueDate, startDate);
-    onClose();
+    if (!validateDates()) {
+      return; //returns early if validation fails, preventing the save action from proceeding
+    }
+    onSave(name, dueDate, startDate); //sends name, due date, and start date to the onSave function which adds it to the database
+    onClose(); //closes the window after saving the data to the database
   };
 
   if (!isOpen) return null;
@@ -62,6 +77,7 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
               id="start-date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
+              max={dueDate}
               className="date-input"
             />
           </div>
@@ -76,11 +92,17 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
               className="date-input"
             />
           </div>
+
+          {validationError && (
+            <div className="validation-error" style={{ color: "red", marginTop: "10px" }}>
+              {validationError}
+            </div>
+          )}
         </div>
         
         <div className="modal-footer">
           <Button onClick={onClose} type="secondary">Cancel</Button>
-          <Button onClick={handleSave} disabled={!name}>
+          <Button onClick={handleSave} disabled={!name || !!validationError}>
             {mode === "create" ? "Create" : "Save"}
           </Button>
         </div>
