@@ -15,21 +15,16 @@ def create_assignment():
     course_id = data.get("courseID")
     assignment_name = data.get("name")
     rubric_text = data.get("rubric")
-    start_date = data.get("start_date")
     due_date = data.get("due_date")
+    if not due_date:
+        due_date = None
+    else:
+        due_date = datetime.fromisoformat(due_date)
+
     if not course_id:
         return jsonify({"msg": "Course ID is required"}), 400
     if not assignment_name:
         return jsonify({"msg": "Assignment name is required"}), 400
-
-    if not start_date or not due_date:
-        return jsonify({"msg": "Start date and due date are required"}), 400
-
-    try:
-        start_date = datetime.fromisoformat(start_date)
-        due_date = datetime.fromisoformat(due_date)
-    except ValueError:
-        return jsonify({"msg": "Invalid start date or due date format"}), 400
 
     email = get_jwt_identity()
     user = User.get_by_email(email)
@@ -42,16 +37,7 @@ def create_assignment():
     if course.teacherID != user.id:
         return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
 
-    if start_date > due_date:
-        return jsonify({"msg": "Start date must be before due date"}), 400
-
-    new_assignment = Assignment(
-        courseID=course_id,
-        name=assignment_name,
-        rubric_text=rubric_text,
-        start_date=start_date,
-        due_date=due_date,
-    )
+    new_assignment = Assignment(courseID=course_id, name=assignment_name, rubric_text=rubric_text, due_date=due_date)
     Assignment.create(new_assignment)
     return (
         jsonify(
@@ -89,23 +75,9 @@ def edit_assignment(assignment_id):
 
     assignment.name = data.get("name", assignment.name)
     assignment.rubric_text = data.get("rubric", assignment.rubric_text)
-    incoming_start_date = data.get("start_date")
-    incoming_due_date = data.get("due_date")
-
-    if incoming_start_date:
-        try:
-            assignment.start_date = datetime.fromisoformat(incoming_start_date)
-        except ValueError:
-            return jsonify({"msg": "Invalid start date format"}), 400
-
-    if incoming_due_date:
-        try:
-            assignment.due_date = datetime.fromisoformat(incoming_due_date)
-        except ValueError:
-            return jsonify({"msg": "Invalid due date format"}), 400
-
-    if assignment.start_date and assignment.due_date and assignment.start_date > assignment.due_date:
-        return jsonify({"msg": "Start date must be before due date"}), 400
+    due_date = data.get("due_date")
+    if due_date:
+        assignment.due_date = datetime.fromisoformat(due_date)
 
     assignment.update()
     return (

@@ -20,77 +20,6 @@
     padding: 0px;
 }
 
-.AssignmentRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.AssignmentCardContent {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.AssignmentTitle {
-    font-weight: bold;
-}
-
-.AssignmentMeta {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-}
-
-.AssignmentActions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.AssignmentLocked {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-}
-
-.AssignmentEditForm {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 12px;
-    margin: 12px 0 16px 0;
-    padding: 12px;
-    background-color: var(--background-secondary);
-    border-radius: 8px;
-}
-
-.AssignmentEditForm label {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    font-size: 0.9rem;
-}
-
-.AssignmentEditForm input {
-    padding: 8px;
-    border-radius: 6px;
-    border: 1px solid var(--background-secondary);
-}
-
-.AssignmentEditActions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.AssignmentCountdown {
-    margin: 6px 0 10px 0;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-}
-
 .ClassHeader {
     display: flex;
     flex-direction: row;
@@ -129,14 +58,3 @@
   
     width: 100%;
   }
-
-.AssignmentInput {
-    margin-top: 6px;
-    margin-bottom: 12px;
-}
-
-.AssignmentInputRow {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}

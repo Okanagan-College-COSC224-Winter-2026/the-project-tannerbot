@@ -16,7 +16,6 @@ class Assignment(db.Model):
     name = db.Column(db.String(255), nullable=True)
     rubric_text = db.Column("rubric", db.String(255), nullable=True)
 
-    start_date = db.Column(db.DateTime, nullable=True, index=True)
     # NEW: due date field (acceptance criteria: edit/delete allowed before due date)
     due_date = db.Column(db.DateTime, nullable=True, index=True)
 
@@ -38,11 +37,10 @@ class Assignment(db.Model):
         "Group_Members", back_populates="assignment", cascade="all, delete-orphan", lazy="dynamic"
     )
 
-    def __init__(self, courseID, name, rubric_text, start_date=None, due_date=None):
+    def __init__(self, courseID, name, rubric_text, due_date=None):
         self.courseID = courseID
         self.name = name
         self.rubric_text = rubric_text
-        self.start_date = start_date
         self.due_date = due_date
 
     def __repr__(self):
@@ -72,31 +70,6 @@ class Assignment(db.Model):
         if dt is None:
             return None
         return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-
-    def time_until_due(self):
-        due = self._ensure_timezone_aware(self.due_date)
-        if due is None:
-            return None
-        now = self._get_current_utc_time()
-        delta = due - now
-        total_minutes = int(delta.total_seconds() // 60)
-        if total_minutes <= 0:
-            return {
-                "days": 0,
-                "hours": 0,
-                "minutes": 0,
-                "expired": True,
-            }
-        days = total_minutes // (24 * 60)
-        remainder_minutes = total_minutes % (24 * 60)
-        hours = remainder_minutes // 60
-        minutes = remainder_minutes % 60
-        return {
-            "days": days,
-            "hours": hours,
-            "minutes": minutes,
-            "expired": False,
-        }
     
     def can_modify(self):
         """Check if the assignment can be modified (edited/deleted) at the given time."""

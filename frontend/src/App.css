@@ -1,8 +1,6 @@
 .App {
   display: flex;
   flex-direction: row;
-  align-items: stretch;
-  min-height: 100vh;
 }
 
 .inner {

@@ -131,10 +131,6 @@ class AssignmentSchema(ma.SQLAlchemyAutoSchema):
         sqla_session = db.session
 
     course = fields.Nested(CourseListSchema, dump_only=True)
-    time_until_due = fields.Method("get_time_until_due", dump_only=True)
-
-    def get_time_until_due(self, obj):
-        return obj.time_until_due()
 
 
 # ============================================================
