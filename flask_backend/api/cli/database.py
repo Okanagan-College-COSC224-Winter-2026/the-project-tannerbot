@@ -166,7 +166,7 @@ def add_sample_courses_command():
 
     click.echo("Sample courses and assignments created successfully")
 
-
+#flask --app api migrate_add_start_date adds a startdate column to the Assignment table
 @click.command("migrate_add_start_date")
 @with_appcontext
 def migrate_add_start_date_command():
@@ -189,7 +189,7 @@ def migrate_add_start_date_command():
         click.echo(f"Error during migration: {e}", err=True)
         raise
 
-
+#flask --app api migrate_remove_start_date removes the start_date column(reverses the migration)
 @click.command("migrate_remove_start_date")
 @with_appcontext
 def migrate_remove_start_date_command():
