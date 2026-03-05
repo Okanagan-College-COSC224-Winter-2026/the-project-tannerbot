@@ -105,6 +105,7 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
                 onChange={(e) => setAttachments(Array.from(e.target.files || []))}
                 className="text-input"
               />
+              <small>Select one or more files (Ctrl/Cmd-click to pick multiple).</small>
             </div>
           )}
 
