@@ -102,7 +102,18 @@ def get_class_members():
         return jsonify({"msg": "Insufficient permissions"}), 403
 
     members = course.students
-    return jsonify([{"id": m.id, "name": m.name, "email": m.email, "role": m.role} for m in members]), 200
+    return jsonify(
+        [
+            {
+                "id": m.id,
+                "student_id": m.student_id,
+                "name": m.name,
+                "email": m.email,
+                "role": m.role,
+            }
+            for m in members
+        ]
+    ), 200
 
 REQUIRED_HEADERS = {"id", "name", "email"}
 def csv_to_list(csv_text):
@@ -178,6 +189,7 @@ def enroll_students():
     already_enrolled = []
     for student_info in students:
         email = student_info["email"]
+        student_id = student_info["id"]
         # validate email format with regex
         if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
             return jsonify({"msg": f"Invalid email format: {email}"}), 400
@@ -188,12 +200,21 @@ def enroll_students():
             # Create new student with default password
             # TODO: Create random password and email it to the student
             # Current implementation sets the password to "password123"
-            student = User(name=name, email=email, hash_pass=generate_password_hash("password123"), role="student")
+            student = User(
+                name=name,
+                email=email,
+                hash_pass=generate_password_hash("password123"),
+                role="student",
+                student_id=student_id,
+            )
             try:
                 User.create_user(student)
                 created_accounts.append(email)
             except Exception as e:
                 return jsonify({"msg": f"Error creating user {email}: {str(e)}"}), 500
+        elif student.role == "student" and not student.student_id:
+            student.student_id = student_id
+            student.update()
 
         # Check if already enrolled
         enrollment = User_Course.get(student.id, class_id)

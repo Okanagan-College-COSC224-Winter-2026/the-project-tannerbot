@@ -449,6 +449,50 @@ def test_get_class_members_for_unrelated_student_forbidden(
     assert response.status_code == 403
     assert response.json["msg"] == "Insufficient permissions"
 
+
+def test_get_class_members_returns_student_id_from_csv(test_client, make_admin):
+    """
+    GIVEN a teacher who enrolls students via CSV with student IDs
+    WHEN POST /class/members is called
+    THEN the student_id field is returned for enrolled students
+    """
+    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "COSC 404"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+
+    csv_text = (
+        "id,name,email\n"
+        "300325853,Gregory Bigglesworth,gbizzle@example.com\n"
+        "300325854,Sarah Connor,sconnor@example.com\n"
+    )
+    enroll_response = test_client.post(
+        "/class/enroll_students",
+        data=json.dumps({"class_id": class_id, "students": csv_text}),
+        headers={"Content-Type": "application/json"},
+    )
+    assert enroll_response.status_code == 200
+
+    members_response = test_client.post(
+        "/class/members",
+        data=json.dumps({"id": class_id}),
+        headers={"Content-Type": "application/json"},
+    )
+    assert members_response.status_code == 200
+
+    members_by_email = {member["email"]: member for member in members_response.json}
+    assert members_by_email["gbizzle@example.com"]["student_id"] == "300325853"
+    assert members_by_email["sconnor@example.com"]["student_id"] == "300325854"
+
 def test_enroll_in_class(test_client, make_admin):
     """
     GIVEN a logged-in teacher user
