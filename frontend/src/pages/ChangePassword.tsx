@@ -15,40 +15,60 @@ export default function ChangePassword() {
   const [success, setSuccess] = useState(false);
 
   const handleChangePassword = async () => {
-    try {
-      setError('');
-      setSuccess(false);
+  try {
+    setError('');
+    setSuccess(false);
 
-      if (!currentPassword || !newPassword || !confirmPassword) {
-        setError('All fields are required');
-        return;
-      }
-
-      if (newPassword !== confirmPassword) {
-        setError('New passwords do not match');
-        return;
-      }
-
-      if (newPassword.length < 6) {
-        setError('New password must be at least 6 characters');
-        return;
-      }
-
-      await changePassword(currentPassword, newPassword);
-      setSuccess(true);
-      
-      // Redirect to home after 2 seconds
-      setTimeout(() => {
-        navigate('/home');
-      }, 2000);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message || 'Failed to change password');
-      } else {
-        setError('Failed to change password');
-      }
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError('All fields are required');
+      return;
     }
-  };
+
+    if (newPassword !== confirmPassword) {
+      setError('New passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return;
+    }
+
+    if (!/[A-Z]/.test(newPassword)) {
+      setError('Password must contain at least one uppercase letter');
+      return;
+    }
+
+    if (!/[a-z]/.test(newPassword)) {
+      setError('Password must contain at least one lowercase letter');
+      return;
+    }
+
+    if (!/[0-9]/.test(newPassword)) {
+      setError('Password must contain at least one number');
+      return;
+    }
+
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)) {
+      setError('Password must contain at least one special character');
+      return;
+    }
+
+    await changePassword(currentPassword, newPassword);
+    setSuccess(true);
+
+    setTimeout(() => {
+      navigate('/home');
+    }, 2000);
+
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      setError(err.message || 'Failed to change password');
+    } else {
+      setError('Failed to change password');
+    }
+  }
+};
 
   return (
     <div className="LoginPage">
