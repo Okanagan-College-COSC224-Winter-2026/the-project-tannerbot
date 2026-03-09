@@ -13,31 +13,22 @@ export default function LoginPage() {
   const [error, setError] = useState('');
 
   const attemptLogin = async () => {
-  try {
-    const result = await tryLogin(email, password);
-    if (result) {
-      // Regex for password: at least 8 chars, one uppercase, one lowercase, one number, one special char
-      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
-
-      if (!passwordRegex.test(password)) {
-        // Password doesn't satisfy regex → force change
-        navigate('/change-password');
-        return;
-      }
-
-      // Otherwise, check if the server says they must change password
-      if (result.must_change_password) {
-        navigate('/change-password');
+    try {
+      const result = await tryLogin(email, password);
+      if (result) {
+        // Check if user must change password
+        if (result.must_change_password) {
+          navigate('/change-password');
+        } else {
+          navigate('/home');
+        }
       } else {
-        navigate('/home');
+        setError('Invalid email or password');
       }
-    } else {
+    } catch {
       setError('Invalid email or password');
     }
-  } catch {
-    setError('Invalid email or password');
   }
-};
 
   return (
     <div className="LoginPage">
