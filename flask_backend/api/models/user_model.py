@@ -15,6 +15,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), nullable=False, unique=True, index=True)
+    student_id = db.Column(db.String(64), nullable=True, index=True)
     hash_pass = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(50), default="student", nullable=False)
     must_change_password = db.Column(db.Boolean, default=False, nullable=False)
@@ -50,7 +51,15 @@ class User(db.Model):
         "Group_Members", back_populates="user", cascade="all, delete-orphan", lazy="dynamic"
     )
 
-    def __init__(self, name, email, hash_pass, role="student", must_change_password=False):
+    def __init__(
+        self,
+        name,
+        email,
+        hash_pass,
+        role="student",
+        must_change_password=False,
+        student_id=None,
+    ):
         valid_roles = ["student", "teacher", "admin"]
         if role not in valid_roles:
             raise ValueError(f"Invalid role '{role}'. Must be one of: {', '.join(valid_roles)}")
@@ -59,6 +68,7 @@ class User(db.Model):
         self.hash_pass = hash_pass
         self.role = role
         self.must_change_password = must_change_password
+        self.student_id = student_id
 
     def __repr__(self):
         return f"<User id={self.id} email={self.email}>"
