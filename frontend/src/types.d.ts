@@ -41,6 +41,12 @@ interface Criterion {
   hasScore: boolean;
 }
 
+interface AssignmentAttachment {
+  stored_name: string;
+  original_name: string;
+  download_url: string;
+}
+
 interface Assignment {
   id: number;
   name: string;
@@ -48,6 +54,7 @@ interface Assignment {
   rubric?: string;
   due_date?: string;
   start_date?: string;
+  attachments?: AssignmentAttachment[];
 }
 
 interface CourseWithAssignments extends Course {

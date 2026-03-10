@@ -5,7 +5,7 @@ import "./AssignmentModal.css";
 interface AssignmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (name: string, dueDate: string, startDate: string) => void;
+  onSave: (name: string, dueDate: string, startDate: string, attachments: File[]) => void;
   assignment?: Assignment;
   mode: "create" | "edit";
 }
@@ -14,6 +14,7 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
   const [name, setName] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [startDate, setStartDate] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [validationError, setValidationError] = useState("");
 
   useEffect(() => {
@@ -26,6 +27,7 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
       setDueDate("");
       setStartDate("");
     }
+    setAttachments([]);
     setValidationError("");
   }, [assignment, mode, isOpen]);
 //checks if the start date is after the due date and shows an error message if it is
@@ -43,7 +45,7 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
     if (!validateDates()) {
       return; //returns early if validation fails, preventing the save action from proceeding
     }
-    onSave(name, dueDate, startDate); //sends name, due date, and start date to the onSave function which adds it to the database
+    onSave(name, dueDate, startDate, attachments); //sends assignment data and optional attachments to be persisted
     onClose(); //closes the window after saving the data to the database
   };
 
@@ -92,6 +94,20 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
               className="date-input"
             />
           </div>
+
+          {mode === "create" && (
+            <div className="form-group">
+              <label htmlFor="assignment-attachments">Attachments</label>
+              <input
+                type="file"
+                id="assignment-attachments"
+                multiple
+                onChange={(e) => setAttachments(Array.from(e.target.files || []))}
+                className="text-input"
+              />
+              <small>Select one or more files (Ctrl/Cmd-click to pick multiple).</small>
+            </div>
+          )}
 
           {validationError && (
             <div className="validation-error" style={{ color: "red", marginTop: "10px" }}>

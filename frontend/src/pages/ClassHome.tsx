@@ -33,11 +33,22 @@ export default function ClassHome() {
     })();
   }, [id]);
     
-  const handleCreateAssignment = async (name: string, dueDate: string, startDate: string) => {
+  const handleCreateAssignment = async (name: string, dueDate: string, startDate: string, attachments: File[]) => {
     try {
       setStatusMessage('');
-      const response = await createAssignment(idNew, name, dueDate || undefined, startDate || undefined);
-      const createdAssignment = response?.assignment;
+      const response = await createAssignment(
+        idNew,
+        name,
+        dueDate || undefined,
+        startDate || undefined,
+        attachments
+      );
+      const createdAssignment = response?.assignment
+        ? {
+            ...response.assignment,
+            attachments: response.attachments || response.assignment.attachments || [],
+          }
+        : null;
 
       if (!createdAssignment?.id) {
         throw new Error('Failed to create assignment');
@@ -46,10 +57,11 @@ export default function ClassHome() {
       setAssignments((prev) => [...prev, createdAssignment]);
       setStatusType('success');
       setStatusMessage('Assignment created successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating assignment:', error);
       setStatusType('error');
-      setStatusMessage('Error creating assignment.');
+      const errorMsg = error?.message || 'Error creating assignment.';
+      setStatusMessage(errorMsg);
     }
   };
 
@@ -111,9 +123,9 @@ export default function ClassHome() {
     setIsModalOpen(true);
   };
 
-  const handleModalSave = (name: string, dueDate: string, startDate: string) => {
+  const handleModalSave = (name: string, dueDate: string, startDate: string, attachments: File[]) => {
     if (modalMode === "create") {
-      handleCreateAssignment(name, dueDate, startDate);
+      handleCreateAssignment(name, dueDate, startDate, attachments);
     } else {
       handleEditAssignment(name, dueDate, startDate);
     }

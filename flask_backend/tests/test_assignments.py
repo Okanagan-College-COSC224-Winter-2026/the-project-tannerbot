@@ -81,6 +81,7 @@ def test_create_assignment_missing_fields(test_client, make_admin):
     assert response.status_code == 400
     assert response.json["msg"] == "Assignment name is required"
 
+
 def test_non_assigned_teacher_cannot_create_assignment(test_client, make_admin):
     """
     GIVEN a teacher user who is not assigned to the class
