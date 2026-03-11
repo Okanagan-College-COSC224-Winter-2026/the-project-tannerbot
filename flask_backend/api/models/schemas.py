@@ -131,6 +131,10 @@ class AssignmentSchema(ma.SQLAlchemyAutoSchema):
         sqla_session = db.session
 
     course = fields.Nested(CourseListSchema, dump_only=True)
+    # Include any rubrics attached to the assignment so the frontend can
+    # display peer review settings (# US story: view peer review settings)
+    # Use string reference since RubricSchema is defined later in this file.
+    rubrics = fields.List(fields.Nested("RubricSchema"), dump_only=True)
 
 
 # ============================================================

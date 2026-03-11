@@ -54,6 +54,26 @@ class Assignment(db.Model):
         return db.session.get(cls, int(assignment_id))
     
     @classmethod
+    def get_by_id_with_relations(cls, assignment_id):
+        """Get assignment by ID with related objects loaded.
+
+        Use this when you need rubric or group details to avoid
+        additional lazy-load queries.
+        """
+        from sqlalchemy.orm import joinedload
+
+        return (
+            cls.query
+            .options(
+                joinedload(cls.rubrics).joinedload("criteria_descriptions"),
+                joinedload(cls.groups),
+                joinedload(cls.reviews),
+            )
+            .filter_by(id=int(assignment_id))
+            .first()
+        )
+    
+    @classmethod
     def get_by_class_id(cls, class_id):
         """Get assignments by class ID"""
         return cls.query.filter_by(courseID=class_id).all()

@@ -188,3 +188,32 @@ def get_assignments(class_id):
         assignment_data["attachments"] = list_assignment_attachments(assignment_data["id"])
 
     return jsonify(assignments_data), 200
+
+@bp.route("/details/<int:assignment_id>", methods=["GET"])
+@jwt_teacher_required
+def get_assignment_details(assignment_id):
+    """Return a single assignment including peer review settings (rubrics, etc.)
+
+    The instructor must own the course to view details.
+    """
+    assignment = Assignment.get_by_id_with_relations(assignment_id)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+
+    # ensure requesting user is the teacher of the course
+    email = get_jwt_identity()
+    user = User.get_by_email(email)
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    course = Course.get_by_id(assignment.courseID)
+    if not course:
+        return jsonify({"msg": "Course not found"}), 404
+
+    if course.teacherID != user.id:
+        return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
+
+    assignment_data = AssignmentSchema().dump(assignment)
+    # attachments are not part of schema so add them for consistency
+    assignment_data["attachments"] = list_assignment_attachments(assignment.id)
+    return jsonify(assignment_data), 200

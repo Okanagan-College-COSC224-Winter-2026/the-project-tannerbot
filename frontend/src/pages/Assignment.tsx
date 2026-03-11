@@ -4,6 +4,7 @@ import "./Assignment.css";
 import RubricCreator from "../components/RubricCreator";
 import RubricDisplay from "../components/RubricDisplay";
 import TabNavigation from "../components/TabNavigation";
+import AssignmentModal from "../components/AssignmentModal";
 import { isTeacher } from "../util/login";
 
 import { 
@@ -11,7 +12,10 @@ import {
   getUserId,
   createReview,
   createCriterion,
-  getReview
+  getReview,
+  getAssignmentDetails,
+  editAssignment,
+  deleteAssignment
 } from "../util/api";
 
 interface SelectedCriterion {
@@ -26,13 +30,23 @@ export default function Assignment() {
   const [stuID, setStuID] = useState<number>(0);
   const [selectedCriteria, setSelectedCriteria] = useState<SelectedCriterion[]>([]);
   const [review, setReview] = useState<number[]>([]);
+  const [assignmentDetails, setAssignmentDetails] = useState<any>(null);
+
+  // editing state for modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "edit">("edit");
+  const [editingAssignment, setEditingAssignment] = useState<any>(null);
+
+  // status messages
+  const [statusMessage, setStatusMessage] = useState<string>("");
+  const [statusType, setStatusType] = useState<"success" | "error">("success");
 
   useEffect(() => {
       (async () => {
         const stuID = await getUserId();
-      setStuID(stuID);
-      const stus = await listStuGroup(Number(id), stuID);
-      setStuGroup(stus);
+        setStuID(stuID);
+        const stus = await listStuGroup(Number(id), stuID);
+        setStuGroup(stus);
         try {
           const reviewResponse = await getReview(Number(id), stuID, revieweeID);
           const reviewData = await reviewResponse.json();
@@ -43,6 +57,52 @@ export default function Assignment() {
         }
       })();
   }, [revieweeID, id, stuID]);
+
+  // fetch assignment details for teachers so they can inspect peer-review settings
+  useEffect(() => {
+    if (isTeacher() && id) {
+      getAssignmentDetails(Number(id))
+        .then((data) => {
+          setAssignmentDetails(data);
+        })
+        .catch((err) => console.error('could not fetch details', err));
+    }
+  }, [id]);
+
+  const openEditModal = () => {
+    setEditingAssignment(assignmentDetails);
+    setModalMode("edit");
+    setIsModalOpen(true);
+  };
+
+  const handleModalSave = async (name: string, dueDate: string, startDate: string, _attachments: File[]) => {
+    if (modalMode === "edit" && editingAssignment) {
+      try {
+        await editAssignment(editingAssignment.id, name, dueDate, startDate);
+        setStatusMessage("Assignment updated");
+        setStatusType("success");
+        // refresh details
+        const updated = await getAssignmentDetails(Number(id));
+        setAssignmentDetails(updated);
+      } catch (err: any) {
+        setStatusMessage(err.message || "Could not update assignment");
+        setStatusType("error");
+      }
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!assignmentDetails) return;
+    if (!window.confirm("Are you sure you want to delete this assignment?")) return;
+    try {
+      await deleteAssignment(Number(id));
+      // go back to previous page (class home)
+      window.history.back();
+    } catch (err: any) {
+      setStatusMessage(err.message || "Could not delete assignment");
+      setStatusType("error");
+    }
+  };
 
   const handleCriterionSelect = (row: number, column: number) => {
     // Check if this criterion is already selected
@@ -76,7 +136,16 @@ export default function Assignment() {
     <>
       <div className="AssignmentHeader">
         <h2>Assignment {id}</h2>
+        {isTeacher() && assignmentDetails && (
+          <div className="assignmentActions">
+            <button onClick={openEditModal}>Edit</button>
+            <button onClick={handleDelete} style={{ marginLeft: '8px' }}>Delete</button>
+          </div>
+        )}
       </div>
+      {statusMessage && (
+        <div className={`status ${statusType}`}>{statusMessage}</div>
+      )}
 
       <TabNavigation
         tabs={[
@@ -94,8 +163,22 @@ export default function Assignment() {
       <div className='assignmentRubricDisplay'>
         <RubricDisplay rubricId={Number(id)} onCriterionSelect={handleCriterionSelect} grades={review} />
       </div>
-      {
-        isTeacher() && 
+
+      {isTeacher() && assignmentDetails && (
+        <div className="peerReviewSettings">
+          <h3>Peer-Review Settings</h3>
+          <p><strong>Assignment name:</strong> {assignmentDetails.name}</p>
+          <p><strong>Rubrics defined:</strong> {assignmentDetails.rubrics?.length || 0}</p>
+          <ul>
+            {assignmentDetails.rubrics?.map((r: any) => (
+              <li key={r.id}>Rubric {r.id} &ndash; canComment: {String(r.canComment)}</li>
+            ))}
+          </ul>
+          <p><strong>Attachments:</strong> {assignmentDetails.attachments?.length || 0}</p>
+        </div>
+      )}
+
+      {isTeacher() && 
           <div className='assignmentRubric'>
             <RubricCreator id={Number(id)}/>
           </div>
@@ -131,7 +214,13 @@ export default function Assignment() {
             }
           }}>Submit Review</button>
       </div>}
-    </>
+      <AssignmentModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleModalSave}
+        assignment={editingAssignment}
+        mode={modalMode}
+      />    </>
   );
 }
 

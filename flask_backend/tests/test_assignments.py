@@ -857,3 +857,96 @@ def test_get_assignment_with_start_date(test_client, make_admin):
     
     # Lab Report 2 should have None for start_date
     assert lab2["start_date"] is None
+
+
+def test_teacher_can_view_assignment_details_with_rubric(test_client, make_admin):
+    """
+    GIVEN a teacher with a class and an assignment that has a rubric
+    WHEN they request the assignment details endpoint
+    THEN the response includes the rubric data and attachments list
+    """
+    make_admin(email="teacher2@example.com", password="teacher", name="teacher2")
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher2@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+    # create course
+    class_resp = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "Physics 101"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_resp.json["class"]["id"]
+    # create assignment
+    assign_resp = test_client.post(
+        "/assignment/create_assignment",
+        data=json.dumps({
+            "courseID": class_id,
+            "name": "Quiz 1",
+            "rubric": "Accuracy",
+        }),
+        headers={"Content-Type": "application/json"},
+    )
+    assignment_id = assign_resp.json["assignment"]["id"]
+    # add a rubric record manually using model since endpoint for rubrics may not exist yet
+    from api.models.rubric_model import Rubric
+    from api.models.db import db
+
+    rubric = Rubric(assignmentID=assignment_id, canComment=False)
+    db.session.add(rubric)
+    db.session.commit()
+
+    # now call details endpoint
+    details = test_client.get(f"/assignment/details/{assignment_id}")
+    assert details.status_code == 200
+    data = details.json
+    assert data["id"] == assignment_id
+    assert "rubrics" in data
+    assert isinstance(data["rubrics"], list)
+    assert len(data["rubrics"]) == 1
+    assert data["rubrics"][0]["canComment"] is False
+
+
+def test_non_teacher_cannot_view_assignment_details(test_client, make_admin):
+    """
+    A student or unrelated teacher should not be allowed to fetch details.
+    """
+    # create two teachers, one will own assignment
+    make_admin(email="owner@example.com", password="pass", name="owner")
+    make_admin(email="other@example.com", password="pass", name="other")
+
+    # owner logs in and creates class and assignment
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "owner@example.com", "password": "pass"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_resp = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "Chemistry"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_resp.json["class"]["id"]
+    assign_resp = test_client.post(
+        "/assignment/create_assignment",
+        data=json.dumps({
+            "courseID": class_id,
+            "name": "Lab 1",
+            "rubric": "Safety",
+        }),
+        headers={"Content-Type": "application/json"},
+    )
+    assignment_id = assign_resp.json["assignment"]["id"]
+    # log out owner by clearing cookies
+    test_client.get("/auth/logout")
+
+    # other teacher attempts to fetch details
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "other@example.com", "password": "pass"}),
+        headers={"Content-Type": "application/json"},
+    )
+    forbidden = test_client.get(f"/assignment/details/{assignment_id}")
+    assert forbidden.status_code == 403
+    assert forbidden.json["msg"] == "Unauthorized: You are not the teacher of this class"
