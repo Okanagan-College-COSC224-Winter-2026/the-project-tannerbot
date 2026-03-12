@@ -303,11 +303,11 @@ export const createCriteria = async (rubricID: number, question: string, scoreMa
   }
 }
 
-export const createRubric = async (id: number, assignmentID: number, canComment: boolean): Promise<{ id: number }> => {
+export const createRubric = async (assignmentID: number, canComment: boolean): Promise<{ id: number }> => {
   const response = await fetch(`${BASE_URL}/create_rubric`, {
     method: 'POST',
     body: JSON.stringify({
-      id, assignmentID, canComment
+      assignmentID, canComment
     }),
     headers: {
       'Content-Type': 'application/json',
@@ -333,6 +333,24 @@ export const getRubric = async (rubricID: number) => {
 
   if (!resp.ok) {
       throw new Error(`Response status: ${resp.status}`);
+  }
+
+  return await resp.json();
+}
+
+export const getRubricByAssignment = async (assignmentId: number) => {
+  const resp = await fetch(`${BASE_URL}/rubric/assignment/${assignmentId}`, {
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(resp);
+
+  if (resp.status === 404) {
+    return null;
+  }
+
+  if (!resp.ok) {
+    throw new Error(`Response status: ${resp.status}`);
   }
 
   return await resp.json();

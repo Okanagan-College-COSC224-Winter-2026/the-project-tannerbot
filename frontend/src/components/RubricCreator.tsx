@@ -18,14 +18,14 @@ export default function RubricCreator({ onRubricCreated, id }: RubricCreatorProp
     const handleCreate = async () => {
         try {
             setStatusMessage('');
-            const rubricResponse = await createRubric(id, id, canComment);
+            const rubricResponse = await createRubric(id, canComment);
             const newRubricID = rubricResponse.id;
             await Promise.all(newCriteria.map(({ question, scoreMax, hasScore }) => 
                 createCriteria(newRubricID, question, scoreMax, canComment, hasScore)
             ));
             setStatusType('success');
             setStatusMessage('Rubric created successfully!');
-            setTimeout(() => window.location.reload(), 2000);
+            setNewCriteria([{ rubricID: 0, question: '', scoreMax: 0, hasScore: true }]);
             if (onRubricCreated) {
                 onRubricCreated(newRubricID);
             }

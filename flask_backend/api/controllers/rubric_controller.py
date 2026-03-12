@@ -6,6 +6,35 @@ from .auth_controller import jwt_teacher_required
 bp = Blueprint("rubric", __name__)
 
 
+@bp.route("/rubric/assignment/<int:assignment_id>", methods=["GET"])
+def get_rubric_by_assignment(assignment_id):
+    """Get the rubric for a given assignment ID"""
+    rubric = Rubric.query.filter_by(assignmentID=assignment_id).order_by(Rubric.id.desc()).first()
+    if not rubric:
+        return jsonify({"msg": "No rubric found for this assignment"}), 404
+
+    rubric_data = RubricSchema().dump(rubric)
+    rubric_data["criteria_descriptions"] = CriteriaDescriptionSchema(many=True).dump(
+        rubric.criteria_descriptions.all()
+    )
+    return jsonify(rubric_data), 200
+
+
+@bp.route("/criteria", methods=["GET"])
+def get_criteria():
+    """Get all criteria descriptions for a rubric"""
+    rubric_id = request.args.get("rubricID")
+    if not rubric_id:
+        return jsonify({"msg": "rubricID query parameter is required"}), 400
+
+    rubric = Rubric.get_by_id(int(rubric_id))
+    if not rubric:
+        return jsonify({"msg": "Rubric not found"}), 404
+
+    criteria = rubric.criteria_descriptions.all()
+    return jsonify(CriteriaDescriptionSchema(many=True).dump(criteria)), 200
+
+
 @bp.route("/create_rubric", methods=["POST"])
 @jwt_teacher_required
 def create_rubric():
@@ -16,6 +45,10 @@ def create_rubric():
 
     if not assignment_id:
         return jsonify({"msg": "assignmentID is required"}), 400
+
+    existing_rubric = Rubric.query.filter_by(assignmentID=assignment_id).order_by(Rubric.id.desc()).first()
+    if existing_rubric:
+        return jsonify(RubricSchema().dump(existing_rubric)), 200
 
     rubric = Rubric(assignmentID=assignment_id, canComment=can_comment)
     Rubric.create_rubric(rubric)
