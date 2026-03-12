@@ -1,16 +1,21 @@
 import './AssignmentCard.css'
+import { useNavigate } from 'react-router-dom';
 import { calculateTimeUntilDue, formatDateTime, isPastDue } from '../util/dateUtils';
+import { isTeacher } from '../util/login';
 
 interface Props {
   onClick?: () => void
   children?: React.ReactNode
   id: number | string
   assignment?: Assignment
+  classId?: number | string
   onEdit?: () => void
   onDelete?: () => void
 }
 
 export default function AssignmentCard(props: Props) {
+  const navigate = useNavigate();
+
   const timeUntilDue = props.assignment?.due_date 
     ? calculateTimeUntilDue(props.assignment.due_date)
     : null;
@@ -19,7 +24,16 @@ export default function AssignmentCard(props: Props) {
   const canModify = !pastDue;
 
   const handleCardClick = () => {
-    window.location.href = `/assignment/${props.id}`;
+    if (isTeacher()) {
+      navigate(`/assignment/${props.id}/criteria`, {
+        state: {
+          classId: props.classId,
+          assignmentName: props.assignment?.name ?? props.children,
+        },
+      });
+    } else {
+      navigate(`/assignment/${props.id}`);
+    }
   };
 
   const handleEdit = (e: React.MouseEvent) => {

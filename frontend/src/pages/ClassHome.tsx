@@ -161,6 +161,7 @@ export default function ClassHome() {
                   <AssignmentCard 
                     id={assignment.id}
                     assignment={assignment}
+                    classId={id}
                     onEdit={isTeacher() ? () => openEditModal(assignment) : undefined}
                     onDelete={isTeacher() ? () => handleDeleteAssignment(assignment.id) : undefined}
                   >
