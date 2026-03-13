@@ -299,8 +299,48 @@ export const createCriteria = async (rubricID: number, question: string, scoreMa
   maybeHandleExpire(response);
 
   if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+}
+
+export const updateCriteria = async (criteriaId: number, question: string, scoreMax: number, hasScore: boolean = true) => {
+  const response = await fetch(`${BASE_URL}/criteria/${criteriaId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      question,
+      scoreMax,
+      hasScore,
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  })
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export const deleteCriteria = async (criteriaId: number) => {
+  const response = await fetch(`${BASE_URL}/criteria/${criteriaId}`, {
+    method: 'DELETE',
+    credentials: 'include'
+  })
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
     throw new Error(`Response status: ${response.status}`);
   }
+
+  return await response.json();
 }
 
 export const createRubric = async (assignmentID: number, canComment: boolean): Promise<{ id: number }> => {

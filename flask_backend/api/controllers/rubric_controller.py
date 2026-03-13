@@ -4,6 +4,24 @@ from ..models import CriteriaDescription, Rubric, CriteriaDescriptionSchema, Rub
 from .auth_controller import jwt_teacher_required
 
 bp = Blueprint("rubric", __name__)
+MAX_ASSIGNMENT_SCORE = 100
+
+
+def _safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _rubric_scored_total(rubric, exclude_criteria_id=None):
+    total = 0
+    for row in rubric.criteria_descriptions.all():
+        if exclude_criteria_id is not None and row.id == exclude_criteria_id:
+            continue
+        if row.hasScore:
+            total += max(0, _safe_int(row.scoreMax, 0))
+    return total
 
 
 @bp.route("/rubric/assignment/<int:assignment_id>", methods=["GET"])
@@ -63,7 +81,7 @@ def create_criteria():
     data = request.get_json()
     rubric_id = data.get("rubricID")
     question = data.get("question", "")
-    score_max = data.get("scoreMax", 0)
+    score_max = _safe_int(data.get("scoreMax", 0), 0)
     has_score = data.get("hasScore", True)
 
     if not rubric_id:
@@ -72,6 +90,15 @@ def create_criteria():
     rubric = Rubric.get_by_id(rubric_id)
     if not rubric:
         return jsonify({"msg": "Rubric not found"}), 404
+
+    score_max = max(0, min(score_max, MAX_ASSIGNMENT_SCORE))
+    proposed_score = score_max if has_score else 0
+    current_total = _rubric_scored_total(rubric)
+    if current_total + proposed_score > MAX_ASSIGNMENT_SCORE:
+        return (
+            jsonify({"msg": "Total rubric score cannot exceed 100"}),
+            400,
+        )
 
     criteria = CriteriaDescription(
         rubricID=rubric_id,
@@ -82,6 +109,56 @@ def create_criteria():
     CriteriaDescription.create_criteria_description(criteria)
 
     return jsonify(CriteriaDescriptionSchema().dump(criteria)), 201
+
+
+@bp.route("/criteria/<int:criteria_id>", methods=["PATCH"])
+@jwt_teacher_required
+def edit_criteria(criteria_id):
+    """Edit an existing criteria description"""
+    criteria = CriteriaDescription.get_by_id(criteria_id)
+    if not criteria:
+        return jsonify({"msg": "Criteria not found"}), 404
+
+    data = request.get_json() or {}
+
+    if "question" in data:
+        criteria.question = data.get("question", "")
+
+    if "hasScore" in data:
+        criteria.hasScore = bool(data.get("hasScore"))
+
+    if "scoreMax" in data:
+        criteria.scoreMax = _safe_int(data.get("scoreMax", 0), 0)
+
+    criteria.scoreMax = max(0, min(_safe_int(criteria.scoreMax, 0), MAX_ASSIGNMENT_SCORE))
+
+    rubric = Rubric.get_by_id(criteria.rubricID)
+    if rubric:
+        proposed_score = criteria.scoreMax if criteria.hasScore else 0
+        current_total = _rubric_scored_total(rubric, exclude_criteria_id=criteria.id)
+        if current_total + proposed_score > MAX_ASSIGNMENT_SCORE:
+            return (
+                jsonify({"msg": "Total rubric score cannot exceed 100"}),
+                400,
+            )
+
+    if not criteria.hasScore:
+        criteria.scoreMax = 0
+
+    criteria.update()
+    return jsonify(CriteriaDescriptionSchema().dump(criteria)), 200
+
+
+@bp.route("/criteria/<int:criteria_id>", methods=["DELETE"])
+@jwt_teacher_required
+def delete_criteria(criteria_id):
+    """Delete a criteria description"""
+    criteria = CriteriaDescription.get_by_id(criteria_id)
+    if not criteria:
+        return jsonify({"msg": "Criteria not found"}), 404
+
+    criteria.delete()
+    return jsonify({"msg": "Criteria deleted"}), 200
 
 
 @bp.route("/rubric", methods=["GET"])

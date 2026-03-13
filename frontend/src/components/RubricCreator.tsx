@@ -7,9 +7,10 @@ import './RubricCreator.css';
 interface RubricCreatorProps {
     onRubricCreated?: (rubricId: number) => void;
     id: number;
+    existingScoredTotal?: number;
 }
 
-export default function RubricCreator({ onRubricCreated, id }: RubricCreatorProps) {
+export default function RubricCreator({ onRubricCreated, id, existingScoredTotal = 0 }: RubricCreatorProps) {
     const [newCriteria, setNewCriteria] = useState<Criterion[]>([{ rubricID: 0, question: '', scoreMax: 0, hasScore: true }]);
     const [canComment, setCanComment] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
@@ -18,10 +19,25 @@ export default function RubricCreator({ onRubricCreated, id }: RubricCreatorProp
     const handleCreate = async () => {
         try {
             setStatusMessage('');
+            const totalScored = newCriteria.reduce((sum, criterion) => {
+                if (!criterion.hasScore) {
+                    return sum;
+                }
+                return sum + Math.max(0, Math.min(criterion.scoreMax, 100));
+            }, 0);
+
+            const combinedTotal = existingScoredTotal + totalScored;
+
+            if (combinedTotal > 100) {
+                setStatusType('error');
+                setStatusMessage(`Total rubric score cannot exceed 100. Remaining points: ${Math.max(0, 100 - existingScoredTotal)}.`);
+                return;
+            }
+
             const rubricResponse = await createRubric(id, canComment);
             const newRubricID = rubricResponse.id;
             await Promise.all(newCriteria.map(({ question, scoreMax, hasScore }) => 
-                createCriteria(newRubricID, question, scoreMax, canComment, hasScore)
+                createCriteria(newRubricID, question, Math.max(0, Math.min(scoreMax, 100)), canComment, hasScore)
             ));
             setStatusType('success');
             setStatusMessage('Rubric created successfully!');
@@ -32,7 +48,7 @@ export default function RubricCreator({ onRubricCreated, id }: RubricCreatorProp
         } catch (error) {
             console.error("Error creating criteria:", error);
             setStatusType('error');
-            setStatusMessage('Error creating rubric.');
+            setStatusMessage(error instanceof Error ? error.message : 'Error creating rubric.');
         }
     };
 
@@ -44,7 +60,7 @@ export default function RubricCreator({ onRubricCreated, id }: RubricCreatorProp
 
     const handleScoreMaxChange = (index: number, value: number) => {
         const updatedCriteria = [...newCriteria];
-        updatedCriteria[index].scoreMax = Math.max(0, value);
+        updatedCriteria[index].scoreMax = Math.max(0, Math.min(100, value));
         setNewCriteria(updatedCriteria);
     };
 
@@ -96,6 +112,7 @@ export default function RubricCreator({ onRubricCreated, id }: RubricCreatorProp
                         <input
                             type="number"
                             min="0"
+                            max="100"
                             value={item.scoreMax}
                             onChange={(e) => handleScoreMaxChange(index, Number(e.target.value))}
                             placeholder="Enter score max"

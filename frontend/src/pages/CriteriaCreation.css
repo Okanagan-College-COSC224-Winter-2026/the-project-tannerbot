@@ -37,6 +37,7 @@
 
 .CriteriaCreationBody {
   padding: 16px;
+}
 
 .ExistingCriteria {
   margin-bottom: 32px;
@@ -63,6 +64,7 @@
   text-align: left;
   padding: 8px 12px;
   border-bottom: 1px solid var(--background-secondary, #e0e0e0);
+  vertical-align: top;
 }
 
 .ExistingCriteriaTable th {
@@ -80,4 +82,57 @@
   font-size: 0.85rem;
   color: var(--text-secondary, #666);
 }
+
+.CriteriaRowActions {
+  display: flex;
+  gap: 8px;
+}
+
+.CriteriaActionButton {
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.CriteriaActionButton.edit,
+.CriteriaActionButton.save {
+  background-color: #2f7bff;
+  color: #fff;
+}
+
+.CriteriaActionButton.delete {
+  background-color: #d43f3f;
+  color: #fff;
+}
+
+.CriteriaActionButton.cancel {
+  background-color: #9a9a9a;
+  color: #fff;
+}
+
+.CriteriaEditInput {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #c9c9c9;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.CriteriaEditNumber {
+  width: 80px;
+}
+
+.CriteriaEditScoreWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.CriteriaEditCheckbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
 }
