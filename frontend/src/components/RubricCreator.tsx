@@ -12,7 +12,6 @@ interface RubricCreatorProps {
 
 export default function RubricCreator({ onRubricCreated, id, existingScoredTotal = 0 }: RubricCreatorProps) {
     const [newCriteria, setNewCriteria] = useState<Criterion[]>([{ rubricID: 0, question: '', scoreMax: 0, hasScore: true }]);
-    const [canComment, setCanComment] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
     const [statusType, setStatusType] = useState<'error' | 'success'>('error');
     const newScoredTotal = newCriteria.reduce((sum, criterion) => {
@@ -33,10 +32,10 @@ export default function RubricCreator({ onRubricCreated, id, existingScoredTotal
                 return;
             }
 
-            const rubricResponse = await createRubric(id, canComment);
+            const rubricResponse = await createRubric(id, false);
             const newRubricID = rubricResponse.id;
             await Promise.all(newCriteria.map(({ question, scoreMax, hasScore }) => 
-                createCriteria(newRubricID, question, Math.max(0, Math.min(scoreMax, 100)), canComment, hasScore)
+                createCriteria(newRubricID, question, Math.max(0, Math.min(scoreMax, 100)), false, hasScore)
             ));
             setStatusType('success');
             setStatusMessage('Rubric created successfully!');
@@ -82,15 +81,6 @@ export default function RubricCreator({ onRubricCreated, id, existingScoredTotal
 
             <StatusMessage message={statusMessage} type={statusType} />
 
-            <label className="comment-checkbox">
-                Reviewer can comment:
-                <input
-                    type="checkbox"
-                    checked={canComment}
-                    onChange={() => setCanComment(prev => !prev)}
-                />
-            </label>
-
             <p className="remaining-points">
                 Remaining points: <strong>{remainingPoints}</strong> / 100
             </p>
@@ -101,7 +91,7 @@ export default function RubricCreator({ onRubricCreated, id, existingScoredTotal
                         type="text"
                         value={item.question}
                         onChange={(e) => handleQuestionChange(index, e.target.value)}
-                        placeholder="Enter question"
+                        placeholder="Enter criterion point"
                     />
                     <label>
                         Has score:

@@ -34,9 +34,6 @@ export default function CriteriaCreation() {
   const [editScoreMax, setEditScoreMax] = useState(0);
   const [editHasScore, setEditHasScore] = useState(true);
   const [actionMessage, setActionMessage] = useState("");
-  const hasCommentOnlyCriteria = (rubric?.criteria_descriptions || []).some(
-    (row) => !row.hasScore
-  );
   const existingScoredTotal = (rubric?.criteria_descriptions || []).reduce(
     (sum, row) => sum + (row.hasScore ? Math.max(0, row.scoreMax) : 0),
     0
@@ -147,14 +144,10 @@ export default function CriteriaCreation() {
                           className="CriteriaEditInput"
                           value={editQuestion}
                           onChange={(e) => setEditQuestion(e.target.value)}
+                          placeholder="Enter criterion point"
                         />
                       ) : (
-                        <>
-                          <div>{c.question}</div>
-                          {rubric.canComment && !c.hasScore && (
-                            <small className="CriteriaCommentHint">Comments enabled for this criterion</small>
-                          )}
-                        </>
+                        <div>{c.question}</div>
                       )}
                     </td>
                     <td>
@@ -210,9 +203,6 @@ export default function CriteriaCreation() {
               </tbody>
             </table>
             {actionMessage && <p className="ExistingCriteriaNote">{actionMessage}</p>}
-            {rubric.canComment && hasCommentOnlyCriteria && (
-              <p className="ExistingCriteriaNote">Reviewers can leave a comment.</p>
-            )}
           </div>
         )}
 
