@@ -33,12 +33,13 @@ export default function ClassHome() {
     })();
   }, [id]);
     
-  const handleCreateAssignment = async (name: string, dueDate: string, startDate: string, attachments: File[]) => {
+  const handleCreateAssignment = async (name: string, description: string, dueDate: string, startDate: string, attachments: File[]) => {
     try {
       setStatusMessage('');
       const response = await createAssignment(
         idNew,
         name,
+        description || undefined,
         dueDate || undefined,
         startDate || undefined,
         attachments
@@ -65,7 +66,7 @@ export default function ClassHome() {
     }
   };
 
-  const handleEditAssignment = async (name: string, dueDate: string, startDate: string) => {
+  const handleEditAssignment = async (name: string, description: string, dueDate: string, startDate: string) => {
     if (!editingAssignment) return;
     
     try {
@@ -73,6 +74,7 @@ export default function ClassHome() {
       const response = await editAssignment(
         editingAssignment.id, 
         name, 
+        description || undefined,
         dueDate || undefined, 
         startDate || undefined
       );
@@ -123,11 +125,11 @@ export default function ClassHome() {
     setIsModalOpen(true);
   };
 
-  const handleModalSave = (name: string, dueDate: string, startDate: string, attachments: File[]) => {
+  const handleModalSave = (name: string, description: string, dueDate: string, startDate: string, attachments: File[]) => {
     if (modalMode === "create") {
-      handleCreateAssignment(name, dueDate, startDate, attachments);
+      handleCreateAssignment(name, description, dueDate, startDate, attachments);
     } else {
-      handleEditAssignment(name, dueDate, startDate);
+      handleEditAssignment(name, description, dueDate, startDate);
     }
   };
     

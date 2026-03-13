@@ -18,6 +18,15 @@ export default function RubricCreator({ onRubricCreated, id }: RubricCreatorProp
     const handleCreate = async () => {
         try {
             setStatusMessage('');
+            
+            // Validate that all criteria have questions
+            const invalidCriteria = newCriteria.filter(criterion => !criterion.question.trim());
+            if (invalidCriteria.length > 0) {
+                setStatusType('error');
+                setStatusMessage('All criteria must have a question.');
+                return;
+            }
+            
             const rubricResponse = await createRubric(id, id, canComment);
             const newRubricID = rubricResponse.id;
             await Promise.all(newCriteria.map(({ question, scoreMax, hasScore }) => 
@@ -32,7 +41,7 @@ export default function RubricCreator({ onRubricCreated, id }: RubricCreatorProp
         } catch (error) {
             console.error("Error creating criteria:", error);
             setStatusType('error');
-            setStatusMessage('Error creating rubric.');
+            setStatusMessage(error instanceof Error ? error.message : 'Error creating rubric.');
         }
     };
 

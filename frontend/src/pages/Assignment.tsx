@@ -15,7 +15,8 @@ import {
   getReview,
   getAssignmentDetails,
   editAssignment,
-  deleteAssignment
+  deleteAssignment,
+  deleteRubric
 } from "../util/api";
 
 interface SelectedCriterion {
@@ -75,10 +76,10 @@ export default function Assignment() {
     setIsModalOpen(true);
   };
 
-  const handleModalSave = async (name: string, dueDate: string, startDate: string, _attachments: File[]) => {
+  const handleModalSave = async (name: string, description: string, dueDate: string, startDate: string, _attachments: File[]) => {
     if (modalMode === "edit" && editingAssignment) {
       try {
-        await editAssignment(editingAssignment.id, name, dueDate, startDate);
+        await editAssignment(editingAssignment.id, name, description, dueDate, startDate);
         setStatusMessage("Assignment updated");
         setStatusType("success");
         // refresh details
@@ -100,6 +101,21 @@ export default function Assignment() {
       window.history.back();
     } catch (err: any) {
       setStatusMessage(err.message || "Could not delete assignment");
+      setStatusType("error");
+    }
+  };
+
+  const handleDeleteRubric = async (rubricId: number) => {
+    if (!window.confirm("Are you sure you want to delete this rubric? This will also delete all its criteria.")) return;
+    try {
+      await deleteRubric(rubricId);
+      setStatusMessage("Rubric deleted successfully");
+      setStatusType("success");
+      // refresh details
+      const updated = await getAssignmentDetails(Number(id));
+      setAssignmentDetails(updated);
+    } catch (err: any) {
+      setStatusMessage(err.message || "Could not delete rubric");
       setStatusType("error");
     }
   };
@@ -168,10 +184,29 @@ export default function Assignment() {
         <div className="peerReviewSettings">
           <h3>Peer-Review Settings</h3>
           <p><strong>Assignment name:</strong> {assignmentDetails.name}</p>
+          {assignmentDetails.description && (
+            <p><strong>Description:</strong> {assignmentDetails.description}</p>
+          )}
           <p><strong>Rubrics defined:</strong> {assignmentDetails.rubrics?.length || 0}</p>
           <ul>
             {assignmentDetails.rubrics?.map((r: any) => (
-              <li key={r.id}>Rubric {r.id} &ndash; canComment: {String(r.canComment)}</li>
+              <li key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span>Rubric {r.id} &ndash; canComment: {String(r.canComment)}</span>
+                <button 
+                  onClick={() => handleDeleteRubric(r.id)}
+                  style={{ 
+                    background: '#dc3545', 
+                    color: 'white', 
+                    border: 'none', 
+                    padding: '4px 8px', 
+                    borderRadius: '4px', 
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  Delete
+                </button>
+              </li>
             ))}
           </ul>
           <p><strong>Attachments:</strong> {assignmentDetails.attachments?.length || 0}</p>

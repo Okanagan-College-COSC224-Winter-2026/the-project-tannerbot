@@ -5,13 +5,14 @@ import "./AssignmentModal.css";
 interface AssignmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (name: string, dueDate: string, startDate: string, attachments: File[]) => void;
+  onSave: (name: string, description: string, dueDate: string, startDate: string, attachments: File[]) => void;
   assignment?: Assignment;
   mode: "create" | "edit";
 }
 
 export default function AssignmentModal({ isOpen, onClose, onSave, assignment, mode }: AssignmentModalProps) {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -20,10 +21,12 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
   useEffect(() => {
     if (assignment && mode === "edit") {
       setName(assignment.name || "");
+      setDescription(assignment.description || "");
       setDueDate(assignment.due_date ? assignment.due_date.slice(0, 16) : "");
       setStartDate(assignment.start_date ? assignment.start_date.slice(0, 16) : "");
     } else {
       setName("");
+      setDescription("");
       setDueDate("");
       setStartDate("");
     }
@@ -45,7 +48,7 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
     if (!validateDates()) {
       return; //returns early if validation fails, preventing the save action from proceeding
     }
-    onSave(name, dueDate, startDate, attachments); //sends assignment data and optional attachments to be persisted
+    onSave(name, description, dueDate, startDate, attachments); //sends assignment data and optional attachments to be persisted
     onClose(); //closes the window after saving the data to the database
   };
 
@@ -69,6 +72,18 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="text-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="assignment-description">Description</label>
+            <textarea
+              id="assignment-description"
+              placeholder="Enter assignment description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="text-input"
+              rows={4}
             />
           </div>
 

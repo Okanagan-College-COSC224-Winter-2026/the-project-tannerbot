@@ -50,6 +50,7 @@ interface AssignmentAttachment {
 interface Assignment {
   id: number;
   name: string;
+  description?: string;
   courseID: number;
   rubric?: string;
   due_date?: string;

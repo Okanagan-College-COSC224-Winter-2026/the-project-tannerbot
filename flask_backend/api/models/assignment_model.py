@@ -14,6 +14,7 @@ class Assignment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     courseID = db.Column(db.Integer, db.ForeignKey("Course.id"), index=True)
     name = db.Column(db.String(255), nullable=True)
+    description = db.Column(db.Text, nullable=True)
     rubric_text = db.Column("rubric", db.String(255), nullable=True)
 
     # NEW: due date field (acceptance criteria: edit/delete allowed before due date)
@@ -38,9 +39,10 @@ class Assignment(db.Model):
         "Group_Members", back_populates="assignment", cascade="all, delete-orphan", lazy="dynamic"
     )
 
-    def __init__(self, courseID, name, rubric_text, due_date=None, start_date=None):
+    def __init__(self, courseID, name, rubric_text, due_date=None, start_date=None, description=None):
         self.courseID = courseID
         self.name = name
+        self.description = description
         self.rubric_text = rubric_text
         self.due_date = due_date
         self.start_date = start_date

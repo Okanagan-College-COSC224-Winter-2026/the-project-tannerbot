@@ -20,7 +20,7 @@ export default function AssignmentCard(props: Props) {
   const canModify = !pastDue;
 
   const handleCardClick = () => {
-    window.location.href = `/assignment/${props.id}`;
+    window.location.href = `/assignments/${props.id}`;
   };
 
   const handleEdit = (e: React.MouseEvent) => {

@@ -302,7 +302,7 @@ export const saveGroups = async (groupID: number, userID: number, assignmentID :
 }
 
 export const getCriteria = async (rubricID: number) => {
-  const resp = await fetch(`${BASE_URL}/criteria?rubricID=${rubricID}`, {
+  const resp = await fetch(`${BASE_URL}/assignment/criteria?rubricID=${rubricID}`, {
     credentials: 'include'
   })
 
@@ -316,7 +316,7 @@ export const getCriteria = async (rubricID: number) => {
 }
 
 export const createCriteria = async (rubricID: number, question: string, scoreMax: number, canComment: boolean, hasScore: boolean = true) => {
-  const response = await fetch(`${BASE_URL}/create_criteria`, {
+  const response = await fetch(`${BASE_URL}/assignment/create_criteria`, {
     method: 'POST',
     body: JSON.stringify({
       rubricID, question, scoreMax, canComment, hasScore
@@ -330,12 +330,21 @@ export const createCriteria = async (rubricID: number, question: string, scoreMa
   maybeHandleExpire(response);
 
   if (!response.ok) {
-    throw new Error(`Response status: ${response.status}`);
+    let errorMessage = `Response status: ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody?.msg) {
+        errorMessage = errorBody.msg;
+      }
+    } catch {
+      // keep default errorMessage when response body is not JSON
+    }
+    throw new Error(errorMessage);
   }
 }
 
 export const createRubric = async (id: number, assignmentID: number, canComment: boolean): Promise<{ id: number }> => {
-  const response = await fetch(`${BASE_URL}/create_rubric`, {
+  const response = await fetch(`${BASE_URL}/assignment/create_rubric`, {
     method: 'POST',
     body: JSON.stringify({
       id, assignmentID, canComment
@@ -349,14 +358,23 @@ export const createRubric = async (id: number, assignmentID: number, canComment:
   maybeHandleExpire(response);
 
   if (!response.ok) {
-    throw new Error(`Response status: ${response.status}`);
+    let errorMessage = `Response status: ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody?.msg) {
+        errorMessage = errorBody.msg;
+      }
+    } catch {
+      // keep default errorMessage when response body is not JSON
+    }
+    throw new Error(errorMessage);
   }
 
   return await response.json();
 }
 
 export const getRubric = async (rubricID: number) => {
-  const resp = await fetch(`${BASE_URL}/rubric?rubricID=${rubricID}`, {
+  const resp = await fetch(`${BASE_URL}/assignment/rubric?rubricID=${rubricID}`, {
       credentials: 'include'
   });
 
@@ -369,10 +387,33 @@ export const getRubric = async (rubricID: number) => {
   return await resp.json();
 }
 
+export const deleteRubric = async (rubricID: number): Promise<void> => {
+  const response = await fetch(`${BASE_URL}/assignment/delete_rubric/${rubricID}`, {
+    method: 'DELETE',
+    credentials: 'include'
+  })
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    let errorMessage = `Response status: ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody?.msg) {
+        errorMessage = errorBody.msg;
+      }
+    } catch {
+      // keep default errorMessage when response body is not JSON
+    }
+    throw new Error(errorMessage);
+  }
+}
+
 
 export const createAssignment = async (
   courseID: number,
   name: string,
+  description?: string,
   dueDate?: string,
   startDate?: string,
   attachments?: File[]
@@ -387,6 +428,9 @@ export const createAssignment = async (
     const formData = new FormData();
     formData.append('courseID', String(courseID));
     formData.append('name', name);
+    if (description) {
+      formData.append('description', description);
+    }
 
     if (dueDate) {
       formData.append('due_date', dueDate);
@@ -404,6 +448,7 @@ export const createAssignment = async (
     requestInit.body = JSON.stringify({
       courseID,
       name,
+      description,
       due_date: dueDate,
       start_date: startDate,
     });
@@ -434,11 +479,12 @@ export const createAssignment = async (
   return await response.json();
 }
 
-export const editAssignment = async (assignmentID: number, name?: string, dueDate?: string, startDate?: string, rubric?: string) => {
+export const editAssignment = async (assignmentID: number, name?: string, description?: string, dueDate?: string, startDate?: string, rubric?: string) => {
   const response = await fetch(`${BASE_URL}/assignment/edit_assignment/${assignmentID}`, {
     method: 'PATCH',
     body: JSON.stringify({
       name,
+      description,
       due_date: dueDate,
       start_date: startDate,
       rubric

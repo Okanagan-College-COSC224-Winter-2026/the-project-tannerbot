@@ -2,7 +2,7 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..models import Course, Assignment, User, AssignmentSchema
+from ..models import Course, Assignment, User, AssignmentSchema, Rubric, CriteriaDescription, User_Course
 from .auth_controller import jwt_teacher_required
 from .assignment_attachment_controller import (
     list_assignment_attachments,
@@ -36,6 +36,7 @@ def create_assignment():
     data = _parse_request_data()
     course_id = data.get("courseID")
     assignment_name = data.get("name")
+    description = data.get("description")
     rubric_text = data.get("rubric")
     due_date = data.get("due_date")
     start_date = data.get("start_date")
@@ -73,7 +74,7 @@ def create_assignment():
     if course.teacherID != user.id:
         return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
 #edited line below to include start_date when creating a new assignment
-    new_assignment = Assignment(courseID=course_id, name=assignment_name, rubric_text=rubric_text, due_date=due_date, start_date=start_date)
+    new_assignment = Assignment(courseID=course_id, name=assignment_name, rubric_text=rubric_text, due_date=due_date, start_date=start_date, description=description)
     Assignment.create(new_assignment)
     saved_files = save_assignment_attachments(new_assignment.id)
 
@@ -113,6 +114,7 @@ def edit_assignment(assignment_id):
         return jsonify({"msg": "Assignment cannot be modified after its due date"}), 400
 
     assignment.name = data.get("name", assignment.name)
+    assignment.description = data.get("description", assignment.description)
     assignment.rubric_text = data.get("rubric", assignment.rubric_text)
     
     # Handle due_date update - only update if the key is present in request
@@ -217,3 +219,226 @@ def get_assignment_details(assignment_id):
     # attachments are not part of schema so add them for consistency
     assignment_data["attachments"] = list_assignment_attachments(assignment.id)
     return jsonify(assignment_data), 200
+
+
+@bp.route("/create_rubric", methods=["POST"])
+@jwt_teacher_required
+def create_rubric():
+    """Create a new rubric for an assignment"""
+    data = request.get_json()
+    assignment_id = data.get("assignmentID") or data.get("id")  # Support both field names
+    can_comment = data.get("canComment", True)
+
+    if not assignment_id:
+        return jsonify({"msg": "Assignment ID is required"}), 400
+
+    try:
+        assignment_id = int(assignment_id)
+    except (TypeError, ValueError):
+        return jsonify({"msg": "Assignment ID must be an integer"}), 400
+
+    # Verify assignment exists and user is the teacher
+    assignment = Assignment.get_by_id(assignment_id)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+
+    email = get_jwt_identity()
+    user = User.get_by_email(email)
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    course = Course.get_by_id(assignment.courseID)
+    if not course or course.teacherID != user.id:
+        return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
+
+    # Create the rubric
+    new_rubric = Rubric(assignmentID=assignment_id, canComment=can_comment)
+    Rubric.create_rubric(new_rubric)
+
+    return jsonify({"msg": "Rubric created", "id": new_rubric.id}), 201
+
+
+@bp.route("/criteria", methods=["GET"])
+@jwt_required()
+def get_criteria():
+    """Get all criteria for a rubric"""
+    rubric_id = request.args.get("rubricID")
+    if not rubric_id:
+        return jsonify({"msg": "Rubric ID is required"}), 400
+
+    try:
+        rubric_id = int(rubric_id)
+    except (TypeError, ValueError):
+        return jsonify({"msg": "Rubric ID must be an integer"}), 400
+
+    rubric = Rubric.get_by_id(rubric_id)
+    if not rubric:
+        return jsonify({"msg": "Rubric not found"}), 404
+
+    # Verify user has access to this rubric's assignment
+    assignment = Assignment.get_by_id(rubric.assignmentID)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+
+    email = get_jwt_identity()
+    user = User.get_by_email(email)
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    course = Course.get_by_id(assignment.courseID)
+    if not course:
+        return jsonify({"msg": "Course not found"}), 404
+
+    if user.is_admin() or course.teacherID == user.id:
+        # Teacher or admin can see all criteria
+        pass
+    else:
+        # Students can only see criteria if they're enrolled
+        if not User_Course.get(user.id, course.id):
+            return jsonify({"msg": "Unauthorized"}), 403
+
+    criteria = rubric.criteria_descriptions.all()
+    criteria_data = []
+    for criterion in criteria:
+        criteria_data.append({
+            "id": criterion.id,
+            "rubricID": criterion.rubricID,
+            "question": criterion.question,
+            "scoreMax": criterion.scoreMax,
+            "hasScore": criterion.hasScore
+        })
+
+    return jsonify(criteria_data), 200
+
+
+@bp.route("/create_criteria", methods=["POST"])
+@jwt_teacher_required
+def create_criteria():
+    """Create a new criterion for a rubric"""
+    data = request.get_json()
+    rubric_id = data.get("rubricID")
+    question = data.get("question")
+    score_max = data.get("scoreMax")
+    can_comment = data.get("canComment", True)
+    has_score = data.get("hasScore", True)
+
+    if not rubric_id:
+        return jsonify({"msg": "Rubric ID is required"}), 400
+
+    if not question:
+        return jsonify({"msg": "Question is required"}), 400
+
+    try:
+        rubric_id = int(rubric_id)
+        if has_score:
+            score_max = int(score_max) if score_max is not None else 0
+        else:
+            score_max = 0
+    except (TypeError, ValueError):
+        return jsonify({"msg": "Invalid rubric ID or score max"}), 400
+
+    # Verify rubric exists and user is the teacher
+    rubric = Rubric.get_by_id(rubric_id)
+    if not rubric:
+        return jsonify({"msg": "Rubric not found"}), 404
+
+    assignment = Assignment.get_by_id(rubric.assignmentID)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+
+    email = get_jwt_identity()
+    user = User.get_by_email(email)
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    course = Course.get_by_id(assignment.courseID)
+    if not course or course.teacherID != user.id:
+        return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
+
+    # Create the criteria description
+    new_criteria = CriteriaDescription(
+        rubricID=rubric_id,
+        question=question,
+        scoreMax=score_max,
+        hasScore=has_score
+    )
+    CriteriaDescription.create_criteria_description(new_criteria)
+
+    return jsonify({"msg": "Criteria created", "id": new_criteria.id}), 201
+
+
+@bp.route("/rubric", methods=["GET"])
+@jwt_required()
+def get_rubric():
+    """Get a rubric by ID"""
+    rubric_id = request.args.get("rubricID")
+    if not rubric_id:
+        return jsonify({"msg": "Rubric ID is required"}), 400
+
+    try:
+        rubric_id = int(rubric_id)
+    except (TypeError, ValueError):
+        return jsonify({"msg": "Rubric ID must be an integer"}), 400
+
+    rubric = Rubric.get_by_id(rubric_id)
+    if not rubric:
+        return jsonify({"msg": "Rubric not found"}), 404
+
+    # Verify user has access to this rubric's assignment
+    assignment = Assignment.get_by_id(rubric.assignmentID)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+
+    email = get_jwt_identity()
+    user = User.get_by_email(email)
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    course = Course.get_by_id(assignment.courseID)
+    if not course:
+        return jsonify({"msg": "Course not found"}), 404
+
+    if user.is_admin() or course.teacherID == user.id:
+        # Teacher or admin can see rubric
+        pass
+    else:
+        # Students can only see rubric if they're enrolled
+        if not User_Course.get(user.id, course.id):
+            return jsonify({"msg": "Unauthorized"}), 403
+
+    rubric_data = {
+        "id": rubric.id,
+        "assignmentID": rubric.assignmentID,
+        "canComment": rubric.canComment
+    }
+
+    return jsonify(rubric_data), 200
+
+
+@bp.route("/delete_rubric/<int:rubric_id>", methods=["DELETE"])
+@jwt_teacher_required
+def delete_rubric(rubric_id):
+    """Delete a rubric and all its criteria"""
+    # Verify rubric exists
+    rubric = Rubric.get_by_id(rubric_id)
+    if not rubric:
+        return jsonify({"msg": "Rubric not found"}), 404
+
+    # Verify assignment exists and user is the teacher
+    assignment = Assignment.get_by_id(rubric.assignmentID)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+
+    email = get_jwt_identity()
+    user = User.get_by_email(email)
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    course = Course.get_by_id(assignment.courseID)
+    if not course or course.teacherID != user.id:
+        return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
+
+    # Delete the rubric (cascade delete will handle criteria)
+    rubric.delete()
+
+    return jsonify({"msg": "Rubric deleted successfully"}), 200
