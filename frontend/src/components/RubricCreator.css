@@ -15,6 +15,11 @@
     margin-bottom: 20px;
 }
 
+.remaining-points {
+    margin: 0 0 14px 0;
+    color: #333;
+}
+
 .criteria-input-section {
     display: flex;
     gap: 10px;

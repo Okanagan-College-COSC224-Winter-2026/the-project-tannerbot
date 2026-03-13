@@ -15,19 +15,18 @@ export default function RubricCreator({ onRubricCreated, id, existingScoredTotal
     const [canComment, setCanComment] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
     const [statusType, setStatusType] = useState<'error' | 'success'>('error');
+    const newScoredTotal = newCriteria.reduce((sum, criterion) => {
+        if (!criterion.hasScore) {
+            return sum;
+        }
+        return sum + Math.max(0, Math.min(criterion.scoreMax, 100));
+    }, 0);
+    const combinedTotal = existingScoredTotal + newScoredTotal;
+    const remainingPoints = Math.max(0, 100 - combinedTotal);
 
     const handleCreate = async () => {
         try {
             setStatusMessage('');
-            const totalScored = newCriteria.reduce((sum, criterion) => {
-                if (!criterion.hasScore) {
-                    return sum;
-                }
-                return sum + Math.max(0, Math.min(criterion.scoreMax, 100));
-            }, 0);
-
-            const combinedTotal = existingScoredTotal + totalScored;
-
             if (combinedTotal > 100) {
                 setStatusType('error');
                 setStatusMessage(`Total rubric score cannot exceed 100. Remaining points: ${Math.max(0, 100 - existingScoredTotal)}.`);
@@ -92,6 +91,10 @@ export default function RubricCreator({ onRubricCreated, id, existingScoredTotal
                 />
             </label>
 
+            <p className="remaining-points">
+                Remaining points: <strong>{remainingPoints}</strong> / 100
+            </p>
+
             {newCriteria.map((item, index) => (
                 <div key={index} className="criteria-input-section">
                     <input
@@ -113,9 +116,9 @@ export default function RubricCreator({ onRubricCreated, id, existingScoredTotal
                             type="number"
                             min="0"
                             max="100"
-                            value={item.scoreMax}
-                            onChange={(e) => handleScoreMaxChange(index, Number(e.target.value))}
-                            placeholder="Enter score max"
+                            value={item.scoreMax === 0 ? '' : item.scoreMax}
+                            onChange={(e) => handleScoreMaxChange(index, Number(e.target.value || 0))}
+                            placeholder="Max Score"
                         />
                     )}
                     <Button onClick={() => handleRemoveSection(index)}>Remove Criterion</Button>

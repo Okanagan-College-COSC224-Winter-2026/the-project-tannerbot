@@ -34,6 +34,9 @@ export default function CriteriaCreation() {
   const [editScoreMax, setEditScoreMax] = useState(0);
   const [editHasScore, setEditHasScore] = useState(true);
   const [actionMessage, setActionMessage] = useState("");
+  const hasCommentOnlyCriteria = (rubric?.criteria_descriptions || []).some(
+    (row) => !row.hasScore
+  );
   const existingScoredTotal = (rubric?.criteria_descriptions || []).reduce(
     (sum, row) => sum + (row.hasScore ? Math.max(0, row.scoreMax) : 0),
     0
@@ -146,7 +149,12 @@ export default function CriteriaCreation() {
                           onChange={(e) => setEditQuestion(e.target.value)}
                         />
                       ) : (
-                        c.question
+                        <>
+                          <div>{c.question}</div>
+                          {rubric.canComment && !c.hasScore && (
+                            <small className="CriteriaCommentHint">Comments enabled for this criterion</small>
+                          )}
+                        </>
                       )}
                     </td>
                     <td>
@@ -166,10 +174,11 @@ export default function CriteriaCreation() {
                               type="number"
                               min={0}
                               max={100}
-                              value={editScoreMax}
+                              value={editScoreMax === 0 ? "" : editScoreMax}
                               onChange={(e) =>
-                                setEditScoreMax(Math.max(0, Math.min(100, Number(e.target.value))))
+                                setEditScoreMax(Math.max(0, Math.min(100, Number(e.target.value || 0))))
                               }
+                              placeholder="Max Score"
                             />
                           ) : (
                             <span>—</span>
@@ -201,7 +210,7 @@ export default function CriteriaCreation() {
               </tbody>
             </table>
             {actionMessage && <p className="ExistingCriteriaNote">{actionMessage}</p>}
-            {rubric.canComment && (
+            {rubric.canComment && hasCommentOnlyCriteria && (
               <p className="ExistingCriteriaNote">Reviewers can leave a comment.</p>
             )}
           </div>
