@@ -240,6 +240,23 @@ class TestAddMultipleCriteria:
         assert resp.status_code == 400
         assert resp.get_json()["msg"] == "rubricID is required"
 
+    def test_add_criterion_without_question_returns_400(self, test_client, make_admin):
+        """
+        GIVEN a teacher and valid rubric
+        WHEN POST /create_criteria is called with a blank question
+        THEN 400 is returned and criterion is not created
+        """
+        make_admin(email="teacher@example.com", password="pass", name="Teacher")
+        _login(test_client, "teacher@example.com", "pass")
+        course_id = _create_class(test_client)
+        assignment_id = _create_assignment(test_client, course_id)
+        rubric_id = _create_rubric(test_client, assignment_id).get_json()["id"]
+
+        resp = _add_criterion(test_client, rubric_id, "   ", 10, has_score=True)
+
+        assert resp.status_code == 400
+        assert resp.get_json()["msg"] == "question is required"
+
 
 # ---------------------------------------------------------------------------
 # Tests: instructor sets scale / score for each criterion
@@ -285,6 +302,23 @@ class TestCriterionScoreAndScale:
         data = resp.get_json()
         assert data["hasScore"] is False
         assert data["scoreMax"] == 0
+
+    def test_scored_criterion_with_zero_score_is_rejected(self, test_client, make_admin):
+        """
+        GIVEN an instructor adding a scored criterion
+        WHEN POST /create_criteria has hasScore=True and scoreMax=0
+        THEN 400 is returned and the criterion is not created
+        """
+        make_admin(email="teacher@example.com", password="pass", name="Teacher")
+        _login(test_client, "teacher@example.com", "pass")
+        course_id = _create_class(test_client)
+        assignment_id = _create_assignment(test_client, course_id)
+        rubric_id = _create_rubric(test_client, assignment_id).get_json()["id"]
+
+        resp = _add_criterion(test_client, rubric_id, "Scored item", 0, has_score=True)
+
+        assert resp.status_code == 400
+        assert "greater than 0" in resp.get_json()["msg"]
 
     def test_instructor_can_update_criterion_score(self, test_client, make_admin):
         """

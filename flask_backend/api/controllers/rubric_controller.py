@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request # type: ignore
 
 from ..models import CriteriaDescription, Rubric, CriteriaDescriptionSchema, RubricSchema
 from .auth_controller import jwt_teacher_required
@@ -12,6 +12,20 @@ def _safe_int(value, default=0):
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _safe_bool(value, default=True):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off"}:
+            return False
+    if value is None:
+        return default
+    return bool(value)
 
 
 def _rubric_scored_total(rubric, exclude_criteria_id=None):
@@ -80,18 +94,24 @@ def create_criteria():
     """Create a new criteria description for a rubric"""
     data = request.get_json()
     rubric_id = data.get("rubricID")
-    question = data.get("question", "")
+    question = str(data.get("question", "")).strip()
     score_max = _safe_int(data.get("scoreMax", 0), 0)
-    has_score = data.get("hasScore", True)
+    has_score = _safe_bool(data.get("hasScore", True), True)
 
     if not rubric_id:
         return jsonify({"msg": "rubricID is required"}), 400
+
+    if not question:
+        return jsonify({"msg": "question is required"}), 400
 
     rubric = Rubric.get_by_id(rubric_id)
     if not rubric:
         return jsonify({"msg": "Rubric not found"}), 404
 
     score_max = max(0, min(score_max, MAX_ASSIGNMENT_SCORE))
+    if has_score and score_max == 0:
+        return jsonify({"msg": "scoreMax must be greater than 0 when hasScore is true"}), 400
+
     proposed_score = score_max if has_score else 0
     current_total = _rubric_scored_total(rubric)
     if current_total + proposed_score > MAX_ASSIGNMENT_SCORE:
@@ -122,15 +142,19 @@ def edit_criteria(criteria_id):
     data = request.get_json() or {}
 
     if "question" in data:
-        criteria.question = data.get("question", "")
+        criteria.question = str(data.get("question", "")).strip()
+        if not criteria.question:
+            return jsonify({"msg": "question is required"}), 400
 
     if "hasScore" in data:
-        criteria.hasScore = bool(data.get("hasScore"))
+        criteria.hasScore = _safe_bool(data.get("hasScore"), criteria.hasScore)
 
     if "scoreMax" in data:
         criteria.scoreMax = _safe_int(data.get("scoreMax", 0), 0)
 
     criteria.scoreMax = max(0, min(_safe_int(criteria.scoreMax, 0), MAX_ASSIGNMENT_SCORE))
+    if criteria.hasScore and criteria.scoreMax == 0:
+        return jsonify({"msg": "scoreMax must be greater than 0 when hasScore is true"}), 400
 
     rubric = Rubric.get_by_id(criteria.rubricID)
     if rubric:
