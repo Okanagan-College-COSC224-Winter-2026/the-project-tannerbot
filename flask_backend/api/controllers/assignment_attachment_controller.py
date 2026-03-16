@@ -1,45 +1,13 @@
-import os
-import tempfile
+import io
 import uuid
 
-from flask import Blueprint, current_app, jsonify, request, send_from_directory
+from flask import Blueprint, jsonify, request, send_file
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from werkzeug.utils import secure_filename
 
-from ..models import Assignment, Course, User, User_Course
+from ..models import Assignment, AssignmentAttachment, Course, User, User_Course
+from .auth_controller import jwt_teacher_required
 
 bp = Blueprint("assignment_attachment", __name__, url_prefix="/assignment")
-
-
-def _get_upload_roots():
-    configured_upload_root = current_app.config.get(
-        "ASSIGNMENT_UPLOAD_FOLDER",
-        os.path.join(current_app.instance_path, "assignment_uploads"),
-    )
-    fallback_upload_root = os.path.join(
-        tempfile.gettempdir(),
-        "peer_eval_assignment_uploads",
-    )
-    return [configured_upload_root, fallback_upload_root]
-
-
-def _get_writable_upload_root():
-    for candidate in _get_upload_roots():
-        try:
-            os.makedirs(candidate, exist_ok=True)
-            return candidate
-        except OSError:
-            continue
-    return None
-
-
-def _get_assignment_upload_dir(assignment_id):
-    """Return a single canonical attachment directory for this assignment."""
-    for upload_root in _get_upload_roots():
-        assignment_dir = os.path.join(upload_root, str(assignment_id))
-        if os.path.isdir(assignment_dir):
-            return assignment_dir
-    return None
 
 
 def _can_access_course(user, course):
@@ -50,21 +18,59 @@ def _can_access_course(user, course):
     return User_Course.get(user.id, course.id) is not None
 
 
-def _resolve_attachment_path(assignment_id, stored_name):
-    if os.path.basename(stored_name) != stored_name:
-        return None, None
+def _normalize_original_name(filename):
+    if not filename:
+        return None
 
-    assignment_dir = _get_assignment_upload_dir(assignment_id)
-    if assignment_dir:
-        file_path = os.path.join(assignment_dir, stored_name)
-        if os.path.isfile(file_path):
-            return assignment_dir, file_path
+    normalized_name = filename.replace("\\", "/").split("/")[-1].strip()
+    if not normalized_name:
+        return None
 
-    return None, None
+    return normalized_name[:255]
+
+
+def _serialize_attachment_metadata(assignment_id, attachment):
+    return {
+        "stored_name": attachment.stored_name,
+        "original_name": attachment.original_name,
+        "download_url": f"/assignment/{assignment_id}/attachment/{attachment.stored_name}",
+    }
+
+
+def _get_assignment_for_teacher_edit(assignment_id):
+    """Validate assignment ownership/modification rights for teacher/admin attachment edits."""
+    assignment = Assignment.get_by_id(assignment_id)
+    if not assignment:
+        return None, None, (jsonify({"msg": "Assignment not found"}), 404)
+
+    email = get_jwt_identity()
+    user = User.get_by_email(email)
+    if not user:
+        return None, None, (jsonify({"msg": "User not found"}), 404)
+
+    course = Course.get_by_id(assignment.courseID)
+    if not course:
+        return None, None, (jsonify({"msg": "Course not found"}), 404)
+
+    if course.teacherID != user.id and not user.is_admin():
+        return (
+            None,
+            None,
+            (jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403),
+        )
+
+    if not assignment.can_modify():
+        return (
+            None,
+            None,
+            (jsonify({"msg": "Assignment cannot be modified after its due date"}), 400),
+        )
+
+    return assignment, user, None
 
 
 def save_assignment_attachments(assignment_id):
-    """Persist uploaded assignment files and return metadata for saved files."""
+    """Persist uploaded assignment files in the database and return metadata."""
     uploaded_files = []
     for key in ("attachments", "attachment", "files", "file"):
         uploaded_files.extend(request.files.getlist(key))
@@ -77,64 +83,98 @@ def save_assignment_attachments(assignment_id):
     if not uploaded_files:
         return []
 
-    upload_root = _get_writable_upload_root()
-    if not upload_root:
-        raise OSError("No writable upload directory available")
-
-    assignment_dir = os.path.join(upload_root, str(assignment_id))
-    os.makedirs(assignment_dir, exist_ok=True)
-
-    saved_files = []
+    attachments_to_create = []
     for uploaded_file in uploaded_files:
         if not uploaded_file or not uploaded_file.filename:
             continue
 
-        safe_name = secure_filename(uploaded_file.filename)
-        if not safe_name:
+        original_name = _normalize_original_name(uploaded_file.filename)
+        if not original_name:
             continue
 
-        # Prefix with UUID to avoid filename collisions for repeated uploads.
-        stored_name = f"{uuid.uuid4().hex}_{safe_name}"
-        file_path = os.path.join(assignment_dir, stored_name)
-        uploaded_file.save(file_path)
-        saved_files.append(
-            {
-                "original_name": uploaded_file.filename,
-                "stored_name": stored_name,
-            }
+        content = uploaded_file.read()
+        stored_name = uuid.uuid4().hex
+        attachment = AssignmentAttachment(
+            assignmentID=assignment_id,
+            stored_name=stored_name,
+            original_name=original_name,
+            mime_type=uploaded_file.mimetype,
+            size_bytes=len(content),
+            content=content,
         )
+        attachments_to_create.append(attachment)
 
-    return saved_files
+    saved_attachments = AssignmentAttachment.create_attachments(attachments_to_create)
+
+    return [
+        _serialize_attachment_metadata(assignment_id, attachment)
+        for attachment in saved_attachments
+    ]
 
 
 def list_assignment_attachments(assignment_id):
     """List attachment metadata for an assignment."""
-    attachments = []
-    assignment_dir = _get_assignment_upload_dir(assignment_id)
-    if not assignment_dir:
-        return attachments
+    return [
+        _serialize_attachment_metadata(assignment_id, attachment)
+        for attachment in AssignmentAttachment.get_for_assignment(assignment_id)
+    ]
 
-    for stored_name in os.listdir(assignment_dir):
-        file_path = os.path.join(assignment_dir, stored_name)
-        if not os.path.isfile(file_path):
-            continue
 
-        original_name = stored_name.split("_", 1)[1] if "_" in stored_name else stored_name
-        attachments.append(
+@bp.route("/<int:assignment_id>/attachment", methods=["POST"])
+@jwt_teacher_required
+def add_assignment_attachments(assignment_id):
+    """Add one or more attachments to an existing assignment."""
+    assignment, _, error = _get_assignment_for_teacher_edit(assignment_id)
+    if error:
+        return error
+
+    saved_files = save_assignment_attachments(assignment.id)
+    if not saved_files:
+        return jsonify({"msg": "No attachments uploaded"}), 400
+
+    return (
+        jsonify(
             {
-                "stored_name": stored_name,
-                "original_name": original_name,
-                "download_url": f"/assignment/{assignment_id}/attachment/{stored_name}",
+                "msg": "Attachments updated",
+                "assignment_id": assignment.id,
+                "added_attachments": saved_files,
+                "attachments": list_assignment_attachments(assignment.id),
             }
-        )
+        ),
+        200,
+    )
 
-    return attachments
+
+@bp.route("/<int:assignment_id>/attachment/<path:stored_name>", methods=["DELETE"])
+@jwt_teacher_required
+def delete_assignment_attachment(assignment_id, stored_name):
+    """Delete an attachment from an existing assignment."""
+    assignment, _, error = _get_assignment_for_teacher_edit(assignment_id)
+    if error:
+        return error
+
+    attachment = AssignmentAttachment.get_by_assignment_and_stored_name(assignment.id, stored_name)
+    if not attachment:
+        return jsonify({"msg": "Attachment not found"}), 404
+
+    attachment.delete()
+
+    return (
+        jsonify(
+            {
+                "msg": "Attachment deleted",
+                "assignment_id": assignment.id,
+                "attachments": list_assignment_attachments(assignment.id),
+            }
+        ),
+        200,
+    )
 
 
 @bp.route("/<int:assignment_id>/attachment/<path:stored_name>", methods=["GET"])
 @jwt_required()
 def download_assignment_attachment(assignment_id, stored_name):
-    """Download an assignment attachment for users with access to the assignment's course."""
+    """Download an assignment attachment stored in the database."""
     assignment = Assignment.get_by_id(assignment_id)
     if not assignment:
         return jsonify({"msg": "Assignment not found"}), 404
@@ -151,14 +191,13 @@ def download_assignment_attachment(assignment_id, stored_name):
     if not _can_access_course(user, course):
         return jsonify({"msg": "Unauthorized to access this attachment"}), 403
 
-    assignment_dir, file_path = _resolve_attachment_path(assignment_id, stored_name)
-    if not assignment_dir or not file_path:
+    attachment = AssignmentAttachment.get_by_assignment_and_stored_name(assignment_id, stored_name)
+    if not attachment:
         return jsonify({"msg": "Attachment not found"}), 404
 
-    original_name = stored_name.split("_", 1)[1] if "_" in stored_name else stored_name
-    return send_from_directory(
-        assignment_dir,
-        stored_name,
+    return send_file(
+        io.BytesIO(attachment.content),
+        mimetype=attachment.mime_type or "application/octet-stream",
         as_attachment=True,
-        download_name=original_name,
+        download_name=attachment.original_name,
     )

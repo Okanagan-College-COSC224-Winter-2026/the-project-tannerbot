@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+// This component checks if the user is authenticated by making a request to the backend.
+import { hasRole } from "../util/login";
 
 const BASE_URL = "http://localhost:5000";
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
+    allowedRoles?: string[];
 }
 
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
     const navigate = useNavigate();
-    const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
+    const [isAllowed, setIsAllowed] = useState<boolean | null>(null);
 
     useEffect(() => {
         ;(async () => {
@@ -18,19 +21,29 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
                     method: "GET",
                     credentials: "include",
                 });
-                if (response.ok) {
-                    setIsAuthed(true);
-                } else {
-                    setIsAuthed(false);
+                if (!response.ok) {
+                    setIsAllowed(false);
                     navigate("/");
+                    return;
                 }
+
+                if (allowedRoles && allowedRoles.length > 0) {
+                    const roleMatch = hasRole(...allowedRoles);
+                    if (!roleMatch) {
+                        setIsAllowed(false);
+                        navigate("/home");
+                        return;
+                    }
+                }
+
+                setIsAllowed(true);
             } catch (error) {
                 console.error("Error checking authentication:", error);
-                setIsAuthed(false);
+                setIsAllowed(false);
                 navigate("/");
             }
         })();
     }, [navigate]);
 
-    return isAuthed ? <>{children}</> : null;
+    return isAllowed ? <>{children}</> : null;
 }

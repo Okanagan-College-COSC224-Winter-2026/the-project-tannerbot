@@ -41,8 +41,7 @@ export default function ClassHome() {
         name,
         description || undefined,
         dueDate || undefined,
-        startDate || undefined,
-        attachments
+        startDate || undefined
       );
       const createdAssignment = response?.assignment
         ? {
@@ -175,6 +174,7 @@ export default function ClassHome() {
                   <AssignmentCard 
                     id={assignment.id}
                     assignment={assignment}
+                    classId={id}
                     onEdit={isTeacher() ? () => openEditModal(assignment) : undefined}
                     onDelete={isTeacher() ? () => handleDeleteAssignment(assignment.id) : undefined}
                   >

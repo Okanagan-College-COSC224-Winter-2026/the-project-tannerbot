@@ -79,6 +79,16 @@
   box-sizing: border-box;
 }
 
+.date-input {
+  color-scheme: light;
+}
+
+.date-input::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  cursor: pointer;
+  filter: none;
+}
+
 .text-input:focus,
 .date-input:focus {
   outline: none;

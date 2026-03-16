@@ -1,0 +1,169 @@
+.CriteriaCreationPage {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.CriteriaCreationHeader {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--background-secondary, #e0e0e0);
+}
+
+.CriteriaCreationHeaderLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.CriteriaCreationHeaderLeft h2 {
+  margin: 0;
+}
+
+.CriteriaCreationAssignmentName {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #666);
+  font-weight: normal;
+}
+
+.CriteriaCreationHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.CriteriaCreationBody {
+  padding: 16px;
+}
+
+.ExistingCriteria {
+  margin-bottom: 32px;
+  padding: 16px;
+  border: 1px solid var(--background-secondary, #e0e0e0);
+  border-radius: 6px;
+  background-color: var(--background-primary, #fff);
+}
+
+.ExistingCriteria h3 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  color: var(--text-primary, #333);
+}
+
+.ExistingCriteriaTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.ExistingCriteriaTable th,
+.ExistingCriteriaTable td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--background-secondary, #e0e0e0);
+  vertical-align: top;
+}
+
+.ExistingCriteriaTable th {
+  font-weight: 600;
+  color: var(--text-secondary, #666);
+  background-color: var(--background-secondary, #f5f5f5);
+}
+
+.ExistingCriteriaTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ExistingCriteriaNote {
+  margin: 10px 0 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #666);
+}
+
+.CriteriaRowActions {
+  display: flex;
+  gap: 8px;
+}
+
+.CriteriaActionButton {
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.CriteriaActionButton.edit,
+.CriteriaActionButton.save {
+  background-color: #2f7bff;
+  color: #fff;
+}
+
+.CriteriaActionButton.delete {
+  background-color: #d43f3f;
+  color: #fff;
+}
+
+.CriteriaActionButton.cancel {
+  background-color: #9a9a9a;
+  color: #fff;
+}
+
+.CriteriaEditInput {
+  width: 96%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid #c9c9c9;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.CriteriaEditNumber {
+  width: 80px;
+}
+
+.CriteriaEditScoreWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.CriteriaEditCheckbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.CriteriaCommentHint {
+  display: block;
+  margin-top: 4px;
+  color: #777;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 740px) {
+  .CriteriaCreationHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .CriteriaCreationHeaderRight {
+    justify-content: space-between;
+  }
+
+  .CriteriaCreationHeaderRight .Button {
+    width: 100%;
+  }
+
+  .CriteriaCreationHeaderRight {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+}
