@@ -21,7 +21,7 @@ export default function Sidebar() {
         </SidebarRow>
 
         <SidebarRow selected={location === '/home'} href="/home">
-          Home
+          {hasRole('teacher') ? 'Dashboard' : 'Home'}
         </SidebarRow>
 
         {hasRole('student', 'teacher', 'admin') ? (
