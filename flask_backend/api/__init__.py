@@ -8,6 +8,7 @@ from flask_jwt_extended import JWTManager
 from .cli import init_app
 from .controllers import (
     admin_controller,
+    assignment_attachment_controller,
     auth_controller,
     class_controller,
     fake_api_controller,
@@ -110,6 +111,7 @@ def create_app(test_config=None):
     app.register_blueprint(class_controller.bp)
     app.register_blueprint(assignment_controller.bp)
     app.register_blueprint(rubric_controller.bp)
+    app.register_blueprint(assignment_attachment_controller.bp)
     app.register_blueprint(fake_api_controller.fake)
     app.register_blueprint(practice_tanner_controller.practice)
 

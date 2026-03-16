@@ -1,3 +1,7 @@
+import os
+import shutil
+import tempfile
+
 import pytest
 from werkzeug.security import generate_password_hash
 
@@ -7,6 +11,18 @@ from api.models.db import db as _db
 
 base_url = "http://localhost:5000/assets"
 TEMP_PATH = "/tmp/sqlalchemy-media"
+
+
+def _cleanup_assignment_upload_dirs(app):
+    configured_upload_root = app.config.get(
+        "ASSIGNMENT_UPLOAD_FOLDER",
+        os.path.join(app.instance_path, "assignment_uploads"),
+    )
+    fallback_upload_root = os.path.join(tempfile.gettempdir(), "peer_eval_assignment_uploads")
+
+    for upload_root in (configured_upload_root, fallback_upload_root):
+        if os.path.isdir(upload_root):
+            shutil.rmtree(upload_root, ignore_errors=True)
 
 
 @pytest.fixture(scope="session")
@@ -37,6 +53,8 @@ def app():
 def db(app):
     """Create a fresh database session for each test."""
     with app.app_context():
+        _cleanup_assignment_upload_dirs(app)
+
         # Clear all data from tables
         for table in reversed(_db.metadata.sorted_tables):
             _db.session.execute(table.delete())
@@ -46,6 +64,7 @@ def db(app):
 
         # Cleanup after test
         _db.session.rollback()
+        _cleanup_assignment_upload_dirs(app)
 
 
 @pytest.fixture(scope="function")

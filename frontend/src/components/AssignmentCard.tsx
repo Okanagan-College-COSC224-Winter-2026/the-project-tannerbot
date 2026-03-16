@@ -2,6 +2,7 @@ import './AssignmentCard.css'
 import { useNavigate } from 'react-router-dom';
 import { calculateTimeUntilDue, formatDateTime, isPastDue } from '../util/dateUtils';
 import { isTeacher } from '../util/login';
+import { downloadAssignmentAttachment } from '../util/api';
 
 interface Props {
   onClick?: () => void
@@ -50,6 +51,19 @@ export default function AssignmentCard(props: Props) {
     }
   };
 
+  const handleAttachmentClick = async (
+    e: React.MouseEvent,
+    downloadUrl: string,
+    fileName: string,
+  ) => {
+    e.stopPropagation();
+    try {
+      await downloadAssignmentAttachment(downloadUrl, fileName);
+    } catch (error) {
+      console.error('Error downloading assignment attachment:', error);
+    }
+  };
+
   return (
     <div className='A_Card' onClick={handleCardClick}>
       <div className='A_Card_icon'>
@@ -74,6 +88,25 @@ export default function AssignmentCard(props: Props) {
                     ({timeUntilDue.formatted})
                   </span>
                 )}
+              </div>
+            )}
+            {props.assignment.attachments && props.assignment.attachments.length > 0 && (
+              <div className='A_Card_attachments'>
+                <span className='date-label'>Attachments:</span>
+                <div className='A_Card_attachment_list'>
+                  {props.assignment.attachments.map((attachment) => (
+                    <button
+                      key={attachment.stored_name}
+                      type='button'
+                      className='A_Card_attachment_link'
+                      onClick={(e) =>
+                        handleAttachmentClick(e, attachment.download_url, attachment.original_name)
+                      }
+                    >
+                      {attachment.original_name}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
