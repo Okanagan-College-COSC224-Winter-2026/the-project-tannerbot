@@ -53,9 +53,10 @@ export default function ClassMembers() {
       <div className="ClassMemberList">
         {
           members.map(member => {
+            const identifier = member.student_id || member.email;
             return (
               <div key={member.id} className="Member">
-                {member.name} ({member.id})
+                {member.name} ({identifier})
               </div>
             )
           })

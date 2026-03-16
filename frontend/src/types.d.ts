@@ -6,6 +6,7 @@ interface Course {
 
 interface User {
   id: number;
+  student_id?: string | null;
   name: string;
   email: string;
   role: 'student' | 'teacher' | 'admin';
