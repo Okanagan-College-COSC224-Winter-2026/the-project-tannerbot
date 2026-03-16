@@ -110,6 +110,7 @@ def get_class_members():
                 "name": m.name,
                 "email": m.email,
                 "role": m.role,
+                "profile_picture_url": f"/user/{m.id}/profile-picture" if m.profile_picture else None,
             }
             for m in members
         ]

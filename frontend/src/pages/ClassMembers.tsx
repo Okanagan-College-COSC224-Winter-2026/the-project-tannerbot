@@ -1,15 +1,17 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import TabNavigation from "../components/TabNavigation";
 import { useEffect, useState } from "react";
 import Button from "../components/Button";
 import { importCSV } from "../util/csv";
 import { listCourseMembers, listClasses } from "../util/api";
+import { getProfilePictureSrc } from "../util/profile";
 
 import './ClassMembers.css'
 import { isTeacher } from "../util/login";
 
 export default function ClassMembers() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [members, setMembers] = useState<User[]>([])
   const [className, setClassName] = useState<string | null>(null);
 
@@ -54,9 +56,19 @@ export default function ClassMembers() {
         {
           members.map(member => {
             const identifier = member.student_id || member.email;
+            const picSrc = getProfilePictureSrc(member.profile_picture_url);
             return (
-              <div key={member.id} className="Member">
-                {member.name} ({identifier})
+              <div key={member.id} className="Member" onClick={() => navigate(`/profile/${member.id}`)}>
+                <div className="MemberAvatar">
+                  {picSrc
+                    ? <img src={picSrc} alt={member.name} className="MemberAvatarImg" />
+                    : <span className="MemberAvatarFallback">{member.name.charAt(0).toUpperCase()}</span>
+                  }
+                </div>
+                <div className="MemberInfo">
+                  <span className="MemberName">{member.name}</span>
+                  <span className="MemberIdentifier">{identifier}</span>
+                </div>
               </div>
             )
           })

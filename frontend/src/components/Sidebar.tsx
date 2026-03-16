@@ -30,7 +30,7 @@ export default function Sidebar() {
         ) : null}
         
         <SidebarRow selected={location.includes('/profile')} href="/profile">
-          My Info
+          Profile
         </SidebarRow>
       </div>
     </div>

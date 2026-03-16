@@ -9,6 +9,10 @@
 }
 
 .Member {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
   width: 80%;
 
   padding: 10px;
@@ -20,4 +24,44 @@
 .Member:hover {
   cursor: pointer;
   background-color: var(--background-secondary);
+}
+
+.MemberAvatar {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: var(--accent, #4a90d9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.MemberAvatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.MemberAvatarFallback {
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  user-select: none;
+}
+
+.MemberInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.MemberName {
+  font-weight: 500;
+}
+
+.MemberIdentifier {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #888);
 }
