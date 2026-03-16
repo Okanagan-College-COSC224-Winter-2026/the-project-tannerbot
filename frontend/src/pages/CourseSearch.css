@@ -37,7 +37,7 @@
 .CourseSearchForm button {
   border: none;
   border-radius: 8px;
-  background: #0b6fbf;
+  background: var(--button-primary);
   color: #fff;
   padding: 0.75rem 1.25rem;
   font-size: 1rem;
