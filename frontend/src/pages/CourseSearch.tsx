@@ -1,7 +1,10 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { searchCourses } from "../util/courseSearchApi";
 import { CourseSearchResponse, CourseSearchResult } from "../types/courseSearch";
 import "./CourseSearch.css";
+
+const MIN_QUERY_LENGTH = 2;
 
 export default function CourseSearch() {
   const [query, setQuery] = useState("");
@@ -9,9 +12,25 @@ export default function CourseSearch() {
   const [errorMessage, setErrorMessage] = useState("");
   const [result, setResult] = useState<CourseSearchResponse | null>(null);
 
+  const trimmedQuery = query.trim();
+  const queryTooShort = trimmedQuery.length > 0 && trimmedQuery.length < MIN_QUERY_LENGTH;
+
+  const handleClear = () => {
+    setQuery("");
+    setResult(null);
+    setErrorMessage("");
+  };
+
   const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage("");
+
+    if (queryTooShort) {
+      setResult(null);
+      setErrorMessage(`Please enter at least ${MIN_QUERY_LENGTH} characters.`);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -43,7 +62,18 @@ export default function CourseSearch() {
         <button type="submit" disabled={loading}>
           {loading ? "Searching..." : "Search"}
         </button>
+        <button type="button" className="ClearButton" onClick={handleClear} disabled={loading}> 
+          Clear
+        </button>
       </form>
+
+      <p className="CourseSearchHint">Press Enter to search.</p>
+
+      {queryTooShort ? (
+        <div className="CourseSearchStatus Empty">
+          Enter at least {MIN_QUERY_LENGTH} characters to search.
+        </div>
+      ) : null}
 
       {errorMessage ? (
         <div className="CourseSearchStatus Error">{errorMessage}</div>
@@ -61,7 +91,9 @@ export default function CourseSearch() {
                   <li key={course.id}>
                     <div className="CourseResultCard">
                       <h2>
-                        <a href={`/classes/${course.id}/home`}>{course.name}</a>
+                        <Link className="CourseNameLink" to={`/classes/${course.id}/home`}>
+                          {course.name}
+                        </Link>
                       </h2>
                       <p>
                         <strong>Code:</strong> {course.code}

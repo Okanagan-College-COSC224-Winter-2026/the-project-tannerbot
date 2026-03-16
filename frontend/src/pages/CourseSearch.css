@@ -13,6 +13,12 @@
   color: #555;
 }
 
+.CourseSearchHint {
+  margin: 0.5rem 0 0;
+  color: #666;
+  font-size: 0.95rem;
+}
+
 .CourseSearchForm {
   display: flex;
   gap: 0.75rem;
@@ -36,6 +42,11 @@
   padding: 0.75rem 1.25rem;
   font-size: 1rem;
   cursor: pointer;
+}
+
+.CourseSearchForm .ClearButton {
+  background: #ececec;
+  color: #222;
 }
 
 .CourseSearchForm button:disabled {
@@ -64,6 +75,16 @@
 
 .CourseResultCard h2 {
   margin: 0 0 0.5rem 0;
+}
+
+.CourseNameLink {
+  color: #0b4f88;
+  text-decoration: none;
+}
+
+.CourseNameLink:hover,
+.CourseNameLink:focus {
+  text-decoration: underline;
 }
 
 .CourseResultCard p {
