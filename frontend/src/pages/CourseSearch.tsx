@@ -60,7 +60,9 @@ export default function CourseSearch() {
                 {result.results.map((course: CourseSearchResult) => (
                   <li key={course.id}>
                     <div className="CourseResultCard">
-                      <h2>{course.name}</h2>
+                      <h2>
+                        <a href={`/classes/${course.id}/home`}>{course.name}</a>
+                      </h2>
                       <p>
                         <strong>Code:</strong> {course.code}
                       </p>

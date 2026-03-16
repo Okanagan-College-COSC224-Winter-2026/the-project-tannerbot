@@ -1,4 +1,4 @@
-import { isStudent, logout } from '../util/login'
+import { hasRole, logout } from '../util/login'
 import './Sidebar.css'
 
 export default function Sidebar() {
@@ -24,7 +24,7 @@ export default function Sidebar() {
           Home
         </SidebarRow>
 
-        {isStudent() ? (
+        {hasRole('student', 'teacher', 'admin') ? (
           <SidebarRow selected={location === '/courses/search'} href="/courses/search">
             Search Courses
           </SidebarRow>
