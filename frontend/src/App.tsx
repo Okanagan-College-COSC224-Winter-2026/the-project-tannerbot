@@ -14,6 +14,7 @@ import Group from "./pages/Group";
 import RegisterPage from "./pages/RegisterPage";
 import ChangePassword from "./pages/ChangePassword";
 import CreateTeacher from "./pages/CreateTeacher";
+import CriteriaCreation from "./pages/CriteriaCreation";
 
 function AppContent() {
   const location = useLocation();
@@ -73,6 +74,12 @@ function AppContent() {
           <Route path="/assignments/:id/group" element={
             <ProtectedRoute>
               <Group />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/assignment/:id/criteria" element={
+            <ProtectedRoute>
+              <CriteriaCreation />
             </ProtectedRoute>
           } />
         </Routes>
