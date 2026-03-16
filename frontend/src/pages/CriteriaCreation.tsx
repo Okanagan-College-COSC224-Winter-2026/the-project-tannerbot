@@ -2,6 +2,7 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import RubricCreator from "../components/RubricCreator";
 import Button from "../components/Button";
+import ManageAttachmentsModal from "../components/ManageAttachmentsModal";
 import { deleteCriteria, getRubricByAssignment, updateCriteria } from "../util/api";
 import "./CriteriaCreation.css";
 
@@ -118,6 +119,10 @@ export default function CriteriaCreation() {
           <Button onClick={handleBackToClass} type="secondary">
             ← Back to Class
           </Button>
+          <ManageAttachmentsModal
+            assignmentId={id ? Number(id) : undefined}
+            classId={classId}
+          />
         </div>
       </div>
 

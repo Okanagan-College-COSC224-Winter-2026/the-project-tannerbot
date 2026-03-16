@@ -33,15 +33,14 @@ export default function ClassHome() {
     })();
   }, [id]);
     
-  const handleCreateAssignment = async (name: string, dueDate: string, startDate: string, attachments: File[]) => {
+  const handleCreateAssignment = async (name: string, dueDate: string, startDate: string) => {
     try {
       setStatusMessage('');
       const response = await createAssignment(
         idNew,
         name,
         dueDate || undefined,
-        startDate || undefined,
-        attachments
+        startDate || undefined
       );
       const createdAssignment = response?.assignment
         ? {
@@ -123,9 +122,9 @@ export default function ClassHome() {
     setIsModalOpen(true);
   };
 
-  const handleModalSave = (name: string, dueDate: string, startDate: string, attachments: File[]) => {
+  const handleModalSave = (name: string, dueDate: string, startDate: string) => {
     if (modalMode === "create") {
-      handleCreateAssignment(name, dueDate, startDate, attachments);
+      handleCreateAssignment(name, dueDate, startDate);
     } else {
       handleEditAssignment(name, dueDate, startDate);
     }
