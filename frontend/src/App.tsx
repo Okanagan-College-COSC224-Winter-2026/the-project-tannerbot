@@ -14,8 +14,6 @@ import Group from "./pages/Group";
 import RegisterPage from "./pages/RegisterPage";
 import ChangePassword from "./pages/ChangePassword";
 import CreateTeacher from "./pages/CreateTeacher";
-import CriteriaCreation from "./pages/CriteriaCreation";
-import CourseSearch from "./pages/CourseSearch";
 
 function AppContent() {
   const location = useLocation();
@@ -31,7 +29,7 @@ function AppContent() {
           <Route path="/change-password" element={<ChangePassword />} />
 
           <Route path="/home" element={
-            <ProtectedRoute allowedRoles={['teacher', 'student', 'admin']}>
+            <ProtectedRoute>
               <Home />
             </ProtectedRoute>
           } />
@@ -45,12 +43,6 @@ function AppContent() {
           <Route path="/classes/create" element={
             <ProtectedRoute>
               <CreateClass />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/courses/search" element={
-            <ProtectedRoute>
-              <CourseSearch />
             </ProtectedRoute>
           } />
 
@@ -81,12 +73,6 @@ function AppContent() {
           <Route path="/assignments/:id/group" element={
             <ProtectedRoute>
               <Group />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/assignment/:id/criteria" element={
-            <ProtectedRoute>
-              <CriteriaCreation />
             </ProtectedRoute>
           } />
         </Routes>

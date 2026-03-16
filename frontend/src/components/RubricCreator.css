@@ -15,23 +15,15 @@
     margin-bottom: 20px;
 }
 
-.remaining-points {
-    margin: 0 0 14px 0;
-    color: #333;
-}
-
 .criteria-input-section {
+    display: flex;
+    gap: 10px;
+    align-items: center;
     margin-bottom: 15px;
     padding: 10px;
     background-color: white;
     border-radius: 4px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.criteria-row {
-    display: flex;
-    gap: 10px;
-    align-items: center;
 }
 
 .criteria-input-section input[type="text"] {
@@ -46,17 +38,6 @@
     padding: 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
-}
-
-.criteria-input-section .invalid-input {
-    border-color: #c62828;
-    background-color: #fff5f5;
-}
-
-.criteria-inline-error {
-    margin: 8px 0 0 0;
-    color: #c62828;
-    font-size: 0.9rem;
 }
 
 .button-group {

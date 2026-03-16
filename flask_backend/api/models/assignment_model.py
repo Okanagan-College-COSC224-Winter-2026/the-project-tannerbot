@@ -32,12 +32,6 @@ class Assignment(db.Model):
     submissions = db.relationship(
         "Submission", back_populates="assignment", cascade="all, delete-orphan", lazy="dynamic"
     )
-    attachments = db.relationship(
-        "AssignmentAttachment",
-        back_populates="assignment",
-        cascade="all, delete-orphan",
-        lazy="dynamic",
-    )
     reviews = db.relationship(
         "Review", back_populates="assignment", cascade="all, delete-orphan", lazy="dynamic"
     )

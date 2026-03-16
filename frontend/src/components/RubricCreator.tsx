@@ -7,39 +7,13 @@ import './RubricCreator.css';
 interface RubricCreatorProps {
     onRubricCreated?: (rubricId: number) => void;
     id: number;
-    existingScoredTotal?: number;
 }
 
-export default function RubricCreator({ onRubricCreated, id, existingScoredTotal = 0 }: RubricCreatorProps) {
+export default function RubricCreator({ onRubricCreated, id }: RubricCreatorProps) {
     const [newCriteria, setNewCriteria] = useState<Criterion[]>([{ rubricID: 0, question: '', scoreMax: 0, hasScore: true }]);
-    const [criterionErrors, setCriterionErrors] = useState<Array<{ question?: string; scoreMax?: string }>>([{}]);
+    const [canComment, setCanComment] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
     const [statusType, setStatusType] = useState<'error' | 'success'>('error');
-    const newScoredTotal = newCriteria.reduce((sum, criterion) => {
-        if (!criterion.hasScore) {
-            return sum;
-        }
-        return sum + Math.max(0, Math.min(criterion.scoreMax, 100));
-    }, 0);
-    const combinedTotal = existingScoredTotal + newScoredTotal;
-    const remainingPoints = Math.max(0, 100 - combinedTotal);
-
-    const validateCriterion = (criterion: Criterion) => {
-        const errors: { question?: string; scoreMax?: string } = {};
-        if (!criterion.question.trim()) {
-            errors.question = 'A criterion title is required.';
-        }
-        if (criterion.hasScore && criterion.scoreMax <= 0) {
-            errors.scoreMax = 'A score greater than 0 is required when Has score is checked.';
-        }
-        return errors;
-    };
-
-    const validateAllCriteria = (criteria: Criterion[]) => {
-        const errors = criteria.map(validateCriterion);
-        setCriterionErrors(errors);
-        return errors.some(err => Boolean(err.question || err.scoreMax));
-    };
 
     const handleCreate = async () => {
         try {
@@ -54,28 +28,13 @@ export default function RubricCreator({ onRubricCreated, id, existingScoredTotal
             }
             
             const rubricResponse = await createRubric(id, id, canComment);
-            const hasValidationErrors = validateAllCriteria(newCriteria);
-            if (hasValidationErrors) {
-                setStatusType('error');
-                setStatusMessage('Each criterion needs a title and a valid score before it can be added.');
-                return;
-            }
-
-            if (combinedTotal > 100) {
-                setStatusType('error');
-                setStatusMessage(`Total rubric score cannot exceed 100. Remaining points: ${Math.max(0, 100 - existingScoredTotal)}.`);
-                return;
-            }
-
-            const rubricResponse = await createRubric(id, false);
             const newRubricID = rubricResponse.id;
             await Promise.all(newCriteria.map(({ question, scoreMax, hasScore }) => 
-                createCriteria(newRubricID, question, Math.max(0, Math.min(scoreMax, 100)), false, hasScore)
+                createCriteria(newRubricID, question, scoreMax, canComment, hasScore)
             ));
             setStatusType('success');
             setStatusMessage('Rubric created successfully!');
-            setNewCriteria([{ rubricID: 0, question: '', scoreMax: 0, hasScore: true }]);
-            setCriterionErrors([{}]);
+            setTimeout(() => window.location.reload(), 2000);
             if (onRubricCreated) {
                 onRubricCreated(newRubricID);
             }
@@ -90,20 +49,12 @@ export default function RubricCreator({ onRubricCreated, id, existingScoredTotal
         const updatedCriteria = [...newCriteria];
         updatedCriteria[index].question = value;
         setNewCriteria(updatedCriteria);
-
-        const updatedErrors = [...criterionErrors];
-        updatedErrors[index] = validateCriterion(updatedCriteria[index]);
-        setCriterionErrors(updatedErrors);
     };
 
     const handleScoreMaxChange = (index: number, value: number) => {
         const updatedCriteria = [...newCriteria];
-        updatedCriteria[index].scoreMax = Math.max(0, Math.min(100, value));
+        updatedCriteria[index].scoreMax = Math.max(0, value);
         setNewCriteria(updatedCriteria);
-
-        const updatedErrors = [...criterionErrors];
-        updatedErrors[index] = validateCriterion(updatedCriteria[index]);
-        setCriterionErrors(updatedErrors);
     };
 
     const handleHasScoreChange = (index: number, value: boolean) => {
@@ -113,29 +64,11 @@ export default function RubricCreator({ onRubricCreated, id, existingScoredTotal
             updatedCriteria[index].scoreMax = 0;
         }
         setNewCriteria(updatedCriteria);
-
-        const updatedErrors = [...criterionErrors];
-        updatedErrors[index] = validateCriterion(updatedCriteria[index]);
-        setCriterionErrors(updatedErrors);
     };
 
-    const handleAddNewSection = () => {
-        const hasValidationErrors = validateAllCriteria(newCriteria);
-        if (hasValidationErrors) {
-            setStatusType('error');
-            setStatusMessage('Add a title and score before adding another criterion.');
-            return;
-        }
+    const handleAddNewSection = () => setNewCriteria(prev => [...prev, { rubricID: 0, question: '', scoreMax: 0, hasScore: true }]);
 
-        setStatusMessage('');
-        setNewCriteria(prev => [...prev, { rubricID: 0, question: '', scoreMax: 0, hasScore: true }]);
-        setCriterionErrors(prev => [...prev, {}]);
-    };
-
-    const handleRemoveSection = (index: number) => {
-        setNewCriteria(prev => prev.filter((_, i) => i !== index));
-        setCriterionErrors(prev => prev.filter((_, i) => i !== index));
-    };
+    const handleRemoveSection = (index: number) => setNewCriteria(prev => prev.filter((_, i) => i !== index));
 
     return (
         <div className="RubricCreator">
@@ -143,48 +76,41 @@ export default function RubricCreator({ onRubricCreated, id, existingScoredTotal
 
             <StatusMessage message={statusMessage} type={statusType} />
 
-            <p className="remaining-points">
-                Remaining points: <strong>{remainingPoints}</strong> / 100
-            </p>
+            <label className="comment-checkbox">
+                Reviewer can comment:
+                <input
+                    type="checkbox"
+                    checked={canComment}
+                    onChange={() => setCanComment(prev => !prev)}
+                />
+            </label>
 
             {newCriteria.map((item, index) => (
                 <div key={index} className="criteria-input-section">
-                    <div className="criteria-row">
+                    <input
+                        type="text"
+                        value={item.question}
+                        onChange={(e) => handleQuestionChange(index, e.target.value)}
+                        placeholder="Enter question"
+                    />
+                    <label>
+                        Has score:
                         <input
-                            type="text"
-                            value={item.question}
-                            onChange={(e) => handleQuestionChange(index, e.target.value)}
-                            placeholder="Enter criterion point"
-                            aria-invalid={Boolean(criterionErrors[index]?.question)}
-                            className={criterionErrors[index]?.question ? 'invalid-input' : ''}
+                            type="checkbox"
+                            checked={item.hasScore}
+                            onChange={(e) => handleHasScoreChange(index, e.target.checked)}
                         />
-                        <label>
-                            Has score:
-                            <input
-                                type="checkbox"
-                                checked={item.hasScore}
-                                onChange={(e) => handleHasScoreChange(index, e.target.checked)}
-                            />
-                        </label>
-                        {item.hasScore && (
-                            <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={item.scoreMax === 0 ? '' : item.scoreMax}
-                                onChange={(e) => handleScoreMaxChange(index, Number(e.target.value || 0))}
-                                placeholder="Max Score"
-                                aria-invalid={Boolean(criterionErrors[index]?.scoreMax)}
-                                className={criterionErrors[index]?.scoreMax ? 'invalid-input' : ''}
-                            />
-                        )}
-                        <Button onClick={() => handleRemoveSection(index)}>Remove Criterion</Button>
-                    </div>
-                    {(criterionErrors[index]?.question || criterionErrors[index]?.scoreMax) && (
-                        <p className="criteria-inline-error">
-                            {criterionErrors[index]?.question || criterionErrors[index]?.scoreMax}
-                        </p>
+                    </label>
+                    {item.hasScore && (
+                        <input
+                            type="number"
+                            min="0"
+                            value={item.scoreMax}
+                            onChange={(e) => handleScoreMaxChange(index, Number(e.target.value))}
+                            placeholder="Enter score max"
+                        />
                     )}
+                    <Button onClick={() => handleRemoveSection(index)}>Remove Criterion</Button>
                 </div>
             ))}
 

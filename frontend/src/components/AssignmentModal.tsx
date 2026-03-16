@@ -15,6 +15,7 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [startDate, setStartDate] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [validationError, setValidationError] = useState("");
 
   useEffect(() => {
@@ -29,6 +30,7 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
       setDueDate("");
       setStartDate("");
     }
+    setAttachments([]);
     setValidationError("");
   }, [assignment, mode, isOpen]);
 //checks if the start date is after the due date and shows an error message if it is
@@ -107,6 +109,20 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
               className="date-input"
             />
           </div>
+
+          {mode === "create" && (
+            <div className="form-group">
+              <label htmlFor="assignment-attachments">Attachments</label>
+              <input
+                type="file"
+                id="assignment-attachments"
+                multiple
+                onChange={(e) => setAttachments(Array.from(e.target.files || []))}
+                className="text-input"
+              />
+              <small>Select one or more files (Ctrl/Cmd-click to pick multiple).</small>
+            </div>
+          )}
 
           {validationError && (
             <div className="validation-error" style={{ color: "red", marginTop: "10px" }}>
