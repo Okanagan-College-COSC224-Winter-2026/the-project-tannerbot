@@ -1,3 +1,4 @@
+from .assignment_attachment_model import AssignmentAttachment
 from .assignment_model import Assignment
 from .course_group_model import CourseGroup
 from .course_model import Course
@@ -34,6 +35,7 @@ __all__ = [
     "User",
     "Course",
     "Assignment",
+    "AssignmentAttachment",
     "Rubric",
     "CriteriaDescription",
     "Criterion",

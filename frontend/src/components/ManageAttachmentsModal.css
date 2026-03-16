@@ -1,0 +1,216 @@
+.ManageAttachmentsButton {
+  border: none;
+  border-radius: 4px;
+  padding: 12px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  background: var(--button-primary);
+  color: #fff;
+}
+
+.ManageAttachmentsButton:hover {
+  filter: brightness(1.08);
+}
+
+.AttachmentModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.AttachmentModal {
+  width: min(760px, 100%);
+  max-height: 88vh;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 24px 40px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.AttachmentModalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.AttachmentModalHeader h3 {
+  margin: 0;
+}
+
+.AttachmentModalClose {
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  color: #5e5e5e;
+}
+
+.AttachmentModalBody {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.AttachmentSectionHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.AttachmentSectionHeaderRow h4,
+.AttachmentPendingSection h4 {
+  margin: 0;
+}
+
+.AttachmentAddButton {
+  border: none;
+  border-radius: 6px;
+  background: var(--button-primary);
+  color: #fff;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.AttachmentAddButton:hover {
+  filter: brightness(1.08);
+}
+
+.AttachmentHiddenInput {
+  display: none;
+}
+
+.AttachmentList,
+.PendingFileList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.AttachmentListItem,
+.PendingFileListItem {
+  border: 1px solid #dedede;
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.AttachmentListItem.marked-for-removal {
+  background: #f8f8f8;
+  border-color: #bdbdbd;
+}
+
+.AttachmentFileName {
+  border: none;
+  background: transparent;
+  color: #1066c2;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  font-size: 0.92rem;
+}
+
+.AttachmentFileName:hover {
+  text-decoration: underline;
+}
+
+.AttachmentActionButton,
+.PendingRemoveButton {
+  border: none;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: #fff;
+}
+
+.AttachmentActionButton.remove,
+.PendingRemoveButton {
+  background: #d43f3f;
+}
+
+.AttachmentActionButton.undo {
+  background: #8d8d8d;
+}
+
+.AttachmentModalFooter {
+  border-top: 1px solid #e0e0e0;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.AttachmentFooterButton {
+  border: none;
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.AttachmentFooterButton.secondary {
+  background: #e8e8e8;
+  color: #333;
+}
+
+.AttachmentFooterButton.primary {
+  background: #2460d9;
+  color: #fff;
+}
+
+.AttachmentFooterButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.AttachmentStatus {
+  margin: 0;
+  color: #545454;
+  font-size: 0.92rem;
+}
+
+.AttachmentError {
+  margin: 0;
+  color: #b71c1c;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 740px) {
+  .ManageAttachmentsButton {
+    width: 100%;
+  }
+
+  .AttachmentListItem,
+  .PendingFileListItem {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .AttachmentActionButton,
+  .PendingRemoveButton {
+    width: 100%;
+  }
+}

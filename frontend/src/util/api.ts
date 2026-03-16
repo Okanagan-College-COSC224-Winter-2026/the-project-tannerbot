@@ -314,15 +314,55 @@ export const createCriteria = async (rubricID: number, question: string, scoreMa
   maybeHandleExpire(response);
 
   if (!response.ok) {
-    throw new Error(`Response status: ${response.status}`);
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
   }
 }
 
-export const createRubric = async (id: number, assignmentID: number, canComment: boolean): Promise<{ id: number }> => {
+export const updateCriteria = async (criteriaId: number, question: string, scoreMax: number, hasScore: boolean = true) => {
+  const response = await fetch(`${BASE_URL}/criteria/${criteriaId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      question,
+      scoreMax,
+      hasScore,
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  })
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export const deleteCriteria = async (criteriaId: number) => {
+  const response = await fetch(`${BASE_URL}/criteria/${criteriaId}`, {
+    method: 'DELETE',
+    credentials: 'include'
+  })
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    throw new Error(`Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export const createRubric = async (assignmentID: number, canComment: boolean): Promise<{ id: number }> => {
   const response = await fetch(`${BASE_URL}/create_rubric`, {
     method: 'POST',
     body: JSON.stringify({
-      id, assignmentID, canComment
+      assignmentID, canComment
     }),
     headers: {
       'Content-Type': 'application/json',
@@ -353,50 +393,44 @@ export const getRubric = async (rubricID: number) => {
   return await resp.json();
 }
 
+export const getRubricByAssignment = async (assignmentId: number) => {
+  const resp = await fetch(`${BASE_URL}/rubric/assignment/${assignmentId}`, {
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(resp);
+
+  if (resp.status === 404) {
+    return null;
+  }
+
+  if (!resp.ok) {
+    throw new Error(`Response status: ${resp.status}`);
+  }
+
+  return await resp.json();
+}
+
 
 export const createAssignment = async (
   courseID: number,
   name: string,
   dueDate?: string,
   startDate?: string,
-  attachments?: File[]
 )=> {
-  const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
-  const requestInit: RequestInit = {
+  const response = await fetch(`${BASE_URL}/assignment/create_assignment`, {
     method: 'POST',
-    credentials: 'include',
-  };
-
-  if (hasAttachments) {
-    const formData = new FormData();
-    formData.append('courseID', String(courseID));
-    formData.append('name', name);
-
-    if (dueDate) {
-      formData.append('due_date', dueDate);
-    }
-    if (startDate) {
-      formData.append('start_date', startDate);
-    }
-
-    attachments.forEach((file) => {
-      formData.append('attachments', file);
-    });
-
-    requestInit.body = formData;
-  } else {
-    requestInit.body = JSON.stringify({
+    body: JSON.stringify({
       courseID,
       name,
       due_date: dueDate,
       start_date: startDate,
-    });
-    requestInit.headers = {
+    }),
+    headers: {
       'Content-Type': 'application/json',
-    };
-  }
-
-  const response = await fetch(`${BASE_URL}/assignment/create_assignment`, requestInit)
+    },
+    credentials: 'include',
+  })
   
   maybeHandleExpire(response);
 
@@ -489,6 +523,60 @@ export const downloadAssignmentAttachment = async (downloadUrl: string, fileName
   anchor.click();
   document.body.removeChild(anchor);
   window.URL.revokeObjectURL(objectUrl);
+}
+
+export const addAssignmentAttachments = async (assignmentID: number, files: File[]) => {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append('attachments', file);
+  });
+
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/attachment`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    let errorMsg = `Response status: ${response.status}`;
+    try {
+      const error = await response.json();
+      if (error?.msg) {
+        errorMsg = error.msg;
+      }
+    } catch {
+      // Keep status fallback when body is not JSON.
+    }
+    throw new Error(errorMsg);
+  }
+
+  return await response.json();
+}
+
+export const deleteAssignmentAttachment = async (assignmentID: number, storedName: string) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/attachment/${storedName}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    let errorMsg = `Response status: ${response.status}`;
+    try {
+      const error = await response.json();
+      if (error?.msg) {
+        errorMsg = error.msg;
+      }
+    } catch {
+      // Keep status fallback when body is not JSON.
+    }
+    throw new Error(errorMsg);
+  }
+
+  return await response.json();
 }
 
 export const deleteGroup = async (groupID: number) => {

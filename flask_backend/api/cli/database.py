@@ -5,7 +5,7 @@ from flask.cli import with_appcontext
 from sqlalchemy import inspect
 from werkzeug.security import generate_password_hash
 
-from ..models import User, Course, Assignment
+from ..models import Assignment, AssignmentAttachment, Course, User
 from ..models.db import db
 
 
@@ -212,6 +212,23 @@ def migrate_remove_start_date_command():
         click.echo(f"Error during migration rollback: {e}", err=True)
         raise
 
+# flask --app api migrate_add_assignment_attachments adds the AssignmentAttachment table for storing file attachments related to assignments
+@click.command("migrate_add_assignment_attachments")
+@with_appcontext
+def migrate_add_assignment_attachments_command():
+    """Create the AssignmentAttachment table if it does not already exist."""
+    try:
+        inspector = inspect(db.engine)
+        if "AssignmentAttachment" in inspector.get_table_names():
+            click.echo("Table 'AssignmentAttachment' already exists")
+            return
+
+        AssignmentAttachment.__table__.create(bind=db.engine, checkfirst=True)
+        click.echo("Successfully created 'AssignmentAttachment' table")
+    except Exception as e:
+        click.echo(f"Error creating attachment table: {e}", err=True)
+        raise
+
 
 def init_app(app):
     """Register CLI commands with the Flask app"""
@@ -223,3 +240,4 @@ def init_app(app):
     app.cli.add_command(add_sample_courses_command)
     app.cli.add_command(migrate_add_start_date_command)
     app.cli.add_command(migrate_remove_start_date_command)
+    app.cli.add_command(migrate_add_assignment_attachments_command)
