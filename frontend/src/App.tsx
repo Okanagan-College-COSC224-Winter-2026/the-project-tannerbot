@@ -31,7 +31,7 @@ function AppContent() {
           <Route path="/change-password" element={<ChangePassword />} />
 
           <Route path="/home" element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['teacher', 'student', 'admin']}>
               <Home />
             </ProtectedRoute>
           } />
