@@ -26,7 +26,12 @@ def _get_authenticated_user():
 
 
 def _can_view_user(requesting_user, requested_user):
-    return requesting_user.id == requested_user.id or requesting_user.has_role("teacher", "admin")
+    if requesting_user.id == requested_user.id or requesting_user.has_role("teacher", "admin"):
+        return True
+
+    requesting_classes = {uc.courseID for uc in requesting_user.user_courses}
+    requested_classes = {uc.courseID for uc in requested_user.user_courses}
+    return bool(requesting_classes & requested_classes)
 
 
 def _extract_profile_picture_file():
