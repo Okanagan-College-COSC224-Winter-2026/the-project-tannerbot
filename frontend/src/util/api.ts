@@ -299,15 +299,55 @@ export const createCriteria = async (rubricID: number, question: string, scoreMa
   maybeHandleExpire(response);
 
   if (!response.ok) {
-    throw new Error(`Response status: ${response.status}`);
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
   }
 }
 
-export const createRubric = async (id: number, assignmentID: number, canComment: boolean): Promise<{ id: number }> => {
+export const updateCriteria = async (criteriaId: number, question: string, scoreMax: number, hasScore: boolean = true) => {
+  const response = await fetch(`${BASE_URL}/criteria/${criteriaId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      question,
+      scoreMax,
+      hasScore,
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  })
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export const deleteCriteria = async (criteriaId: number) => {
+  const response = await fetch(`${BASE_URL}/criteria/${criteriaId}`, {
+    method: 'DELETE',
+    credentials: 'include'
+  })
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    throw new Error(`Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export const createRubric = async (assignmentID: number, canComment: boolean): Promise<{ id: number }> => {
   const response = await fetch(`${BASE_URL}/create_rubric`, {
     method: 'POST',
     body: JSON.stringify({
-      id, assignmentID, canComment
+      assignmentID, canComment
     }),
     headers: {
       'Content-Type': 'application/json',
@@ -333,6 +373,24 @@ export const getRubric = async (rubricID: number) => {
 
   if (!resp.ok) {
       throw new Error(`Response status: ${resp.status}`);
+  }
+
+  return await resp.json();
+}
+
+export const getRubricByAssignment = async (assignmentId: number) => {
+  const resp = await fetch(`${BASE_URL}/rubric/assignment/${assignmentId}`, {
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(resp);
+
+  if (resp.status === 404) {
+    return null;
+  }
+
+  if (!resp.ok) {
+    throw new Error(`Response status: ${resp.status}`);
   }
 
   return await resp.json();
