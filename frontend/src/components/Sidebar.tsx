@@ -1,8 +1,11 @@
-import { hasRole, logout } from '../util/login'
+import { getCurrentUserId, hasRole, logout } from '../util/login'
 import './Sidebar.css'
 
 export default function Sidebar() {
   const location = window.location.pathname
+  const currentUserId = getCurrentUserId()
+  const ownProfileHref = currentUserId ? `/profile/${currentUserId}` : '/profile'
+  const isOwnProfileRoute = location === ownProfileHref
 
   return (
     <div className="Sidebar">
@@ -29,7 +32,7 @@ export default function Sidebar() {
           </SidebarRow>
         ) : null}
         
-        <SidebarRow selected={location.includes('/profile')} href="/profile">
+        <SidebarRow selected={isOwnProfileRoute} href={ownProfileHref}>
           Profile
         </SidebarRow>
       </div>

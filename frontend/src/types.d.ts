@@ -10,6 +10,7 @@ interface User {
   name: string;
   email: string;
   role: 'student' | 'teacher' | 'admin';
+  is_instructor?: boolean;
   profile_picture_url?: string | null;
 }
 

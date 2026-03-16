@@ -21,6 +21,12 @@
   border-bottom: 1px solid var(--background-secondary);
 }
 
+.MemberInstructorRow {
+  background-color: color-mix(in srgb, #c26a00 12%, transparent);
+  border: 1px solid color-mix(in srgb, #c26a00 36%, var(--background-secondary));
+  border-radius: 10px;
+}
+
 .Member:hover {
   cursor: pointer;
   background-color: var(--background-secondary);
@@ -59,6 +65,23 @@
 
 .MemberName {
   font-weight: 500;
+}
+
+.MemberNameInstructor {
+  color: #c26a00;
+  font-weight: 700;
+}
+
+.MemberRoleBadge {
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #7a3f00;
+  background-color: #f5dcb6;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .MemberIdentifier {

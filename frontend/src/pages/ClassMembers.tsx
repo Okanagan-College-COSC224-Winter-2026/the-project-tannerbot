@@ -57,8 +57,13 @@ export default function ClassMembers() {
           members.map(member => {
             const identifier = member.student_id || member.email;
             const picSrc = getProfilePictureSrc(member.profile_picture_url);
+            const isInstructor = member.is_instructor === true;
             return (
-              <div key={member.id} className="Member" onClick={() => navigate(`/profile/${member.id}`)}>
+              <div
+                key={member.id}
+                className={`Member ${isInstructor ? 'MemberInstructorRow' : ''}`}
+                onClick={() => navigate(`/profile/${member.id}`)}
+              >
                 <div className="MemberAvatar">
                   {picSrc
                     ? <img src={picSrc} alt={member.name} className="MemberAvatarImg" />
@@ -66,7 +71,8 @@ export default function ClassMembers() {
                   }
                 </div>
                 <div className="MemberInfo">
-                  <span className="MemberName">{member.name}</span>
+                  <span className={`MemberName ${isInstructor ? 'MemberNameInstructor' : ''}`}>{member.name}</span>
+                  {isInstructor ? <span className="MemberRoleBadge">Instructor</span> : null}
                   <span className="MemberIdentifier">{identifier}</span>
                 </div>
               </div>
