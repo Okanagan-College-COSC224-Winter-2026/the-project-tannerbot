@@ -2,7 +2,6 @@ import { hasRole, logout } from '../util/login'
 import './Sidebar.css'
 
 export default function Sidebar() {
-  // Check which page we are on
   const location = window.location.pathname
 
   return (
@@ -30,8 +29,7 @@ export default function Sidebar() {
           </SidebarRow>
         ) : null}
         
-        { /* TODO: make this ID match who is logged in */ }
-        <SidebarRow selected={location.includes('/profile')} href="/profile/1">
+        <SidebarRow selected={location.includes('/profile')} href="/profile">
           My Info
         </SidebarRow>
       </div>

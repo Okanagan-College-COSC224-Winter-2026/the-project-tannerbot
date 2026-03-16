@@ -1,6 +1,4 @@
-"""
-User management endpoints
-"""
+"""User management endpoints."""
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
@@ -24,12 +22,20 @@ class UserUpdateSchema(Schema):
 user_update_schema = UserUpdateSchema()
 
 
+def _get_authenticated_user():
+    email = get_jwt_identity()
+    return User.get_by_email(email)
+
+
+def _can_view_user(requesting_user, requested_user):
+    return requesting_user.id == requested_user.id or requesting_user.has_role("teacher", "admin")
+
+
 @bp.route("/", methods=["GET"])
 @jwt_required()
 def get_current_user():
     """Get current authenticated user information"""
-    email = get_jwt_identity()
-    user = User.get_by_email(email)
+    user = _get_authenticated_user()
 
     if not user:
         return jsonify({"msg": "User not found"}), 404
@@ -40,8 +46,7 @@ def get_current_user():
 @jwt_required()
 def get_user_by_id(user_id):
     """Get user by ID (users can view their own info, teachers/admins can view anyone)"""
-    current_email = get_jwt_identity()
-    current_user = User.get_by_email(current_email)
+    current_user = _get_authenticated_user()
 
     if not current_user:
         return jsonify({"msg": "User not found"}), 404
@@ -50,8 +55,7 @@ def get_user_by_id(user_id):
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
-    # Users can view their own info, teachers and admins can view anyone
-    if current_user.id != user_id and not current_user.has_role("teacher", "admin"):
+    if not _can_view_user(current_user, user):
         return jsonify({"msg": "Insufficient permissions"}), 403
 
     return jsonify(user_schema.dump(user)), 200
@@ -70,8 +74,7 @@ def update_current_user():
     except ValidationError as err:
         return jsonify({"msg": "Validation error", "errors": err.messages}), 400
 
-    email = get_jwt_identity()
-    user = User.get_by_email(email)
+    user = _get_authenticated_user()
 
     if not user:
         return jsonify({"msg": "User not found"}), 404
@@ -89,8 +92,7 @@ def update_current_user():
 @jwt_required()
 def delete_user(user_id):
     """Delete user (admin only or own account)"""
-    current_email = get_jwt_identity()
-    current_user = User.get_by_email(current_email)
+    current_user = _get_authenticated_user()
 
     if not current_user:
         return jsonify({"msg": "User not found"}), 404
@@ -127,8 +129,7 @@ def change_password():
     if len(new_password) < 6:
         return jsonify({"msg": "New password must be at least 6 characters"}), 400
 
-    email = get_jwt_identity()
-    user = User.get_by_email(email)
+    user = _get_authenticated_user()
 
     if not user:
         return jsonify({"msg": "User not found"}), 404

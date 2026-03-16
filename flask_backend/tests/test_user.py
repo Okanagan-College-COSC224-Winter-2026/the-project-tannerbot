@@ -2,6 +2,7 @@
 Tests for user management endpoints
 """
 
+import io
 import json
 
 
@@ -73,6 +74,101 @@ def test_update_current_user(test_client):
 
     assert response.status_code == 200
     assert response.json["name"] == "Updated"
+
+
+def test_update_current_user_profile_picture(test_client):
+    """
+    GIVEN a logged-in user
+    WHEN POST /user/profile-picture is called with an image upload
+    THEN the user's profile picture should be stored and retrievable
+    """
+    test_client.post(
+        "/auth/register",
+        data=json.dumps({"name": "testuser", "password": "Password123!", "email": "test@example.com"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "test@example.com", "password": "Password123!"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    upload_response = test_client.post(
+        "/user/profile-picture",
+        data={"profile_picture": (io.BytesIO(b"fake-image-data"), "avatar.png")},
+        content_type="multipart/form-data",
+    )
+
+    assert upload_response.status_code == 200
+    assert upload_response.json["profile_picture_url"] == f"/user/{upload_response.json['id']}/profile-picture"
+
+    picture_response = test_client.get(upload_response.json["profile_picture_url"])
+
+    assert picture_response.status_code == 200
+    assert picture_response.mimetype == "image/png"
+    assert picture_response.data == b"fake-image-data"
+
+
+def test_update_current_user_profile_picture_rejects_non_image(test_client):
+    """
+    GIVEN a logged-in user
+    WHEN POST /user/profile-picture is called with a non-image file
+    THEN the upload should be rejected
+    """
+    test_client.post(
+        "/auth/register",
+        data=json.dumps({"name": "testuser", "password": "Password123!", "email": "test@example.com"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "test@example.com", "password": "Password123!"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    response = test_client.post(
+        "/user/profile-picture",
+        data={"profile_picture": (io.BytesIO(b"plain-text"), "avatar.txt")},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 400
+    assert response.json["msg"] == "Profile picture must be a PNG, JPEG, GIF, or WebP image"
+
+
+def test_delete_current_user_profile_picture(test_client):
+    """
+    GIVEN a logged-in user with a profile picture
+    WHEN DELETE /user/profile-picture is called
+    THEN the profile picture should be removed
+    """
+    test_client.post(
+        "/auth/register",
+        data=json.dumps({"name": "testuser", "password": "Password123!", "email": "test@example.com"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "test@example.com", "password": "Password123!"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    upload_response = test_client.post(
+        "/user/profile-picture",
+        data={"profile_picture": (io.BytesIO(b"fake-image-data"), "avatar.png")},
+        content_type="multipart/form-data",
+    )
+
+    delete_response = test_client.delete("/user/profile-picture")
+
+    assert delete_response.status_code == 200
+    assert delete_response.json["profile_picture_url"] is None
+
+    picture_response = test_client.get(upload_response.json["profile_picture_url"])
+    assert picture_response.status_code == 404
 
 
 def test_get_user_by_id(test_client):

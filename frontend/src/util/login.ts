@@ -20,6 +20,22 @@ export const getUserRole = (): string => {
   return user.role || "student";
 }
 
+export const getCurrentUserId = (): number | null => {
+  const user = JSON.parse(localStorage.getItem("user") || '{}');
+  const rawUserId = user.id ?? user.user_id;
+
+  if (typeof rawUserId === 'number') {
+    return rawUserId;
+  }
+
+  if (typeof rawUserId === 'string') {
+    const parsedUserId = Number(rawUserId);
+    return Number.isNaN(parsedUserId) ? null : parsedUserId;
+  }
+
+  return null;
+}
+
 export const isTeacher = () => {
   return getUserRole() === "teacher";
 }

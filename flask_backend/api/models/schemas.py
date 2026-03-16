@@ -1,4 +1,6 @@
-from marshmallow import fields, validate
+import re
+
+from marshmallow import ValidationError, fields, validate
 
 from .assignment_model import Assignment
 from .course_group_model import CourseGroup
@@ -12,8 +14,6 @@ from .rubric_model import Rubric
 from .submission_model import Submission
 from .user_course_model import User_Course
 from .user_model import User
-from marshmallow import fields, validate, ValidationError
-import re
 
 # ============================================================
 # USER SCHEMAS
@@ -28,7 +28,7 @@ class UserSchema(ma.SQLAlchemyAutoSchema):
         load_instance = True
         include_fk = False  # Don't expose raw foreign keys
         sqla_session = db.session
-        exclude = ("hash_pass",)
+        exclude = ("hash_pass", "profile_picture", "profile_picture_mime_type")
 
     # Explicit fields for clarity and validation
     id = fields.Int(dump_only=True)
@@ -38,6 +38,12 @@ class UserSchema(ma.SQLAlchemyAutoSchema):
         dump_default="student", validate=validate.OneOf(["student", "teacher", "admin"])
     )
     must_change_password = fields.Bool(dump_default=False)
+    profile_picture_url = fields.Method("get_profile_picture_url", dump_only=True)
+
+    def get_profile_picture_url(self, obj):
+        if not obj.profile_picture or not obj.profile_picture_mime_type:
+            return None
+        return f"/user/{obj.id}/profile-picture"
 
 
 def validate_password_strength(password):
