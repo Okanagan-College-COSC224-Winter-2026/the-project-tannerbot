@@ -17,6 +17,7 @@ class UserUpdateSchema(Schema):
     """Schema for updating user information"""
 
     name = fields.Str(validate=validate.Length(min=1, max=255))
+    description = fields.Str(allow_none=True, validate=validate.Length(max=2000))
 
 
 user_update_schema = UserUpdateSchema()
@@ -93,6 +94,10 @@ def update_current_user():
     # Update allowed fields
     if "name" in data:
         user.name = data["name"]
+    if "description" in data:
+        if not user.is_student():
+            return jsonify({"msg": "Only students can edit profile descriptions"}), 403
+        user.description = data["description"]
 
     user.update()
 

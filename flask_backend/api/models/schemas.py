@@ -38,6 +38,7 @@ class UserSchema(ma.SQLAlchemyAutoSchema):
         dump_default="student", validate=validate.OneOf(["student", "teacher", "admin"])
     )
     must_change_password = fields.Bool(dump_default=False)
+    description = fields.Str(allow_none=True, validate=validate.Length(max=2000))
     profile_picture_url = fields.Method("get_profile_picture_url", dump_only=True)
 
     def get_profile_picture_url(self, obj):

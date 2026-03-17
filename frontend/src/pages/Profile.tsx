@@ -5,8 +5,16 @@ import Button from '../components/Button'
 import ProfileDetails from '../components/ProfileDetails'
 import StatusMessage from '../components/StatusMessage'
 import { getCurrentUserId, isTeacher } from '../util/login'
-import { deleteProfilePicture, getProfile, getProfilePictureSrc, uploadProfilePicture } from '../util/profile'
+import {
+  deleteProfilePicture,
+  getProfile,
+  getProfilePictureSrc,
+  updateProfileDescription,
+  uploadProfilePicture
+} from '../util/profile'
 import type { UserProfile } from '../types/profile'
+
+type ProfileTab = 'information' | 'description'
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -17,10 +25,15 @@ export default function Profile() {
   const [error, setError] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
   const [uploadingPicture, setUploadingPicture] = useState(false)
+  const [savingDescription, setSavingDescription] = useState(false)
   const [pictureVersion, setPictureVersion] = useState(0)
+  const [activeTab, setActiveTab] = useState<ProfileTab>('description')
+  const [descriptionDraft, setDescriptionDraft] = useState('')
 
   const currentUserId = getCurrentUserId()
   const isOwnProfile = user !== null && currentUserId === user.id
+  const isStudentProfile = user?.role === 'student'
+  const canEditDescription = isOwnProfile && isStudentProfile
   const profilePictureSrc = getProfilePictureSrc(user?.profile_picture_url, pictureVersion)
 
   useEffect(() => {
@@ -30,6 +43,8 @@ export default function Profile() {
         setError('')
         const userData = await getProfile(id)
         setUser(userData)
+        setDescriptionDraft(userData.description || '')
+        setActiveTab('description')
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load profile'
         setError(message)
@@ -86,6 +101,27 @@ export default function Profile() {
     }
   }
 
+  const handleSaveDescription = async () => {
+    if (!canEditDescription) {
+      return
+    }
+
+    try {
+      setSavingDescription(true)
+      setError('')
+      setStatusMessage('')
+      const updatedUser = await updateProfileDescription(descriptionDraft)
+      setUser(updatedUser)
+      setDescriptionDraft(updatedUser.description || '')
+      setStatusMessage('Profile description updated.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update profile description'
+      setError(message)
+    } finally {
+      setSavingDescription(false)
+    }
+  }
+
   if (loading) {
     return <div className="Profile"><p>Loading profile...</p></div>
   }
@@ -139,7 +175,65 @@ export default function Profile() {
 
           <StatusMessage message={statusMessage} type="success" />
 
-          {user && <ProfileDetails profile={user} />}
+          {isStudentProfile ? (
+            <>
+              <div className="ProfileTabs" role="tablist" aria-label="Profile sections">
+                <button
+                  type="button"
+                  className={`ProfileTab ${activeTab === 'description' ? 'ProfileTabActive' : ''}`}
+                  role="tab"
+                  aria-selected={activeTab === 'description'}
+                  onClick={() => setActiveTab('description')}
+                >
+                  Description
+                </button>
+                <button
+                  type="button"
+                  className={`ProfileTab ${activeTab === 'information' ? 'ProfileTabActive' : ''}`}
+                  role="tab"
+                  aria-selected={activeTab === 'information'}
+                  onClick={() => setActiveTab('information')}
+                >
+                  Information
+                </button>
+              </div>
+
+              {activeTab === 'information' && user && <ProfileDetails profile={user} />}
+
+              {activeTab === 'description' && (
+                <div className="ProfileDescriptionPanel">
+                  {canEditDescription ? (
+                    <>
+                      <label htmlFor="profile-description" className="ProfileDescriptionLabel">
+                        Tell classmates a little about yourself
+                      </label>
+                      <textarea
+                        id="profile-description"
+                        className="ProfileDescriptionInput"
+                        value={descriptionDraft}
+                        onChange={(event) => setDescriptionDraft(event.target.value)}
+                        maxLength={2000}
+                        rows={6}
+                        placeholder="Share your interests, goals, or preferred collaboration style."
+                      />
+                      <div className="ProfileDescriptionFooter">
+                        <span>{descriptionDraft.length}/2000</span>
+                        <Button onClick={handleSaveDescription} disabled={savingDescription}>
+                          {savingDescription ? 'Saving...' : 'Save Description'}
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="ProfileDescriptionText">
+                      {user?.description || 'This student has not added a description yet.'}
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            user && <ProfileDetails profile={user} />
+          )}
 
           {isTeacher() && (
             <div className="ProfileActionRow">

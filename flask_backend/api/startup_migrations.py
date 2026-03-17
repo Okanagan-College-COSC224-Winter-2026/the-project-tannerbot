@@ -5,6 +5,7 @@ import sqlite3
 
 
 PROFILE_PICTURE_COLUMN_STATEMENTS = {
+    "description": "ALTER TABLE User ADD COLUMN description TEXT",
     "profile_picture": "ALTER TABLE User ADD COLUMN profile_picture BLOB",
     "profile_picture_mime_type": (
         "ALTER TABLE User ADD COLUMN profile_picture_mime_type VARCHAR(128)"
@@ -28,7 +29,7 @@ def _sqlite_path_from_uri(database_uri: str) -> Path | None:
 
 
 def ensure_profile_picture_columns_for_sqlite(database_uri: str) -> list[str]:
-    """Ensure legacy SQLite User tables contain the profile picture columns."""
+    """Ensure legacy SQLite User tables contain optional profile metadata columns."""
     database_path = _sqlite_path_from_uri(database_uri)
     if database_path is None or not database_path.exists():
         return []

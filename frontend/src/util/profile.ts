@@ -72,6 +72,37 @@ export const deleteProfilePicture = async () => {
   return await response.json() as UserProfile
 }
 
+export const updateProfileDescription = async (description: string) => {
+  const normalizedDescription = description.trim()
+  const response = await fetch(`${BASE_URL}/user/`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      description: normalizedDescription.length > 0 ? description : null
+    })
+  })
+
+  maybeHandleExpire(response)
+
+  if (!response.ok) {
+    let errorMessage = `Failed to update description: ${response.status}`
+    try {
+      const error = await response.json()
+      if (error?.msg) {
+        errorMessage = error.msg
+      }
+    } catch {
+      // Keep fallback message.
+    }
+    throw new Error(errorMessage)
+  }
+
+  return await response.json() as UserProfile
+}
+
 export const getProfilePictureSrc = (profilePictureUrl: string | null | undefined, version = 0) => {
   if (!profilePictureUrl) {
     return null
