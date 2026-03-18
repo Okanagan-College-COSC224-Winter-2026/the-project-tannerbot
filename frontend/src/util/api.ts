@@ -228,7 +228,20 @@ export const listCourseMembers = async (classId: string) => {
     throw new Error(`Response status: ${resp.status}`);
   }
 
-  const payload = await resp.json()
+  type RawCourseMember = {
+    id?: number | string
+    userID?: number | string
+    user_id?: number | string
+    student_id?: string | null
+    studentID?: string | null
+    is_instructor?: unknown
+    isInstructor?: unknown
+    profile_picture_url?: string | null
+    profilePictureUrl?: string | null
+    [key: string]: unknown
+  }
+
+  const payload: unknown = await resp.json()
   if (!Array.isArray(payload)) {
     throw new Error('Invalid class members response payload')
   }
@@ -243,7 +256,7 @@ export const listCourseMembers = async (classId: string) => {
     return false
   }
 
-  return payload.map((member: any) => ({
+  return (payload as RawCourseMember[]).map((member) => ({
     ...member,
     id: member.id ?? member.userID ?? member.user_id,
     student_id: member.student_id ?? member.studentID ?? null,

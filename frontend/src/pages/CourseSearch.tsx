@@ -36,9 +36,9 @@ export default function CourseSearch() {
     try {
       const payload = await searchCourses(query);
       setResult(payload);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setResult(null);
-      setErrorMessage(error?.message || "Unable to search courses right now.");
+      setErrorMessage(error instanceof Error ? error.message : "Unable to search courses right now.");
     } finally {
       setLoading(false);
     }

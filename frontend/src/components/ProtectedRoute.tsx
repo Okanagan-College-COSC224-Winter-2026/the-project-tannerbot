@@ -43,7 +43,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
                 navigate("/");
             }
         })();
-    }, [navigate]);
+    }, [allowedRoles, navigate]);
 
     return isAllowed ? <>{children}</> : null;
 }
