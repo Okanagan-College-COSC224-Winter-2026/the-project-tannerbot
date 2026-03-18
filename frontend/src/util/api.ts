@@ -227,8 +227,19 @@ export const listCourseMembers = async (classId: string) => {
   if (!resp.ok) {
     throw new Error(`Response status: ${resp.status}`);
   }
-  
-  return await resp.json()
+
+  const payload = await resp.json()
+  if (!Array.isArray(payload)) {
+    return []
+  }
+
+  return payload.map((member: any) => ({
+    ...member,
+    id: member.id ?? member.userID ?? member.user_id,
+    student_id: member.student_id ?? member.studentID ?? null,
+    is_instructor: member.is_instructor ?? member.isInstructor ?? false,
+    profile_picture_url: member.profile_picture_url ?? member.profilePictureUrl ?? null,
+  }))
 } 
 
 

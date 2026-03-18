@@ -17,13 +17,18 @@ export default function ClassMembers() {
 
   useEffect(() => {
     ;(async () => {
+      if (!id) {
+        setMembers([])
+        setClassName(null)
+        return
+      }
       const members = await listCourseMembers(id as string)
       const classes = await listClasses();
       const currentClass = classes.find((c: { id: number }) => c.id === Number(id));
       setMembers(members)
       setClassName(currentClass?.name || null);
     })()
-  }, [])  
+  }, [id])  
 
   return (
     <div className="ClassMembersPage container-fluid py-4 px-3 px-md-4">
@@ -61,12 +66,17 @@ export default function ClassMembers() {
           members.map((member) => {
             const identifier = member.student_id || member.email;
             const picSrc = getProfilePictureSrc(member.profile_picture_url);
-            const isInstructor = member.is_instructor === true;
+            const isInstructor = Boolean(member.is_instructor);
+            const profileId = Number(member.id);
             return (
               <div
                 key={member.id}
                 className={`Member ${isInstructor ? 'MemberInstructorRow' : ''}`}
-                onClick={() => navigate(`/profile/${member.id}`)}
+                onClick={() => {
+                  if (Number.isFinite(profileId) && profileId > 0) {
+                    navigate(`/profile/${profileId}`)
+                  }
+                }}
               >
                 <div className="MemberAvatar">
                   {picSrc

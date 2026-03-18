@@ -34,6 +34,7 @@ export default function Profile() {
   const isOwnProfile = user !== null && currentUserId === user.id
   const isStudentProfile = user?.role === 'student'
   const canEditDescription = isOwnProfile && isStudentProfile
+  const headingText = isOwnProfile ? 'My Profile' : 'User Profile'
   const profilePictureSrc = getProfilePictureSrc(user?.profile_picture_url, pictureVersion)
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function Profile() {
         setUser(userData)
         setDescriptionDraft(userData.description || '')
         setActiveTab('description')
+        setStatusMessage('')
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load profile'
         setError(message)
@@ -170,7 +172,7 @@ export default function Profile() {
         </div>
 
         <div className="profile-info">
-          <p className="ProfileEyebrow">My Profile</p>
+          <p className="ProfileEyebrow">{headingText}</p>
           <h1>{user?.name || 'Profile'}</h1>
 
           <StatusMessage message={statusMessage} type="success" />
@@ -235,7 +237,7 @@ export default function Profile() {
             user && <ProfileDetails profile={user} />
           )}
 
-          {isTeacher() && (
+          {isOwnProfile && isTeacher() && (
             <div className="ProfileActionRow">
             <Button onClick={() => navigate('/change-password')}>
               Change Password

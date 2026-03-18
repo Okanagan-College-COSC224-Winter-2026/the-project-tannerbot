@@ -22,8 +22,7 @@ export default function Sidebar() {
           <SidebarRow href="/courses/search">Search Courses</SidebarRow>
         ) : null}
 
-        { /* TODO: make this ID match who is logged in */ }
-        <SidebarRow href="/profile/1">My Info</SidebarRow>
+        <SidebarRow href="/profile">My Info</SidebarRow>
       </nav>
     </aside>
   )
