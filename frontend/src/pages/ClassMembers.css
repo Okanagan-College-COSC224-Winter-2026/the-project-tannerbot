@@ -43,6 +43,12 @@
   border-bottom: 1px solid #e7edf5;
 }
 
+.MemberInstructorRow {
+  background-color: color-mix(in srgb, #c26a00 12%, transparent);
+  border: 1px solid color-mix(in srgb, #c26a00 36%, var(--background-secondary));
+  border-radius: 10px;
+}
+
 .Member:hover {
   background-color: #f7f8fb;
 }

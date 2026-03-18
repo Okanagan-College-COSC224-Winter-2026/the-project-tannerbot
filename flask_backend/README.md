@@ -202,6 +202,17 @@ The API will be available at [http://localhost:5000](http://localhost:5000)
 
 The API will be available at [http://localhost:5000](http://localhost:5000)
 
+## Existing Dev Database Upgrade
+
+If you already have a local SQLite database in `flask_backend/instance/app.sqlite`, run the helper below once after pulling the profile-picture changes:
+
+```powershell
+cd flask_backend
+py enable_profile_picture_support.py
+```
+
+This adds the new `User.profile_picture` and `User.profile_picture_mime_type` columns without resetting existing local data.
+
 ---
 
 ## Environment Variables (Local Development)
