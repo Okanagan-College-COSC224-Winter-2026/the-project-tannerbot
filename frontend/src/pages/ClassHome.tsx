@@ -56,10 +56,10 @@ export default function ClassHome() {
       setAssignments((prev) => [...prev, createdAssignment]);
       setStatusType('success');
       setStatusMessage('Assignment created successfully!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating assignment:', error);
       setStatusType('error');
-      const errorMsg = error?.message || 'Error creating assignment.';
+      const errorMsg = error instanceof Error ? error.message : 'Error creating assignment.';
       setStatusMessage(errorMsg);
     }
   };
@@ -87,11 +87,11 @@ export default function ClassHome() {
       setStatusType('success');
       setStatusMessage('Assignment updated successfully!');
       setEditingAssignment(undefined);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating assignment:', error);
       setStatusType('error');
       // Show the error message from backend, or a default message
-      const errorMsg = error.message || 'Error updating assignment.';
+      const errorMsg = error instanceof Error ? error.message : 'Error updating assignment.';
       setStatusMessage(errorMsg);
     }
   };
@@ -103,10 +103,10 @@ export default function ClassHome() {
       setAssignments((prev) => prev.filter(a => a.id !== assignmentId));
       setStatusType('success');
       setStatusMessage('Assignment deleted successfully!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting assignment:', error);
       setStatusType('error');
-      setStatusMessage(error.message || 'Error deleting assignment.');
+      setStatusMessage(error instanceof Error ? error.message : 'Error deleting assignment.');
     }
   };
 
