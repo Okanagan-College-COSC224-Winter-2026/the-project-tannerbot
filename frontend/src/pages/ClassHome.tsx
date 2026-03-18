@@ -56,10 +56,10 @@ export default function ClassHome() {
       setAssignments((prev) => [...prev, createdAssignment]);
       setStatusType('success');
       setStatusMessage('Assignment created successfully!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating assignment:', error);
       setStatusType('error');
-      const errorMsg = error?.message || 'Error creating assignment.';
+      const errorMsg = error instanceof Error ? error.message : 'Error creating assignment.';
       setStatusMessage(errorMsg);
     }
   };
@@ -87,11 +87,11 @@ export default function ClassHome() {
       setStatusType('success');
       setStatusMessage('Assignment updated successfully!');
       setEditingAssignment(undefined);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating assignment:', error);
       setStatusType('error');
       // Show the error message from backend, or a default message
-      const errorMsg = error.message || 'Error updating assignment.';
+      const errorMsg = error instanceof Error ? error.message : 'Error updating assignment.';
       setStatusMessage(errorMsg);
     }
   };
@@ -103,10 +103,10 @@ export default function ClassHome() {
       setAssignments((prev) => prev.filter(a => a.id !== assignmentId));
       setStatusType('success');
       setStatusMessage('Assignment deleted successfully!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting assignment:', error);
       setStatusType('error');
-      setStatusMessage(error.message || 'Error deleting assignment.');
+      setStatusMessage(error instanceof Error ? error.message : 'Error deleting assignment.');
     }
   };
 
@@ -131,75 +131,79 @@ export default function ClassHome() {
   };
     
     return (
-      <>
-        <div className="ClassHeader">
+      <div className="ClassHomePage container-fluid py-4 px-3 px-md-4">
+        <div className="ClassHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
           <div className="ClassHeaderLeft">
-            <h2>{className}</h2>
+            <h2 className="h3 fw-bold mb-0">{className || "Class"}</h2>
           </div>
 
-        <div className="ClassHeaderRight">
+          <div className="ClassHeaderRight">
+            {isTeacher() ? (
+              <Button onClick={() => importCSV(id as string)}>
+                Add Students via CSV
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
+        <TabNavigation
+          tabs={[
+            {
+              label: "Home",
+              path: `/classes/${id}/home`,
+            },
+            {
+              label: "Members",
+              path: `/classes/${id}/members`,
+            },
+          ]}
+        />
+
+        <div className="mb-3 mt-3">
+          <StatusMessage message={statusMessage} type={statusType} />
+        </div>
+
+        <div className="Class card border-0 shadow-sm p-3 p-md-4">
+          <div className="Assignments">
+            {assignments.length === 0 ? (
+              <div className="EmptyAssignmentsState" role="status">
+                <p className="mb-0">No assignments yet.</p>
+              </div>
+            ) : (
+              <ul className="Assignment row g-3">
+                {assignments.map((assignment) => (
+                  <li key={assignment.id} className="col-12">
+                    <AssignmentCard
+                      id={assignment.id}
+                      assignment={assignment}
+                      classId={id}
+                      onEdit={isTeacher() ? () => openEditModal(assignment) : undefined}
+                      onDelete={isTeacher() ? () => handleDeleteAssignment(assignment.id) : undefined}
+                    >
+                      {assignment.name}
+                    </AssignmentCard>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           {isTeacher() ? (
-            <Button onClick={() => importCSV(id as string)}>
-              Add Students via CSV
-            </Button>
+            <div className="AssInputChunk mt-3">
+              <Button onClick={openCreateModal}>
+                Create New Assignment
+              </Button>
+            </div>
           ) : null}
         </div>
+
+        <AssignmentModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSave={handleModalSave}
+          assignment={editingAssignment}
+          mode={modalMode}
+        />
       </div>
-
-      <TabNavigation
-        tabs={[
-          {
-            label: "Home",
-            path: `/classes/${id}/home`,
-          },
-          {
-            label: "Members",
-            path: `/classes/${id}/members`,
-          },
-        ]}
-      />
-
-      <StatusMessage message={statusMessage} type={statusType} />
-
-      <div className="Class">
-        <div className="Assignments"> 
-          {assignments.length === 0 ? (
-            <p>No assignments yet.</p>
-          ) : (
-            <ul className="Assignment">
-              {assignments.map((assignment) => (
-                <li key={assignment.id}>
-                  <AssignmentCard 
-                    id={assignment.id}
-                    assignment={assignment}
-                    classId={id}
-                    onEdit={isTeacher() ? () => openEditModal(assignment) : undefined}
-                    onDelete={isTeacher() ? () => handleDeleteAssignment(assignment.id) : undefined}
-                  >
-                    {assignment.name}
-                  </AssignmentCard>
-                </li>
-            ))}
-          </ul>
-          )}
-        </div>
-
-        {isTeacher() ? (
-          <div className="AssInputChunk">
-            <Button onClick={openCreateModal}>
-              Create New Assignment
-            </Button>
-          </div>
-        ) : null}
-      </div>
-
-      <AssignmentModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleModalSave}
-        assignment={editingAssignment}
-        mode={modalMode}
-      />
-    </>
-  );
+    );
 }

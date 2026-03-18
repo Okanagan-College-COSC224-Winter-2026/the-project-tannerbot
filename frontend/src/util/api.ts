@@ -227,8 +227,42 @@ export const listCourseMembers = async (classId: string) => {
   if (!resp.ok) {
     throw new Error(`Response status: ${resp.status}`);
   }
-  
-  return await resp.json()
+
+  type RawCourseMember = {
+    id?: number | string
+    userID?: number | string
+    user_id?: number | string
+    student_id?: string | null
+    studentID?: string | null
+    is_instructor?: unknown
+    isInstructor?: unknown
+    profile_picture_url?: string | null
+    profilePictureUrl?: string | null
+    [key: string]: unknown
+  }
+
+  const payload: unknown = await resp.json()
+  if (!Array.isArray(payload)) {
+    throw new Error('Invalid class members response payload')
+  }
+
+  const normalizeInstructorFlag = (value: unknown): boolean => {
+    if (value === true || value === 1 || value === '1') {
+      return true
+    }
+    if (typeof value === 'string') {
+      return value.toLowerCase() === 'true'
+    }
+    return false
+  }
+
+  return (payload as RawCourseMember[]).map((member) => ({
+    ...member,
+    id: member.id ?? member.userID ?? member.user_id,
+    student_id: member.student_id ?? member.studentID ?? null,
+    is_instructor: normalizeInstructorFlag(member.is_instructor ?? member.isInstructor),
+    profile_picture_url: member.profile_picture_url ?? member.profilePictureUrl ?? null,
+  }))
 } 
 
 
@@ -452,14 +486,22 @@ export const createAssignment = async (
   return await response.json();
 }
 
-export const editAssignment = async (assignmentID: number, name?: string, dueDate?: string, startDate?: string, rubric?: string) => {
+export const editAssignment = async (
+  assignmentID: number,
+  name?: string,
+  dueDate?: string,
+  startDate?: string,
+  rubric?: string,
+  description?: string,
+) => {
   const response = await fetch(`${BASE_URL}/assignment/edit_assignment/${assignmentID}`, {
     method: 'PATCH',
     body: JSON.stringify({
       name,
       due_date: dueDate,
       start_date: startDate,
-      rubric
+      rubric,
+      description,
     }),
     headers: {
       'Content-Type': 'application/json',
