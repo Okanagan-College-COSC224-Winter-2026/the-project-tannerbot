@@ -1,23 +1,135 @@
+.ClassMembersPage {
+    width: 100%;
+}
+
+.ClassHeader {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 1.2rem;
+    background: #ffffffd9;
+    backdrop-filter: blur(2px);
+}
+
+.ClassHeaderLeft {
+    display: flex;
+    align-items: center;
+}
+
 .ClassMemberList {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     justify-content: flex-start;
 
     width: 100%;
-    height: 100%;
+    min-height: 220px;
+    border-radius: 1.2rem;
+    background: #ffffffd9;
+    backdrop-filter: blur(2px);
 }
 
 .Member {
-  width: 80%;
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 1rem;
 
-  padding: 10px;
-  margin: 12px;
+  padding: 0.9rem 1rem;
+  margin: 0;
 
-  border-bottom: 1px solid var(--background-secondary);
+  border-bottom: 1px solid #e7edf5;
+}
+
+.MemberInstructorRow {
+  background-color: color-mix(in srgb, #c26a00 12%, transparent);
+  border: 1px solid color-mix(in srgb, #c26a00 36%, var(--background-secondary));
+  border-radius: 10px;
 }
 
 .Member:hover {
-  cursor: pointer;
-  background-color: var(--background-secondary);
+  background-color: #f7f8fb;
+}
+
+.Member:last-child {
+  border-bottom: none;
+}
+
+.MemberName {
+  font-weight: 600;
+}
+
+.MemberInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.MemberAvatar {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #eef2f8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.MemberAvatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.MemberAvatarFallback {
+  font-weight: 700;
+  color: #334155;
+}
+
+.MemberRoleBadge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #9a5300;
+  background: color-mix(in srgb, #c26a00 15%, #fff);
+}
+
+.MemberNameInstructor {
+  color: #7a4200;
+}
+
+.MemberIdentifier {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.EmptyMembersState {
+  border: 1px dashed #dde4ee;
+  border-radius: 0.8rem;
+  background: #f7f8fb;
+  color: var(--text-secondary);
+  padding: 1rem;
+}
+
+@media (max-width: 768px) {
+  .ClassHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .Member {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

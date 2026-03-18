@@ -168,7 +168,7 @@ export default function RubricCreator({ onRubricCreated, id, existingScoredTotal
                                 className={criterionErrors[index]?.scoreMax ? 'invalid-input' : ''}
                             />
                         )}
-                        <Button onClick={() => handleRemoveSection(index)}>Remove Criterion</Button>
+                        <Button type="secondary" onClick={() => handleRemoveSection(index)}>Remove Criterion</Button>
                     </div>
                     {(criterionErrors[index]?.question || criterionErrors[index]?.scoreMax) && (
                         <p className="criteria-inline-error">

@@ -102,18 +102,44 @@ def get_class_members():
         return jsonify({"msg": "Insufficient permissions"}), 403
 
     members = course.students
-    return jsonify(
-        [
+    instructor = course.teacher
+
+    member_rows = []
+    seen_ids = set()
+
+    if instructor:
+        seen_ids.add(instructor.id)
+        member_rows.append(
+            {
+                "id": instructor.id,
+                "student_id": instructor.student_id,
+                "name": instructor.name,
+                "email": instructor.email,
+                "role": instructor.role,
+                "is_instructor": True,
+                "profile_picture_url": (
+                    f"/user/{instructor.id}/profile-picture" if instructor.profile_picture else None
+                ),
+            }
+        )
+
+    for m in members:
+        if m.id in seen_ids:
+            continue
+
+        member_rows.append(
             {
                 "id": m.id,
                 "student_id": m.student_id,
                 "name": m.name,
                 "email": m.email,
                 "role": m.role,
+                "is_instructor": False,
+                "profile_picture_url": f"/user/{m.id}/profile-picture" if m.profile_picture else None,
             }
-            for m in members
-        ]
-    ), 200
+        )
+
+    return jsonify(member_rows), 200
 
 REQUIRED_HEADERS = {"id", "name", "email"}
 def csv_to_list(csv_text):

@@ -2,7 +2,7 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import RubricCreator from "../components/RubricCreator";
 import Button from "../components/Button";
-import ManageAttachmentsModal from "../components/ManageAttachmentsModal";
+import ManageAssignment from "../components/ManageAssignment";
 import { deleteCriteria, getRubricByAssignment, updateCriteria } from "../util/api";
 import "./CriteriaCreation.css";
 
@@ -108,18 +108,13 @@ export default function CriteriaCreation() {
     <div className="CriteriaCreationPage">
       <div className="CriteriaCreationHeader">
         <div className="CriteriaCreationHeaderLeft">
-          <h2>Create Criteria</h2>
-          {assignmentName && (
-            <span className="CriteriaCreationAssignmentName">
-              {assignmentName}
-            </span>
-          )}
+          {assignmentName && <h2 className="CriteriaCreationAssignmentHeading">{assignmentName}</h2>}
         </div>
         <div className="CriteriaCreationHeaderRight">
           <Button onClick={handleBackToClass} type="secondary">
             ← Back to Class
           </Button>
-          <ManageAttachmentsModal
+          <ManageAssignment
             assignmentId={id ? Number(id) : undefined}
             classId={classId}
           />
