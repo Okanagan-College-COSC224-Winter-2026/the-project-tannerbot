@@ -37,6 +37,7 @@ def create_assignment():
     course_id = data.get("courseID")
     assignment_name = data.get("name")
     rubric_text = data.get("rubric")
+    description = data.get("description")
     due_date = data.get("due_date")
     start_date = data.get("start_date")
 
@@ -73,7 +74,14 @@ def create_assignment():
     if course.teacherID != user.id:
         return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
 #edited line below to include start_date when creating a new assignment
-    new_assignment = Assignment(courseID=course_id, name=assignment_name, rubric_text=rubric_text, due_date=due_date, start_date=start_date)
+    new_assignment = Assignment(
+        courseID=course_id,
+        name=assignment_name,
+        rubric_text=rubric_text,
+        due_date=due_date,
+        start_date=start_date,
+        description=description,
+    )
     Assignment.create(new_assignment)
     saved_files = save_assignment_attachments(new_assignment.id)
 
@@ -92,7 +100,7 @@ def create_assignment():
 @jwt_teacher_required
 def edit_assignment(assignment_id):
     """Edit an existing assignment if the authenticated user is the teacher of the class and the due date has not passed"""
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     assignment = Assignment.get_by_id(assignment_id)
     if not assignment:
         return jsonify({"msg": "Assignment not found"}), 404
@@ -114,6 +122,8 @@ def edit_assignment(assignment_id):
 
     assignment.name = data.get("name", assignment.name)
     assignment.rubric_text = data.get("rubric", assignment.rubric_text)
+    if "description" in data:
+        assignment.description = data.get("description")
     
     # Handle due_date update - only update if the key is present in request
     if "due_date" in data:

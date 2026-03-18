@@ -51,6 +51,7 @@ interface Assignment {
   id: number;
   name: string;
   courseID: number;
+  description?: string;
   rubric?: string;
   due_date?: string;
   start_date?: string;

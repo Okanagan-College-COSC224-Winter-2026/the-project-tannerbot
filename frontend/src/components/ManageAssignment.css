@@ -1,4 +1,4 @@
-.ManageAttachmentsButton {
+.ManageAssignmentButton {
   border: none;
   border-radius: 4px;
   padding: 12px;
@@ -9,7 +9,7 @@
   color: #fff;
 }
 
-.ManageAttachmentsButton:hover {
+.ManageAssignmentButton:hover {
   filter: brightness(1.08);
 }
 
@@ -69,6 +69,31 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+}
+
+.AssignmentDescriptionSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.AssignmentDescriptionSection h4 {
+  margin: 0;
+}
+
+.AssignmentDescriptionInput {
+  width: 100%;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.AssignmentDescriptionInput:focus {
+  outline: 2px solid rgba(16, 102, 194, 0.2);
+  border-color: #1066c2;
 }
 
 .AttachmentSectionHeaderRow h4,
@@ -202,7 +227,7 @@
 }
 
 @media (max-width: 740px) {
-  .ManageAttachmentsButton {
+  .ManageAssignmentButton {
     width: 100%;
   }
 

@@ -452,14 +452,22 @@ export const createAssignment = async (
   return await response.json();
 }
 
-export const editAssignment = async (assignmentID: number, name?: string, dueDate?: string, startDate?: string, rubric?: string) => {
+export const editAssignment = async (
+  assignmentID: number,
+  name?: string,
+  dueDate?: string,
+  startDate?: string,
+  rubric?: string,
+  description?: string,
+) => {
   const response = await fetch(`${BASE_URL}/assignment/edit_assignment/${assignmentID}`, {
     method: 'PATCH',
     body: JSON.stringify({
       name,
       due_date: dueDate,
       start_date: startDate,
-      rubric
+      rubric,
+      description,
     }),
     headers: {
       'Content-Type': 'application/json',

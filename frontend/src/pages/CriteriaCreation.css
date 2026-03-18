@@ -24,6 +24,11 @@
   margin: 0;
 }
 
+.CriteriaCreationAssignmentHeading {
+  margin: 0;
+  color: var(--button-primary);
+}
+
 .CriteriaCreationAssignmentName {
   font-size: 0.9rem;
   color: var(--text-secondary, #666);
