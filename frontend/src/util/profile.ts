@@ -81,7 +81,7 @@ export const updateProfileDescription = async (description: string) => {
     },
     credentials: 'include',
     body: JSON.stringify({
-      description: normalizedDescription.length > 0 ? description : null
+      description: normalizedDescription.length > 0 ? normalizedDescription : null
     })
   })
 

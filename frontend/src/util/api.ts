@@ -230,14 +230,24 @@ export const listCourseMembers = async (classId: string) => {
 
   const payload = await resp.json()
   if (!Array.isArray(payload)) {
-    return []
+    throw new Error('Invalid class members response payload')
+  }
+
+  const normalizeInstructorFlag = (value: unknown): boolean => {
+    if (value === true || value === 1 || value === '1') {
+      return true
+    }
+    if (typeof value === 'string') {
+      return value.toLowerCase() === 'true'
+    }
+    return false
   }
 
   return payload.map((member: any) => ({
     ...member,
     id: member.id ?? member.userID ?? member.user_id,
     student_id: member.student_id ?? member.studentID ?? null,
-    is_instructor: member.is_instructor ?? member.isInstructor ?? false,
+    is_instructor: normalizeInstructorFlag(member.is_instructor ?? member.isInstructor),
     profile_picture_url: member.profile_picture_url ?? member.profilePictureUrl ?? null,
   }))
 } 

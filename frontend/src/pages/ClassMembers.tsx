@@ -14,6 +14,8 @@ export default function ClassMembers() {
   const navigate = useNavigate()
   const [members, setMembers] = useState<User[]>([])
   const [className, setClassName] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     ;(async () => {
@@ -22,11 +24,21 @@ export default function ClassMembers() {
         setClassName(null)
         return
       }
-      const members = await listCourseMembers(id as string)
-      const classes = await listClasses();
-      const currentClass = classes.find((c: { id: number }) => c.id === Number(id));
-      setMembers(members)
-      setClassName(currentClass?.name || null);
+      try {
+        setLoading(true)
+        setError('')
+        const members = await listCourseMembers(id as string)
+        const classes = await listClasses();
+        const currentClass = classes.find((c: { id: number }) => c.id === Number(id));
+        setMembers(members)
+        setClassName(currentClass?.name || null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to load class members'
+        setError(message)
+        setMembers([])
+      } finally {
+        setLoading(false)
+      }
     })()
   }, [id])  
 
@@ -58,7 +70,15 @@ export default function ClassMembers() {
       />
 
       <div className="ClassMemberList card border-0 shadow-sm p-3 p-md-4 mt-3">
-        {members.length === 0 ? (
+        {error ? (
+          <div className="EmptyMembersState" role="alert">
+            <p className="mb-0">{error}</p>
+          </div>
+        ) : loading ? (
+          <div className="EmptyMembersState" role="status">
+            <p className="mb-0">Loading class members...</p>
+          </div>
+        ) : members.length === 0 ? (
           <div className="EmptyMembersState" role="status">
             <p className="mb-0">No class members found.</p>
           </div>
@@ -66,7 +86,7 @@ export default function ClassMembers() {
           members.map((member) => {
             const identifier = member.student_id || member.email;
             const picSrc = getProfilePictureSrc(member.profile_picture_url);
-            const isInstructor = Boolean(member.is_instructor);
+            const isInstructor = member.is_instructor === true;
             const profileId = Number(member.id);
             return (
               <div
