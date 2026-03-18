@@ -3,22 +3,25 @@ import {
   addAssignmentAttachments,
   deleteAssignmentAttachment,
   downloadAssignmentAttachment,
+  editAssignment,
   listAssignments,
 } from "../util/api";
-import "./ManageAttachmentsModal.css";
+import "./ManageAssignment.css";
 
 interface Props {
   assignmentId?: number;
   classId?: number | string;
 }
 
-export default function ManageAttachmentsModal({ assignmentId, classId }: Props) {
+export default function ManageAssignment({ assignmentId, classId }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [attachmentMessage, setAttachmentMessage] = useState("");
   const [attachmentError, setAttachmentError] = useState("");
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [isSavingAttachments, setIsSavingAttachments] = useState(false);
   const [existingAttachments, setExistingAttachments] = useState<AssignmentAttachment[]>([]);
+  const [existingDescription, setExistingDescription] = useState("");
+  const [descriptionDraft, setDescriptionDraft] = useState("");
   const [pendingAddedFiles, setPendingAddedFiles] = useState<File[]>([]);
   const [pendingRemovedStoredNames, setPendingRemovedStoredNames] = useState<Set<string>>(new Set());
   const attachmentFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -41,10 +44,15 @@ export default function ManageAttachmentsModal({ assignmentId, classId }: Props)
       const assignments = await listAssignments(String(classId));
       const assignment = assignments.find((item: Assignment) => item.id === assignmentId);
       setExistingAttachments(assignment?.attachments || []);
+      const assignmentDescription = assignment?.description || "";
+      setExistingDescription(assignmentDescription);
+      setDescriptionDraft(assignmentDescription);
     } catch (error) {
       console.error("Error loading attachments:", error);
       setAttachmentError("Failed to load attachments.");
       setExistingAttachments([]);
+      setExistingDescription("");
+      setDescriptionDraft("");
     } finally {
       setAttachmentsLoading(false);
     }
@@ -64,6 +72,8 @@ export default function ManageAttachmentsModal({ assignmentId, classId }: Props)
     setAttachmentMessage("");
     setPendingAddedFiles([]);
     setPendingRemovedStoredNames(new Set());
+    setExistingDescription("");
+    setDescriptionDraft("");
   };
 
   const handleAddFilesClick = () => {
@@ -99,8 +109,14 @@ export default function ManageAttachmentsModal({ assignmentId, classId }: Props)
       return;
     }
 
-    if (pendingAddedFiles.length === 0 && pendingRemovedStoredNames.size === 0) {
-      setAttachmentMessage("No attachment changes to save.");
+    const descriptionChanged = descriptionDraft !== existingDescription;
+
+    if (
+      pendingAddedFiles.length === 0
+      && pendingRemovedStoredNames.size === 0
+      && !descriptionChanged
+    ) {
+      setAttachmentMessage("No changes to save.");
       return;
     }
 
@@ -109,6 +125,10 @@ export default function ManageAttachmentsModal({ assignmentId, classId }: Props)
     setAttachmentMessage("");
 
     try {
+      if (descriptionChanged) {
+        await editAssignment(assignmentId, undefined, undefined, undefined, undefined, descriptionDraft);
+      }
+
       if (pendingAddedFiles.length > 0) {
         await addAssignmentAttachments(assignmentId, pendingAddedFiles);
       }
@@ -121,11 +141,11 @@ export default function ManageAttachmentsModal({ assignmentId, classId }: Props)
 
       setPendingAddedFiles([]);
       setPendingRemovedStoredNames(new Set());
-      setAttachmentMessage("Attachments updated.");
+      setAttachmentMessage("");
       await loadAttachments();
     } catch (error) {
       console.error("Error updating attachments:", error);
-      setAttachmentError("Failed to update attachments.");
+      setAttachmentError("Failed to update assignment details.");
     } finally {
       setIsSavingAttachments(false);
     }
@@ -135,22 +155,22 @@ export default function ManageAttachmentsModal({ assignmentId, classId }: Props)
     <>
       <button
         type="button"
-        className="ManageAttachmentsButton"
+        className="ManageAssignmentButton"
         onClick={openModal}
       >
-        Manage Attachments
+        Manage
       </button>
 
       {isOpen && (
-        <div className="AttachmentModalOverlay" role="dialog" aria-modal="true" aria-label="Manage assignment attachments">
+        <div className="AttachmentModalOverlay" role="dialog" aria-modal="true" aria-label="Manage assignment">
           <div className="AttachmentModal">
             <div className="AttachmentModalHeader">
-              <h3>Manage Attachments</h3>
+              <h3>Manage Assignment</h3>
               <button
                 type="button"
                 className="AttachmentModalClose"
                 onClick={closeModal}
-                aria-label="Close attachment manager"
+                aria-label="Close manage assignment modal"
               >
                 x
               </button>
@@ -161,6 +181,19 @@ export default function ManageAttachmentsModal({ assignmentId, classId }: Props)
                 <p className="AttachmentStatus">Loading attachments...</p>
               ) : (
                 <>
+                  <div className="AssignmentDescriptionSection">
+                    <textarea
+                      className="AssignmentDescriptionInput"
+                      value={descriptionDraft}
+                      onChange={(event) => {
+                        setDescriptionDraft(event.target.value);
+                        setAttachmentMessage("");
+                      }}
+                      placeholder="Add assignment description"
+                      rows={4}
+                    />
+                  </div>
+
                   <div className="AttachmentSectionHeaderRow">
                     <h4>Files To Add</h4>
                     <button
@@ -192,10 +225,7 @@ export default function ManageAttachmentsModal({ assignmentId, classId }: Props)
                   )}
 
                   <div className="AttachmentPendingSection">
-                    <h4>Current Files</h4>
-                    {existingAttachments.length === 0 ? (
-                      <p className="AttachmentStatus">No files currently attached.</p>
-                    ) : (
+                    {existingAttachments.length === 0 ? null : (
                       <ul className="AttachmentList">
                         {existingAttachments.map((attachment) => {
                           const markedForRemoval = pendingRemovedStoredNames.has(attachment.stored_name);
@@ -247,7 +277,7 @@ export default function ManageAttachmentsModal({ assignmentId, classId }: Props)
                 onClick={applyAttachmentChanges}
                 disabled={isSavingAttachments || attachmentsLoading}
               >
-                {isSavingAttachments ? "Saving..." : "Save Changes"}
+                {isSavingAttachments ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

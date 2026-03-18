@@ -24,6 +24,11 @@
   margin: 0;
 }
 
+.CriteriaCreationAssignmentHeading {
+  margin: 0;
+  color: var(--button-primary);
+}
+
 .CriteriaCreationAssignmentName {
   font-size: 0.9rem;
   color: var(--text-secondary, #666);
@@ -99,12 +104,12 @@
 
 .CriteriaActionButton.edit,
 .CriteriaActionButton.save {
-  background-color: #2f7bff;
+  background-color: var(--button-primary);
   color: #fff;
 }
 
 .CriteriaActionButton.delete {
-  background-color: #d43f3f;
+  background-color: var(--button-secondary);
   color: #fff;
 }
 

@@ -230,6 +230,28 @@ def migrate_add_assignment_attachments_command():
         raise
 
 
+@click.command("migrate_add_assignment_description")
+@with_appcontext
+def migrate_add_assignment_description_command():
+    """Add description column to Assignment table if it doesn't exist."""
+    try:
+        inspector = inspect(db.engine)
+        columns = [col["name"] for col in inspector.get_columns("Assignment")]
+
+        if "description" in columns:
+            click.echo("Column 'description' already exists in Assignment table")
+            return
+
+        with db.engine.connect() as conn:
+            conn.execute(db.text("ALTER TABLE Assignment ADD COLUMN description TEXT"))
+            conn.commit()
+
+        click.echo("Successfully added 'description' column to Assignment table")
+    except Exception as e:
+        click.echo(f"Error during description migration: {e}", err=True)
+        raise
+
+
 def init_app(app):
     """Register CLI commands with the Flask app"""
     app.cli.add_command(init_db_command)
@@ -241,3 +263,4 @@ def init_app(app):
     app.cli.add_command(migrate_add_start_date_command)
     app.cli.add_command(migrate_remove_start_date_command)
     app.cli.add_command(migrate_add_assignment_attachments_command)
+    app.cli.add_command(migrate_add_assignment_description_command)
