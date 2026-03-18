@@ -145,7 +145,10 @@
   color: #fff;
 }
 
-.AttachmentActionButton.remove,
+.AttachmentActionButton.remove {
+  background: var(--button-secondary);
+}
+
 .PendingRemoveButton {
   background: #d43f3f;
 }
@@ -176,7 +179,7 @@
 }
 
 .AttachmentFooterButton.primary {
-  background: #2460d9;
+  background: var(--button-primary);
   color: #fff;
 }
 

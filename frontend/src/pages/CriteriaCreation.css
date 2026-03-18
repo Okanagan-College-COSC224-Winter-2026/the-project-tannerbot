@@ -99,12 +99,12 @@
 
 .CriteriaActionButton.edit,
 .CriteriaActionButton.save {
-  background-color: #2f7bff;
+  background-color: var(--button-primary);
   color: #fff;
 }
 
 .CriteriaActionButton.delete {
-  background-color: #d43f3f;
+  background-color: var(--button-secondary);
   color: #fff;
 }
 
