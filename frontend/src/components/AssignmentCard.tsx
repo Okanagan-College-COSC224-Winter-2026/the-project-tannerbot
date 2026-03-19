@@ -33,7 +33,7 @@ export default function AssignmentCard(props: Props) {
         },
       });
     } else {
-      navigate(`/assignment/${props.id}`);
+      navigate(`/assignments/${props.id}`);
     }
   };
 

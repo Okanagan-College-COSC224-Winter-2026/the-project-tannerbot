@@ -232,6 +232,9 @@ export const listCourseMembers = async (classId: string) => {
     id?: number | string
     userID?: number | string
     user_id?: number | string
+    name?: string
+    email?: string
+    role?: string
     student_id?: string | null
     studentID?: string | null
     is_instructor?: unknown
@@ -256,13 +259,25 @@ export const listCourseMembers = async (classId: string) => {
     return false
   }
 
-  return (payload as RawCourseMember[]).map((member) => ({
-    ...member,
-    id: member.id ?? member.userID ?? member.user_id,
-    student_id: member.student_id ?? member.studentID ?? null,
-    is_instructor: normalizeInstructorFlag(member.is_instructor ?? member.isInstructor),
-    profile_picture_url: member.profile_picture_url ?? member.profilePictureUrl ?? null,
-  }))
+  return (payload as RawCourseMember[]).map((member) => {
+    const normalizedId = Number(member.id ?? member.userID ?? member.user_id)
+    const normalizedRole: 'student' | 'teacher' | 'admin' =
+      member.role === 'student' || member.role === 'teacher' || member.role === 'admin'
+        ? member.role
+        : normalizeInstructorFlag(member.is_instructor ?? member.isInstructor)
+          ? 'teacher'
+          : 'student'
+
+    return {
+      id: Number.isFinite(normalizedId) ? normalizedId : 0,
+      name: typeof member.name === 'string' ? member.name : '',
+      email: typeof member.email === 'string' ? member.email : '',
+      role: normalizedRole,
+      student_id: member.student_id ?? member.studentID ?? null,
+      is_instructor: normalizeInstructorFlag(member.is_instructor ?? member.isInstructor),
+      profile_picture_url: member.profile_picture_url ?? member.profilePictureUrl ?? null,
+    }
+  })
 } 
 
 
@@ -741,6 +756,93 @@ export const createTeacherAccount = async (name: string, email: string, password
       password,
       role: 'teacher',
       must_change_password: true
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+// Review - Assign reviewer to peer review
+export const assignReview = async (assignmentID: number, reviewerID: number, revieweeID: number) => {
+  const response = await fetch(`${BASE_URL}/review/assign`, {
+    method: 'POST',
+    body: JSON.stringify({
+      assignmentID,
+      reviewerID,
+      revieweeID,
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+// Review - List reviews for an assignment
+export const listReviewsForAssignment = async (assignmentID: number) => {
+  const response = await fetch(`${BASE_URL}/review/assignment/${assignmentID}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export const listMyReviewsForAssignment = async (assignmentID: number) => {
+  const response = await fetch(`${BASE_URL}/review/my/assignment/${assignmentID}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+// Review - Mark/grade a review
+export const markReview = async (reviewID: number, criteria: Array<{criterionID: number, grade?: number, comments?: string}>) => {
+  const response = await fetch(`${BASE_URL}/review/${reviewID}/mark`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      criteria,
     }),
     headers: {
       'Content-Type': 'application/json',

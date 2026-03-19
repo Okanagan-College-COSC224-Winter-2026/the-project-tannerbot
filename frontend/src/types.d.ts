@@ -60,6 +60,38 @@ interface Assignment {
   attachments?: AssignmentAttachment[];
 }
 
+interface ReviewParticipant {
+  id: number;
+  name: string;
+  email?: string;
+}
+
+interface ReviewCriterionRow {
+  id: number;
+  question: string;
+  scoreMax: number;
+  hasScore: boolean;
+}
+
+interface ReviewCriterion {
+  id: number;
+  criterionRowID: number;
+  grade?: number | null;
+  comments?: string | null;
+  criterion_row?: ReviewCriterionRow;
+}
+
+interface ReviewAssignment {
+  id: number;
+  assignmentID: number;
+  reviewer?: ReviewParticipant;
+  reviewee?: ReviewParticipant;
+  criteria?: ReviewCriterion[];
+  assignment?: Assignment;
+  review_window_open?: boolean;
+  is_complete?: boolean;
+}
+
 interface CourseWithAssignments extends Course {
   assignments?: Assignment[];
   assignmentCount?: number;
