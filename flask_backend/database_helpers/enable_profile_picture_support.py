@@ -13,7 +13,7 @@ from pathlib import Path
 from api.startup_migrations import ensure_profile_picture_columns_for_sqlite
 
 
-DB_PATH = Path("instance") / "app.sqlite"
+DB_PATH = Path(__file__).resolve().parent.parent / "instance" / "app.sqlite"
 
 
 def main() -> None:

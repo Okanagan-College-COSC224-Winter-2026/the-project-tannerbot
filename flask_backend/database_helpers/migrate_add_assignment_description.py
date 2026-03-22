@@ -11,7 +11,7 @@ import argparse
 import sqlite3
 from pathlib import Path
 
-DEFAULT_DB_PATH = Path("instance") / "app.sqlite"
+DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "instance" / "app.sqlite"
 
 
 def add_assignment_description_column(db_path: Path) -> int:
