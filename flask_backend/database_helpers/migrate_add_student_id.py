@@ -7,7 +7,7 @@ Run from flask_backend:
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path("instance") / "app.sqlite"
+DB_PATH = Path(__file__).resolve().parent.parent / "instance" / "app.sqlite"
 
 
 def main() -> None:

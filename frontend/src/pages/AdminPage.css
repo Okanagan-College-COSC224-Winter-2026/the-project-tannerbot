@@ -1,0 +1,88 @@
+.AdminPage {
+  margin: 1rem;
+  width: 100%;
+}
+
+.AdminPage h1 {
+  border-bottom: 1px solid var(--background-secondary);
+  padding-bottom: 0.5rem;
+}
+
+/* Table wrapper for spacing control */
+.AdminTableWrapper {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+/* Main table */
+.AdminTable {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* Header */
+.AdminTable thead {
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--text-secondary);
+}
+
+.AdminTable th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+/* Rows */
+.AdminTable td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+/* Row hover */
+.AdminTable tbody tr:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Actions column */
+.AdminActions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Delete button */
+.AdminDeleteBtn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #ff4d4f;
+  background: transparent;
+  color: #ff4d4f;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.AdminDeleteBtn:hover {
+  background: #ff4d4f;
+  color: white;
+}
+
+/* Optional role dropdown styling */
+.AdminRoleSelect {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--background-secondary);
+  background: white;
+}
+
+.AdminDeleteBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

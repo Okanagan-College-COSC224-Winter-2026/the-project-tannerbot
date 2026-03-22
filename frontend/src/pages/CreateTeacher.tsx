@@ -38,9 +38,22 @@ export default function CreateTeacher() {
       setName('');
       setEmail('');
       setPassword('');
-    } catch {
-      setError('Failed to create teacher account');
-    }
+    } 
+    catch (err: any) {
+  const status = err?.response?.status;
+  const message = err?.response?.data?.error || err?.message;
+
+  console.log('Create teacher error:', { status, message });
+
+  if (
+    status === 409 ||
+    message?.toLowerCase().includes('email')
+  ) {
+    setError('Duplicate email address, please use a different email.');
+  } else {
+    setError('Failed to create teacher account');
+  }
+}
   };
 
   return (
@@ -85,7 +98,7 @@ export default function CreateTeacher() {
               <Textbox
                 type='email'
                 placeholder='teacher@institution.edu...'
-                onInput={setEmail}
+                onInput={(value: string) => setEmail(value.toLowerCase())}
                 className='LoginInput'
               />
             </div>

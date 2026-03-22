@@ -11,24 +11,34 @@ export default function LoginPage() {
   const [error, setError] = useState('');
 
   const attemptLogin = async () => {
-    setError('');
+  setError('');
 
-    try {
-      const result = await tryLogin(email, password);
-      if (result) {
-        // Check if user must change password
-        if (result.must_change_password) {
-          navigate('/change-password');
-        } else {
-          navigate('/home');
-        }
-      } else {
-        setError('Invalid email or password');
+  try {
+    const result = await tryLogin(email, password);
+
+    if (result) {
+      // Regex: at least 8 chars, one uppercase, one lowercase, one number, one special char
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
+
+      // If password doesn't meet requirements → force change
+      if (!passwordRegex.test(password)) {
+        navigate('/change-password');
+        return;
       }
-    } catch {
+
+      // Otherwise check backend flag
+      if (result.must_change_password) {
+        navigate('/change-password');
+      } else {
+        navigate('/home');
+      }
+    } else {
       setError('Invalid email or password');
     }
+  } catch {
+    setError('Invalid email or password');
   }
+};
 
   return (
     <div className="LoginPage d-flex align-items-center justify-content-center min-vh-100 py-5">
