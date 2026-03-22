@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import RubricCreator from "../components/RubricCreator";
 import Button from "../components/Button";
 import ManageAssignment from "../components/ManageAssignment";
+import TabNavigation from "../components/TabNavigation";
 import { deleteCriteria, getRubricByAssignment, updateCriteria } from "../util/api";
+import { isAdmin, isTeacher } from "../util/login";
 import "./CriteriaCreation.css";
 
 interface CriteriaDescription {
@@ -25,8 +27,12 @@ export default function CriteriaCreation() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const canManageAssignment = isTeacher() || isAdmin();
 
-  const classId = location.state?.classId;
+  const stateClassId = (location.state as { classId?: string | number } | null)?.classId;
+  const searchClassId = new URLSearchParams(location.search).get("classId");
+  const classId = stateClassId ?? searchClassId;
+  const classQuery = classId ? `?classId=${classId}` : "";
   const assignmentName = location.state?.assignmentName;
 
   const [rubric, setRubric] = useState<RubricData | null>(null);
@@ -105,14 +111,14 @@ export default function CriteriaCreation() {
   };
 
   return (
-    <div className="CriteriaCreationPage">
-      <div className="CriteriaCreationHeader">
+    <div className="AssignmentPage CriteriaCreationPage container-fluid py-4 px-3 px-md-4">
+      <div className="AssignmentHeader CriteriaCreationHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
         <div className="CriteriaCreationHeaderLeft">
-          {assignmentName && <h2 className="CriteriaCreationAssignmentHeading">{assignmentName}</h2>}
+          <h2 className="h3 fw-bold mb-0">Assignment {id}</h2>
         </div>
         <div className="CriteriaCreationHeaderRight">
           <Button onClick={handleBackToClass} type="secondary">
-            ← Back to Class
+            Return to Class
           </Button>
           <ManageAssignment
             assignmentId={id ? Number(id) : undefined}
@@ -120,6 +126,31 @@ export default function CriteriaCreation() {
           />
         </div>
       </div>
+
+      <TabNavigation
+        tabs={[
+          {
+            label: "Group",
+            path: `/assignments/${id}/group${classQuery}`,
+          },
+          {
+            label: "Criteria",
+            path: `/assignment/${id}/criteria${classQuery}`,
+          },
+          ...(canManageAssignment
+            ? [
+                {
+                  label: "Reviews",
+                  path: `/assignments/${id}/reviews${classQuery}`,
+                },
+                {
+                  label: "Progress",
+                  path: `/assignments/${id}/progress${classQuery}`,
+                },
+              ]
+            : []),
+        ]}
+      />
 
       <div className="CriteriaCreationBody">
         {rubric && rubric.criteria_descriptions.length > 0 && (

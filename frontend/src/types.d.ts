@@ -97,3 +97,29 @@ interface CourseWithAssignments extends Course {
   assignments?: Assignment[];
   assignmentCount?: number;
 }
+
+interface AssignmentStudentReviewStatus {
+  has_reviewed: boolean;
+  completed_assigned_reviews: number;
+  total_assigned_reviews: number;
+  pending_assigned_reviews: number;
+  is_complete: boolean;
+}
+
+interface AssignmentProgressStudent {
+  id: number;
+  student_id?: string | null;
+  name: string;
+  email: string;
+  has_submitted: boolean;
+  review_status: AssignmentStudentReviewStatus;
+}
+
+interface AssignmentProgressResponse {
+  assignment: {
+    id: number;
+    name: string;
+    courseID: number;
+  };
+  students: AssignmentProgressStudent[];
+}

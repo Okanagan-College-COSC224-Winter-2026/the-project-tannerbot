@@ -159,6 +159,24 @@ export const listAssignments = async (classId: string) => {
   return await resp.json()
 }
 
+export const getAssignmentProgress = async (assignmentId: number) => {
+  const resp = await fetch(`${BASE_URL}/assignment/${assignmentId}/progress`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  })
+
+  maybeHandleExpire(resp)
+
+  if (!resp.ok) {
+    throw new Error(`Response status: ${resp.status}`)
+  }
+
+  return await resp.json()
+}
+
 export const listStuGroup = async (assignmentId : number, studentId : number) => {
   const resp = await fetch(`${BASE_URL}/list_stu_groups/`+ assignmentId + "/" + studentId, {
     method: 'GET',
