@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..models import Course, Assignment, User, AssignmentSchema
+from ..services import build_assignment_progress_payload
 from .auth_controller import jwt_teacher_required
 from .assignment_attachment_controller import (
     list_assignment_attachments,
@@ -198,3 +199,27 @@ def get_assignments(class_id):
         assignment_data["attachments"] = list_assignment_attachments(assignment_data["id"])
 
     return jsonify(assignments_data), 200
+
+
+@bp.route("/<int:assignment_id>/progress", methods=["GET"])
+@jwt_teacher_required
+def get_assignment_progress(assignment_id):
+    """Get per-student submission/review completion status for one assignment."""
+    assignment = Assignment.get_by_id(assignment_id)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+
+    course = Course.get_by_id(assignment.courseID)
+    if not course:
+        return jsonify({"msg": "Class not found"}), 404
+
+    email = get_jwt_identity()
+    current_user = User.get_by_email(email)
+    if not current_user:
+        return jsonify({"msg": "User not found"}), 404
+
+    if course.teacherID != current_user.id and not current_user.is_admin():
+        return jsonify({"msg": "Insufficient permissions"}), 403
+
+    payload = build_assignment_progress_payload(assignment)
+    return jsonify(payload), 200

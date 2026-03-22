@@ -25,15 +25,16 @@ export default function AssignmentCard(props: Props) {
   const canModify = !pastDue;
 
   const handleCardClick = () => {
+    const classQuery = props.classId ? `?classId=${props.classId}` : '';
     if (isTeacher()) {
-      navigate(`/assignment/${props.id}/criteria`, {
+      navigate(`/assignment/${props.id}/criteria${classQuery}`, {
         state: {
           classId: props.classId,
           assignmentName: props.assignment?.name ?? props.children,
         },
       });
     } else {
-      navigate(`/assignments/${props.id}`);
+      navigate(`/assignments/${props.id}${classQuery}`);
     }
   };
 

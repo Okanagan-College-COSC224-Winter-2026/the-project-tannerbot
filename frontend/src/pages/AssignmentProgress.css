@@ -1,0 +1,109 @@
+.AssignmentProgressTable th,
+.AssignmentProgressTable td {
+  vertical-align: middle;
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+
+/* Override legacy .table flex styling from Assignment.css for this page only. */
+.AssignmentProgressTable tr {
+  display: table-row;
+  width: auto;
+}
+
+.AssignmentProgressTable th,
+.AssignmentProgressTable td {
+  display: table-cell;
+}
+
+/* Reset inherited .table th sizing/layout rules so headers line up with data columns. */
+.AssignmentProgressTable th {
+  width: auto;
+  height: auto;
+  align-items: initial;
+  justify-content: initial;
+  flex-direction: initial;
+}
+
+.AssignmentProgressTable .badge {
+  font-size: 0.8rem;
+  padding: 0.45rem 0.65rem;
+  white-space: nowrap;
+  display: inline-flex;
+  justify-content: center;
+  min-width: 9.5rem;
+}
+
+.AssignmentProgressTable {
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* Cancel shared Assignment.css `.table` flex layout for this specific table. */
+.AssignmentProgressTable.table {
+  display: table;
+  width: 100% !important;
+  margin: 0;
+}
+
+.AssignmentProgressTable thead {
+  display: table-header-group;
+}
+
+.AssignmentProgressTable tbody {
+  display: table-row-group;
+}
+
+.AssignmentProgressTable th:nth-child(1),
+.AssignmentProgressTable td:nth-child(1) {
+  width: 40%;
+}
+
+.AssignmentProgressTable th:nth-child(2),
+.AssignmentProgressTable td:nth-child(2),
+.AssignmentProgressTable th:nth-child(3),
+.AssignmentProgressTable td:nth-child(3) {
+  width: 18%;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.AssignmentProgressTable th:nth-child(4),
+.AssignmentProgressTable td:nth-child(4) {
+  width: 24%;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.AssignmentProgressTable thead th {
+  white-space: nowrap;
+}
+
+.AssignmentProgressTable thead th:nth-child(1),
+.AssignmentProgressTable thead th:nth-child(2),
+.AssignmentProgressTable thead th:nth-child(3),
+.AssignmentProgressTable thead th:nth-child(4) {
+  text-align: left;
+}
+
+.AssignmentProgressTable td:nth-child(4) {
+  font-variant-numeric: tabular-nums;
+}
+
+.AssignmentProgressStudentName {
+  overflow-wrap: anywhere;
+}
+
+.AssignmentProgressStudentMeta {
+  overflow-wrap: anywhere;
+}
+
+.AssignmentProgressTableWrap {
+  overflow-x: visible;
+}
+
+@media (max-width: 900px) {
+  .AssignmentProgressTableWrap {
+    overflow-x: auto;
+  }
+}
