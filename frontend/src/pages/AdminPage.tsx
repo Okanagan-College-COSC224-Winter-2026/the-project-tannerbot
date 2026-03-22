@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { listUsers, deleteUser } from "../util/api";
 import "./AdminPage.css";
 export default function AdminPage() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const currentUser = JSON.parse(localStorage.getItem("user") || "null");
 
   async function handleDelete(userId: number) {

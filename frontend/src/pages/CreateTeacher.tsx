@@ -39,21 +39,19 @@ export default function CreateTeacher() {
       setEmail('');
       setPassword('');
     } 
-    catch (err: any) {
-  const status = err?.response?.status;
-  const message = err?.response?.data?.error || err?.message;
+    catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      const isDuplicateEmail = message.toLowerCase().includes('email');
+      const isConflict = message.includes('409');
 
-  console.log('Create teacher error:', { status, message });
+      console.log('Create teacher error:', { message });
 
-  if (
-    status === 409 ||
-    message?.toLowerCase().includes('email')
-  ) {
-    setError('Duplicate email address, please use a different email.');
-  } else {
-    setError('Failed to create teacher account');
-  }
-}
+      if (isConflict || isDuplicateEmail) {
+        setError('Duplicate email address, please use a different email.');
+      } else {
+        setError('Failed to create teacher account');
+      }
+    }
   };
 
   return (
