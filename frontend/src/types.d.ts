@@ -2,6 +2,7 @@ interface Course {
   id: number;
   teacherID: number;
   name: string;
+  total_grade?: number | null;
 }
 
 interface User {

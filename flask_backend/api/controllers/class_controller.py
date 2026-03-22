@@ -3,6 +3,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from werkzeug.security import generate_password_hash
 
 from ..models import Course, User, User_Course
+from ..services import calculate_student_course_total_grade
 from .auth_controller import jwt_teacher_required
 import re
 import csv
@@ -66,7 +67,18 @@ def get_user_classes():
     else:
         courses = []
 
-    return jsonify([{"id": c.id, "name": c.name} for c in courses]), 200
+    payload = []
+    for course in courses:
+        if not course:
+            continue
+
+        row = {"id": course.id, "name": course.name}
+        if user.is_student():
+            row["total_grade"] = calculate_student_course_total_grade(user.id, course.id)
+
+        payload.append(row)
+
+    return jsonify(payload), 200
 
 
 @bp.route("/members", methods=["POST"])
