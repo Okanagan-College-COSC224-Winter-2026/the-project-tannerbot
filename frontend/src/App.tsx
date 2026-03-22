@@ -2,7 +2,7 @@ import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import Home from "./pages/Home";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Sidebar from "./components/Sidebar";
-
+import AdminPage from "./pages/AdminPage";
 import "./App.css";
 import Profile from "./pages/Profile";
 import CreateClass from "./pages/CreateClass";
@@ -89,7 +89,14 @@ function AppContent() {
               <Group />
             </ProtectedRoute>
           } />
-
+          <Route
+            path="/admin"
+              element={
+               <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminPage />
+                </ProtectedRoute>
+            }
+          />
           <Route path="/assignment/:id/criteria" element={
             <ProtectedRoute>
               <CriteriaCreation />

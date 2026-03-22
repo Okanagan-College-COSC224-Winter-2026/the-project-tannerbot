@@ -3,7 +3,7 @@ import ClassCard from "../components/ClassCard";
 
 import './Home.css'
 import { listClasses, listAssignments } from "../util/api";
-import { isTeacher, isAdmin, isStudent } from "../util/login";
+import { isTeacher, isStudent } from "../util/login";
 
 export default function Home() {
   const [courses, setCourses] = useState<CourseWithAssignments[]>([]);
@@ -112,12 +112,6 @@ export default function Home() {
         {isTeacher() && ( 
           <div className="ClassCreateButton" onClick={() => window.location.href = '/classes/create'}>
           <h2>Create Class</h2>
-        </div> 
-        )}
-        
-        {isAdmin() && ( 
-          <div className="ClassCreateButton" onClick={() => window.location.href = '/admin/create-teacher'}>
-          <h2>Create Teacher</h2>
         </div> 
         )}
       </div>

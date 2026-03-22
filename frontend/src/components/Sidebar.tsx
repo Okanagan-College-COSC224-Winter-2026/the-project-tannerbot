@@ -1,6 +1,7 @@
-import { hasRole, logout } from '../util/login'
+import { hasRole, logout, isAdmin } from '../util/login'
 import { NavLink } from 'react-router-dom'
 import './Sidebar.css'
+
 
 export default function Sidebar() {
   return (
@@ -23,6 +24,17 @@ export default function Sidebar() {
         ) : null}
 
         <SidebarRow href="/profile">My Info</SidebarRow>
+
+        {isAdmin() && (
+          <SidebarRow href="/admin">
+            Admin Panel
+          </SidebarRow>
+        )}
+        {isAdmin() && (
+          <SidebarRow href="/admin/create-teacher">
+            Create Teacher
+          </SidebarRow>
+        )}
       </nav>
     </aside>
   )
@@ -37,12 +49,14 @@ function SidebarRow(props: SidebarRowProps) {
   return (
     <NavLink
       to={props.href}
+      end
       className={({ isActive }) =>
-        `SidebarRow nav-link px-3 py-2 rounded-3 ${isActive ? 'active' : 'text-dark'}`
+        `SidebarRow nav-link px-3 py-2 rounded-3 ${
+          isActive ? 'active' : 'text-dark'
+        }`
       }
-      end={props.href === '/home'}
     >
       {props.children}
     </NavLink>
-  )
+  );
 }
