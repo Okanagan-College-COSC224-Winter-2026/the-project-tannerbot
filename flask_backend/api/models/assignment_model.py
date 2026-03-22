@@ -14,10 +14,12 @@ class Assignment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     courseID = db.Column(db.Integer, db.ForeignKey("Course.id"), index=True)
     name = db.Column(db.String(255), nullable=True)
+    description = db.Column(db.Text, nullable=True)
     rubric_text = db.Column("rubric", db.String(255), nullable=True)
 
     # NEW: due date field (acceptance criteria: edit/delete allowed before due date)
     due_date = db.Column(db.DateTime, nullable=True, index=True)
+    start_date = db.Column(db.DateTime, nullable=True)
 
     # relationships
     course = db.relationship("Course", back_populates="assignments", lazy="joined")
@@ -30,6 +32,12 @@ class Assignment(db.Model):
     submissions = db.relationship(
         "Submission", back_populates="assignment", cascade="all, delete-orphan", lazy="dynamic"
     )
+    attachments = db.relationship(
+        "AssignmentAttachment",
+        back_populates="assignment",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
     reviews = db.relationship(
         "Review", back_populates="assignment", cascade="all, delete-orphan", lazy="dynamic"
     )
@@ -37,11 +45,21 @@ class Assignment(db.Model):
         "Group_Members", back_populates="assignment", cascade="all, delete-orphan", lazy="dynamic"
     )
 
-    def __init__(self, courseID, name, rubric_text, due_date=None):
+    def __init__(
+        self,
+        courseID,
+        name,
+        rubric_text,
+        due_date=None,
+        start_date=None,
+        description=None,
+    ):
         self.courseID = courseID
         self.name = name
         self.rubric_text = rubric_text
         self.due_date = due_date
+        self.start_date = start_date
+        self.description = description
 
     def __repr__(self):
         return f"<Assignment id={self.id} name={self.name}>"

@@ -37,3 +37,49 @@
   filter: brightness(0.8);
   cursor: pointer;
 }
+
+.EmptyCoursesState {
+  width: 360px;
+  min-height: 160px;
+  border-radius: 6px;
+  border: 1px dashed var(--text-secondary);
+  background: var(--background-secondary);
+  color: var(--text-secondary);
+  padding: 1rem;
+}
+
+.EmptyCoursesState h2 {
+  margin-top: 0;
+}
+
+.EmptyCoursesState p {
+  margin-bottom: 0;
+  line-height: 1.4;
+}
+
+.DashboardSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1rem 0 1.5rem 0;
+}
+
+.DashboardWidget {
+  min-width: 220px;
+  padding: 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--background-secondary);
+  background: var(--background-secondary);
+}
+
+.DashboardWidget h3 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.DashboardWidget p {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: bold;
+}

@@ -1,0 +1,28 @@
+.ProfileDetails {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+}
+
+.ProfileDetailsRow {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 1px solid var(--background-secondary);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.ProfileDetailsLabel {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.ProfileDetailsValue {
+  font-size: 1.05rem;
+  color: var(--text-primary);
+  word-break: break-word;
+}

@@ -1,0 +1,29 @@
+.ReviewAssigner {
+  border: 1px solid #e5e9f2;
+  border-radius: 0.8rem;
+  background: #f8fbff;
+  padding: 0.9rem;
+}
+
+.ReviewAssignerTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.65rem;
+}
+
+.ReviewAssignerHint {
+  color: #5f6d83;
+}
+
+.ReviewAssignerError {
+  color: #b42318;
+  font-weight: 600;
+}
+
+.ReviewAssignerList ul {
+  padding-left: 1.1rem;
+}
+
+.ReviewAssignerList li {
+  margin-bottom: 0.3rem;
+}

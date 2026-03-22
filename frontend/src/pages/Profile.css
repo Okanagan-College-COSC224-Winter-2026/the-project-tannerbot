@@ -1,16 +1,23 @@
 .Profile {
   display: flex;
-  flex-direction: row;
-  justify-content: flex-start;
-  align-items: flex-start;
-  padding: 4rem;
+  width: 100%;
+  padding: 1rem;
 }
 
-.Profile .profile-image {
-  width: 200px;
-  height: 200px;
-  border-radius: 50%;
-  overflow: hidden;
+.ProfileCard {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 2rem;
+  width: 100%;
+  max-width: 900px;
+}
+
+.ProfileImagePanel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
 }
 
 .Profile .profile-image img {
@@ -19,15 +26,151 @@
   object-fit: cover;
 }
 
+.Profile .profile-image {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 140px;
+  min-width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: var(--background-secondary);
+  color: var(--text-secondary);
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ProfilePictureActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.ProfilePictureInput {
+  display: none;
+}
+
 .Profile .profile-info {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: flex-start;
-  margin-left: 1rem;
+  gap: 0.75rem;
+  width: 100%;
 }
 
 .Profile .profile-info h1 {
-  font-size: 1.5rem;
+  font-size: 2rem;
+  margin: 0;
+  border-bottom: 1px solid var(--background-secondary);
+  padding-bottom: 0.5rem;
+  width: 100%;
+}
+
+.ProfileEyebrow {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ProfileActionRow {
+  margin-top: 1rem;
+}
+
+.ProfileTabs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--background-secondary);
+  width: 100%;
+  padding-bottom: 0.5rem;
+}
+
+.ProfileTab {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+
+.ProfileTab:hover {
+  background: var(--background-secondary);
+}
+
+.ProfileTabActive {
+  color: var(--text-primary);
+  background: var(--background-secondary);
+}
+
+.ProfileDescriptionPanel {
+  width: 100%;
+}
+
+.ProfileDescriptionLabel {
+  display: block;
   margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.ProfileDescriptionInput {
+  width: 100%;
+  resize: vertical;
+  min-height: 120px;
+  border: 1px solid var(--background-secondary);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  font: inherit;
+  color: var(--text-primary);
+  background: var(--background-primary);
+}
+
+.ProfileDescriptionFooter {
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.ProfileDescriptionText {
+  width: 100%;
+  margin: 0;
+  border: 1px solid var(--background-secondary);
+  border-radius: 0.5rem;
+  padding: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 768px) {
+  .Profile {
+    padding: 1rem;
+  }
+
+  .ProfileCard {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .ProfileImagePanel {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .Profile .profile-image {
+    width: 120px;
+    min-width: 120px;
+    height: 120px;
+    font-size: 2.2rem;
+  }
 }

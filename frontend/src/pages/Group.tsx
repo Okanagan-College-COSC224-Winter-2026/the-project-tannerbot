@@ -138,7 +138,7 @@ export default function Group() {
       }
       setMemberTable(memLocal);
     })();
-  }, []);
+  }, [id]);
 
   return (
     <>
@@ -150,11 +150,11 @@ export default function Group() {
         tabs={[
           {
             label: "Home",
-            path: `/assignment/${id}`,
+            path: `/assignments/${id}`,
           },
           {
             label: "Group",
-            path: `/assignment/${id}/group`,
+            path: `/assignments/${id}/group`,
           }
         ]}
       />

@@ -5,9 +5,12 @@ CREATE TABLE User (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
+    student_id VARCHAR(64),
     hash_pass VARCHAR(128) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'teacher', 'admin'))
 );
+
+CREATE INDEX ix_user_student_id ON User(student_id);
 
 CREATE TABLE Course (
     id SERIAL PRIMARY KEY,
