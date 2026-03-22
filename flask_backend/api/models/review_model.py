@@ -1,10 +1,17 @@
-"""
-Review model for the peer evaluation app.
-"""
+"""Review model for the peer evaluation app."""
+
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import joinedload
 
 from .db import db
+from .assignment_model import Assignment
+from .criterion_model import Criterion
+from .criteria_description_model import CriteriaDescription
+from .course_model import Course
+from .rubric_model import Rubric
+from .user_course_model import User_Course
+from .user_model import User
 
 
 class Review(db.Model):
@@ -37,6 +44,50 @@ class Review(db.Model):
     def __repr__(self):
         return f"<Review id={self.id} assignmentID={self.assignmentID}>"
 
+    @staticmethod
+    def _ensure_timezone_aware(dt):
+        if dt is None:
+            return None
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+    @staticmethod
+    def _current_utc_time():
+        return datetime.now(timezone.utc)
+
+    def is_review_window_open(self):
+        """Return True when assignment start/due bounds allow review submission."""
+        assignment = self.assignment
+        if assignment is None:
+            return False
+
+        now = self._current_utc_time()
+        start = self._ensure_timezone_aware(assignment.start_date)
+        due = self._ensure_timezone_aware(assignment.due_date)
+
+        if start and now < start:
+            return False
+        if due and now > due:
+            return False
+        return True
+
+    def completion_status(self):
+        """Return True when all rubric criteria have required feedback."""
+        criteria_rows = self.criteria.order_by("id").all()
+        if not criteria_rows:
+            return False
+
+        for criterion in criteria_rows:
+            criterion_row = criterion.criterion_row
+            has_score = True if criterion_row is None else bool(criterion_row.hasScore)
+
+            if has_score and criterion.grade is None:
+                return False
+
+            if not has_score and not (criterion.comments and str(criterion.comments).strip()):
+                return False
+
+        return True
+
     @classmethod
     def get_by_id(cls, review_id):
         """Get review by ID (relationships are eagerly loaded via lazy='joined')"""
@@ -58,6 +109,227 @@ class Review(db.Model):
         Assignment relationships (reviewer, reviewee, assignment) are
         automatically loaded via lazy='joined'."""
         return cls.query.options(joinedload(cls.assignment).joinedload("course")).all()
+
+    @classmethod
+    def assign_review_for_teacher(cls, assignment_id, reviewer_id, reviewee_id, teacher_email):
+        """Assign a review for an assignment after validating teacher access and enrollment.
+
+        Returns:
+            (review, None) on success
+            (None, {"msg": str, "status": int}) on failure
+        """
+        if not assignment_id or not reviewer_id or not reviewee_id:
+            return None, {"msg": "assignmentID, reviewerID, and revieweeID are required", "status": 400}
+
+        try:
+            assignment_id = int(assignment_id)
+            reviewer_id = int(reviewer_id)
+            reviewee_id = int(reviewee_id)
+        except (TypeError, ValueError):
+            return None, {"msg": "IDs must be integers", "status": 400}
+
+        if reviewer_id == reviewee_id:
+            return None, {"msg": "Reviewer and reviewee must be different users", "status": 400}
+
+        assignment = Assignment.get_by_id(assignment_id)
+        if not assignment:
+            return None, {"msg": "Assignment not found", "status": 404}
+
+        course = Course.get_by_id(assignment.courseID)
+        if not course:
+            return None, {"msg": "Course not found", "status": 404}
+
+        current_user = User.get_by_email(teacher_email)
+        if not current_user:
+            return None, {"msg": "User not found", "status": 404}
+
+        if course.teacherID != current_user.id and not current_user.is_admin():
+            return None, {"msg": "Unauthorized: You are not the teacher of this class", "status": 403}
+
+        reviewer = User.get_by_id(reviewer_id)
+        reviewee = User.get_by_id(reviewee_id)
+        if not reviewer or not reviewee:
+            return None, {"msg": "Reviewer or reviewee user not found", "status": 404}
+
+        if not reviewer.is_student() or not reviewee.is_student():
+            return None, {"msg": "Reviewer and reviewee must be students", "status": 400}
+
+        if not User_Course.get(reviewer_id, course.id) or not User_Course.get(reviewee_id, course.id):
+            return None, {"msg": "Reviewer and reviewee must be enrolled in the class", "status": 400}
+
+        existing = cls.query.filter_by(
+            assignmentID=assignment_id,
+            reviewerID=reviewer_id,
+            revieweeID=reviewee_id,
+        ).first()
+        if existing:
+            return None, {"msg": "This review assignment already exists", "status": 409, "review": existing}
+
+        rubric = Rubric.query.filter_by(assignmentID=assignment_id).order_by(Rubric.id.desc()).first()
+        if not rubric:
+            return None, {
+                "msg": "Cannot assign review because assignment has no rubric",
+                "status": 400,
+            }
+
+        criteria_rows = rubric.criteria_descriptions.order_by(CriteriaDescription.id.asc()).all()
+        if not criteria_rows:
+            return None, {
+                "msg": "Cannot assign review because rubric has no criteria",
+                "status": 400,
+            }
+
+        review = cls(assignmentID=assignment_id, reviewerID=reviewer_id, revieweeID=reviewee_id)
+        db.session.add(review)
+        db.session.flush()
+
+        criteria = [Criterion(reviewID=review.id, criterionRowID=row.id) for row in criteria_rows]
+        db.session.add_all(criteria)
+        db.session.commit()
+
+        return review, None
+
+    @classmethod
+    def mark_review_for_user(cls, review_id, actor_email, criteria_updates):
+        """Apply grades/comments to criterion rows for a review.
+
+        Reviewer can mark their own review. Course teacher and admins can also update.
+
+        Returns:
+            (review, None) on success
+            (None, {"msg": str, "status": int}) on failure
+        """
+        review = cls.get_by_id(review_id)
+        if not review:
+            return None, {"msg": "Review not found", "status": 404}
+
+        actor = User.get_by_email(actor_email)
+        if not actor:
+            return None, {"msg": "User not found", "status": 404}
+
+        assignment = Assignment.get_by_id(review.assignmentID)
+        if not assignment:
+            return None, {"msg": "Assignment not found", "status": 404}
+
+        course = Course.get_by_id(assignment.courseID)
+        if not course:
+            return None, {"msg": "Course not found", "status": 404}
+
+        can_mark = actor.id == review.reviewerID or actor.is_admin() or actor.id == course.teacherID
+        if not can_mark:
+            return None, {"msg": "Insufficient permissions", "status": 403}
+
+        if not review.is_review_window_open():
+            return None, {
+                "msg": "Review period has ended or is not yet open for this assignment",
+                "status": 403,
+            }
+
+        if not isinstance(criteria_updates, list) or not criteria_updates:
+            return None, {
+                "msg": "criteria must be a non-empty list of criterion updates",
+                "status": 400,
+            }
+
+        for update in criteria_updates:
+            criterion_id = update.get("criterionID") or update.get("criterion_id")
+            if not criterion_id:
+                return None, {"msg": "criterionID is required for each criterion update", "status": 400}
+
+            try:
+                criterion_id = int(criterion_id)
+            except (TypeError, ValueError):
+                return None, {"msg": "criterionID must be an integer", "status": 400}
+
+            criterion = Criterion.query.filter_by(id=criterion_id, reviewID=review.id).first()
+            if not criterion:
+                return None, {
+                    "msg": f"Criterion {criterion_id} not found for this review",
+                    "status": 404,
+                }
+
+            criterion_row = criterion.criterion_row
+
+            if "grade" in update:
+                raw_grade = update.get("grade")
+                if raw_grade is None:
+                    criterion.grade = None
+                else:
+                    try:
+                        grade = int(raw_grade)
+                    except (TypeError, ValueError):
+                        return None, {"msg": "grade must be an integer or null", "status": 400}
+
+                    if criterion_row and criterion_row.hasScore:
+                        max_score = int(criterion_row.scoreMax or 0)
+                        if grade < 0 or grade > max_score:
+                            return None, {
+                                "msg": f"grade for criterion {criterion_id} must be between 0 and {max_score}",
+                                "status": 400,
+                            }
+                    elif criterion_row and not criterion_row.hasScore:
+                        return None, {
+                            "msg": f"criterion {criterion_id} does not allow numeric scoring",
+                            "status": 400,
+                        }
+
+                    criterion.grade = grade
+
+            if "comments" in update:
+                comments = update.get("comments")
+                criterion.comments = None if comments is None else str(comments).strip()
+
+        db.session.commit()
+        return review, None
+
+    @classmethod
+    def list_for_assignment_for_teacher(cls, assignment_id, teacher_email):
+        """List reviews for an assignment after validating teacher access.
+
+        Returns:
+            (reviews, None) on success
+            (None, {"msg": str, "status": int}) on failure
+        """
+        assignment = Assignment.get_by_id(assignment_id)
+        if not assignment:
+            return None, {"msg": "Assignment not found", "status": 404}
+
+        course = Course.get_by_id(assignment.courseID)
+        if not course:
+            return None, {"msg": "Course not found", "status": 404}
+
+        current_user = User.get_by_email(teacher_email)
+        if not current_user:
+            return None, {"msg": "User not found", "status": 404}
+
+        if course.teacherID != current_user.id and not current_user.is_admin():
+            return None, {"msg": "Unauthorized: You are not the teacher of this class", "status": 403}
+
+        reviews = cls.query.filter_by(assignmentID=assignment_id).all()
+        return reviews, None
+
+    @classmethod
+    def list_for_assignment_for_reviewer(cls, assignment_id, reviewer_email):
+        """List reviews assigned to the current reviewer for a given assignment.
+
+        Returns:
+            (reviews, None) on success
+            (None, {"msg": str, "status": int}) on failure
+        """
+        assignment = Assignment.get_by_id(assignment_id)
+        if not assignment:
+            return None, {"msg": "Assignment not found", "status": 404}
+
+        reviewer = User.get_by_email(reviewer_email)
+        if not reviewer:
+            return None, {"msg": "User not found", "status": 404}
+
+        reviews = (
+            cls.query.filter_by(assignmentID=assignment_id, reviewerID=reviewer.id)
+            .order_by(cls.id.asc())
+            .all()
+        )
+        return reviews, None
 
     @classmethod
     def create_review(cls, review):

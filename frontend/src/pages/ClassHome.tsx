@@ -1,10 +1,18 @@
 import AssignmentCard from "../components/AssignmentCard";
 import Button from "../components/Button";
 import AssignmentModal from "../components/AssignmentModal";
+import ReviewAssigner from "../components/ReviewAssigner";
 import "./ClassHome.css";
 import { useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { listAssignments, listClasses, createAssignment, editAssignment, deleteAssignment } from "../util/api";
+import {
+  listAssignments,
+  listClasses,
+  createAssignment,
+  editAssignment,
+  deleteAssignment,
+  listCourseMembers,
+} from "../util/api";
 import TabNavigation from "../components/TabNavigation";
 import { importCSV } from "../util/csv";
 import StatusMessage from "../components/StatusMessage";
@@ -14,6 +22,7 @@ export default function ClassHome() {
   const { id } = useParams();
   const idNew = Number(id)
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [students, setStudents] = useState<User[]>([]);
   const [className, setClassName] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [statusType, setStatusType] = useState<'error' | 'success'>('error');
@@ -27,8 +36,10 @@ export default function ClassHome() {
     (async () => {
       const resp = await listAssignments(String(id));
       const classes = await listClasses();
+      const members = await listCourseMembers(id);
       const currentClass = classes.find((c: { id: number }) => c.id === Number(id));
       setAssignments(resp);
+      setStudents(members.filter((member: User) => member.role === "student"));
       setClassName(currentClass?.name || null);
     })();
   }, [id]);
@@ -182,6 +193,16 @@ export default function ClassHome() {
                     >
                       {assignment.name}
                     </AssignmentCard>
+                    {isTeacher() ? (
+                      <ReviewAssigner
+                        assignmentId={assignment.id}
+                        students={students}
+                        onAssigned={(message) => {
+                          setStatusType("success");
+                          setStatusMessage(message);
+                        }}
+                      />
+                    ) : null}
                   </li>
                 ))}
               </ul>
