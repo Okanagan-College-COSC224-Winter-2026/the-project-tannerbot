@@ -484,6 +484,7 @@ export const createAssignment = async (
   name: string,
   dueDate?: string,
   startDate?: string,
+  assignmentMode?: 'solo' | 'group',
 )=> {
   const response = await fetch(`${BASE_URL}/assignment/create_assignment`, {
     method: 'POST',
@@ -492,6 +493,7 @@ export const createAssignment = async (
       name,
       due_date: dueDate,
       start_date: startDate,
+      assignment_mode: assignmentMode,
     }),
     headers: {
       'Content-Type': 'application/json',
@@ -526,6 +528,7 @@ export const editAssignment = async (
   startDate?: string,
   rubric?: string,
   description?: string,
+  assignmentMode?: 'solo' | 'group',
 ) => {
   const response = await fetch(`${BASE_URL}/assignment/edit_assignment/${assignmentID}`, {
     method: 'PATCH',
@@ -535,6 +538,7 @@ export const editAssignment = async (
       start_date: startDate,
       rubric,
       description,
+      assignment_mode: assignmentMode,
     }),
     headers: {
       'Content-Type': 'application/json',
@@ -763,6 +767,135 @@ export const createGroup = async(assignmentID: number, name: string, id: number)
 
   return await response.json();
 }
+
+export const getAssignmentGrouping = async (assignmentID: number) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/grouping`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+export const updateAssignmentMode = async (
+  assignmentID: number,
+  assignmentMode: 'solo' | 'group',
+) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/mode`, {
+    method: 'PATCH',
+    body: JSON.stringify({ assignment_mode: assignmentMode }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+export const createAssignmentGroup = async (assignmentID: number, name: string) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/groups`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+export const renameAssignmentGroup = async (
+  assignmentID: number,
+  groupID: number,
+  name: string,
+) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/groups/${groupID}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+export const deleteAssignmentGroup = async (assignmentID: number, groupID: number) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/groups/${groupID}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+export const setAssignmentGroupMembers = async (
+  assignmentID: number,
+  groupID: number,
+  studentIds: number[],
+) => {
+  const response = await fetch(
+    `${BASE_URL}/assignment/${assignmentID}/groups/${groupID}/members`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ student_ids: studentIds }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    },
+  );
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
 
 // Admin - Create Teacher Account
 export const createTeacherAccount = async (name: string, email: string, password: string) => {

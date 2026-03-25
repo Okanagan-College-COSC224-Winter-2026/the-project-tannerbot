@@ -32,8 +32,8 @@ export default function CriteriaCreation() {
   const stateClassId = (location.state as { classId?: string | number } | null)?.classId;
   const searchClassId = new URLSearchParams(location.search).get("classId");
   const classId = stateClassId ?? searchClassId;
+  const classIdForManage = classId ?? undefined;
   const classQuery = classId ? `?classId=${classId}` : "";
-  const assignmentName = location.state?.assignmentName;
 
   const [rubric, setRubric] = useState<RubricData | null>(null);
   const [editingCriteriaId, setEditingCriteriaId] = useState<number | null>(null);
@@ -122,7 +122,7 @@ export default function CriteriaCreation() {
           </Button>
           <ManageAssignment
             assignmentId={id ? Number(id) : undefined}
-            classId={classId}
+            classId={classIdForManage}
           />
         </div>
       </div>
