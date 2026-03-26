@@ -22,12 +22,12 @@ export default function Assignment() {
     <div className="AssignmentPage container-fluid py-4 px-3 px-md-4">
       <div className="AssignmentHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
         <h2 className="h3 fw-bold mb-0">Assignment {assignmentId}</h2>
-        {canManageAssignment ? (
+        {classId ? (
           <Button
             type="secondary"
-            onClick={() => navigate(classId ? `/classes/${classId}/home` : "/home")}
+            onClick={() => navigate(`/classes/${classId}/home`)}
           >
-            Return to Class
+            Back to Class
           </Button>
         ) : null}
       </div>
