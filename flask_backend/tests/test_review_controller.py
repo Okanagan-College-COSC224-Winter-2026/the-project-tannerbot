@@ -705,3 +705,44 @@ def test_teacher_can_list_assignment_reviews_separated_by_type(test_client, db, 
     assert len(payload["peer_reviews"]) == 2
     assert all(review["review_type"] == "group" for review in payload["group_reviews"])
     assert all(review["review_type"] == "peer" for review in payload["peer_reviews"])
+
+
+def test_student_group_members_auto_receive_peer_reviews_for_teammates(
+    test_client,
+    db,
+    enroll_user_in_course,
+):
+    seeded = _seed_course_with_assignment_and_rubric(db)
+
+    student_a = seeded["reviewer"]
+    student_b = seeded["other_student"]
+
+    seeded["assignment"].assignment_mode = "group"
+    db.session.commit()
+
+    enroll_user_in_course(student_a.id, seeded["course"].id)
+    enroll_user_in_course(student_b.id, seeded["course"].id)
+
+    group_one = CourseGroup(name="Team One", assignmentID=seeded["assignment"].id)
+    db.session.add(group_one)
+    db.session.commit()
+
+    db.session.add_all(
+        [
+            Group_Members(userID=student_a.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_b.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+        ]
+    )
+
+    # Provide both rubric types for group assignments.
+    _add_group_rubric_with_matching_criteria(db, seeded)
+    db.session.commit()
+
+    _login(test_client, student_a.email, "Password1!")
+    list_resp = test_client.get(f"/review/my/assignment/{seeded['assignment'].id}/separated")
+
+    assert list_resp.status_code == 200
+    payload = list_resp.get_json()
+    assert len(payload["peer_reviews"]) == 1
+    assert payload["peer_reviews"][0]["reviewee"]["id"] == student_b.id
+    assert payload["peer_reviews"][0]["review_type"] == "peer"

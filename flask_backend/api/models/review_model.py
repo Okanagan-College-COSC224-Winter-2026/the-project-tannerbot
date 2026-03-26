@@ -588,12 +588,79 @@ class Review(db.Model):
         if not reviewer:
             return None, {"msg": "User not found", "status": 404}
 
+        cls._ensure_group_peer_reviews_for_reviewer(
+            assignment=assignment,
+            reviewer=reviewer,
+        )
+
         query = cls.query.filter_by(assignmentID=assignment_id, reviewerID=reviewer.id)
         if review_type:
             query = query.filter_by(review_type=review_type)
 
         reviews = query.order_by(cls.id.asc()).all()
         return reviews, None
+
+    @classmethod
+    def _ensure_group_peer_reviews_for_reviewer(cls, assignment, reviewer):
+        """Ensure group-assignment peer reviews exist for each teammate.
+
+        This allows students in a group assignment with a peer rubric to
+        immediately review each of their teammates without requiring explicit
+        teacher assignment calls for each reviewer.
+        """
+        if assignment.assignment_mode != "group":
+            return
+
+        membership = Group_Members.get_for_assignment_and_user(assignment.id, reviewer.id)
+        if not membership:
+            return
+
+        rubric = Rubric.get_for_assignment(assignment.id, "peer")
+        if not rubric:
+            return
+
+        criteria_rows = rubric.criteria_descriptions.order_by(CriteriaDescription.id.asc()).all()
+        if not criteria_rows:
+            return
+
+        teammate_memberships = Group_Members.query.filter_by(
+            assignmentID=assignment.id,
+            groupID=membership.groupID,
+        ).all()
+        teammate_ids = sorted({m.userID for m in teammate_memberships if m.userID != reviewer.id})
+        if not teammate_ids:
+            return
+
+        existing_reviewee_ids = {
+            review.revieweeID
+            for review in cls.query.filter_by(
+                assignmentID=assignment.id,
+                reviewerID=reviewer.id,
+                review_type="peer",
+            ).all()
+        }
+
+        created_any = False
+        for teammate_id in teammate_ids:
+            if teammate_id in existing_reviewee_ids:
+                continue
+
+            review = cls(
+                assignmentID=assignment.id,
+                reviewerID=reviewer.id,
+                revieweeID=teammate_id,
+                review_type="peer",
+            )
+            db.session.add(review)
+            db.session.flush()
+
+            criteria = [Criterion(reviewID=review.id, criterionRowID=row.id) for row in criteria_rows]
+            db.session.add_all(criteria)
+
+            created_any = True
+
+        if created_any:
+            db.session.commit()
 
     @classmethod
     def list_for_assignment_for_reviewer_separated(cls, assignment_id, reviewer_email):

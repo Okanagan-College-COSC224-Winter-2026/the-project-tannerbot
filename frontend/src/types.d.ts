@@ -150,6 +150,7 @@ interface AssignmentProgressStudent {
   email: string;
   has_submitted: boolean;
   review_status: AssignmentStudentReviewStatus;
+  peer_review_status?: AssignmentStudentReviewStatus;
 }
 
 interface AssignmentProgressResponse {

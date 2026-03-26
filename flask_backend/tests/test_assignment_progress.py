@@ -161,10 +161,24 @@ def test_teacher_can_view_assignment_progress(test_client, make_admin, enroll_us
         "pending_assigned_reviews": 0,
         "is_complete": True,
     }
+    assert student_one["peer_review_status"] == {
+        "has_reviewed": True,
+        "completed_assigned_reviews": 1,
+        "total_assigned_reviews": 1,
+        "pending_assigned_reviews": 0,
+        "is_complete": True,
+    }
 
     student_two = students_by_email[seeded["student_two_email"]]
     assert student_two["has_submitted"] is False
     assert student_two["review_status"] == {
+        "has_reviewed": False,
+        "completed_assigned_reviews": 0,
+        "total_assigned_reviews": 1,
+        "pending_assigned_reviews": 1,
+        "is_complete": False,
+    }
+    assert student_two["peer_review_status"] == {
         "has_reviewed": False,
         "completed_assigned_reviews": 0,
         "total_assigned_reviews": 1,

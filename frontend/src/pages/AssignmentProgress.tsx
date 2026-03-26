@@ -110,13 +110,13 @@ export default function AssignmentProgress() {
                 <tr>
                   <th>Student</th>
                   <th>Submission</th>
-                  <th>Reviews Completed</th>
-                  <th>Review Completion</th>
+                  <th>Peer Reviews Completed</th>
+                  <th>Peer Review Completion</th>
                 </tr>
               </thead>
               <tbody>
                 {progress.students.map((student) => {
-                  const reviewStatus = student.review_status;
+                  const reviewStatus = student.peer_review_status || student.review_status;
                   return (
                     <tr key={student.id}>
                       <td>
