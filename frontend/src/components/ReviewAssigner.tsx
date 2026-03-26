@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { assignReview, getAssignmentGrouping, listReviewsForAssignment } from '../util/api';
+import { assignReview, getAssignmentGrouping, listSeparatedReviewsForAssignment } from '../util/api';
 
 import './ReviewAssigner.css';
 
@@ -16,6 +16,7 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
   const [reviewerGroupId, setReviewerGroupId] = useState<number | ''>('');
   const [revieweeGroupId, setRevieweeGroupId] = useState<number | ''>('');
   const [assignmentMode, setAssignmentMode] = useState<'solo' | 'group'>('solo');
+  const [groupReviewType, setGroupReviewType] = useState<'group' | 'peer'>('group');
   const [groups, setGroups] = useState<AssignmentGroupingGroup[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -78,8 +79,12 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
   const loadReviews = async () => {
     try {
       setError('');
-      const payload = await listReviewsForAssignment(assignmentId);
-      setReviews(Array.isArray(payload) ? payload : []);
+      const payload: SeparatedReviewAssignments = await listSeparatedReviewsForAssignment(assignmentId);
+      const flattenedReviews: ReviewAssignment[] = [
+        ...(Array.isArray(payload.group_reviews) ? payload.group_reviews : []),
+        ...(Array.isArray(payload.peer_reviews) ? payload.peer_reviews : []),
+      ];
+      setReviews(flattenedReviews);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load review assignments';
       setError(message);
@@ -98,21 +103,35 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
       setError('');
 
       if (assignmentMode === 'group') {
-        if (reviewerGroupId === '' || revieweeGroupId === '') {
-          setError('Select both reviewer and reviewee groups.');
+        if (reviewerGroupId === '') {
+          setError('Select a reviewer group.');
           return;
         }
 
-        if (reviewerGroupId === revieweeGroupId) {
-          setError('Reviewer and reviewee must be different groups.');
-          return;
-        }
+        if (groupReviewType === 'group') {
+          if (revieweeGroupId === '') {
+            setError('Select a reviewee group.');
+            return;
+          }
 
-        await assignReview(assignmentId, {
-          reviewerGroupID: Number(reviewerGroupId),
-          revieweeGroupID: Number(revieweeGroupId),
-        });
-        onAssigned?.('Group-to-group review assignments created successfully.');
+          if (reviewerGroupId === revieweeGroupId) {
+            setError('Reviewer and reviewee must be different groups.');
+            return;
+          }
+
+          await assignReview(assignmentId, {
+            reviewType: 'group',
+            reviewerGroupID: Number(reviewerGroupId),
+            revieweeGroupID: Number(revieweeGroupId),
+          });
+          onAssigned?.('Group-to-group review assignments created successfully.');
+        } else {
+          await assignReview(assignmentId, {
+            reviewType: 'peer',
+            reviewerGroupID: Number(reviewerGroupId),
+          });
+          onAssigned?.('Intra-group peer review assignments created successfully.');
+        }
       } else {
         if (reviewerId === '' || revieweeId === '') {
           setError('Select both reviewer and reviewee.');
@@ -152,6 +171,20 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
             </p>
           ) : null}
 
+          <div className="row g-2 mb-2">
+            <div className="col-12 col-md-5">
+              <label className="form-label">Review Type</label>
+              <select
+                className="form-select"
+                value={groupReviewType}
+                onChange={(event) => setGroupReviewType(event.target.value === 'peer' ? 'peer' : 'group')}
+              >
+                <option value="group">Group Review (review another group)</option>
+                <option value="peer">Peer Review (review your own group members)</option>
+              </select>
+            </div>
+          </div>
+
           <div className="ReviewAssignerForm row g-2 align-items-end">
             <div className="col-12 col-md-5">
               <label className="form-label">Reviewer Group</label>
@@ -171,20 +204,28 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
             </div>
 
             <div className="col-12 col-md-5">
-              <label className="form-label">Reviewee Group</label>
-              <select
-                className="form-select"
-                value={revieweeGroupId}
-                onChange={(event) => setRevieweeGroupId(event.target.value ? Number(event.target.value) : '')}
-                disabled={groupOptions.length < 2}
-              >
-                <option value="">Select group</option>
-                {groupOptions.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.name}
-                  </option>
-                ))}
-              </select>
+              {groupReviewType === 'group' ? (
+                <>
+                  <label className="form-label">Reviewee Group</label>
+                  <select
+                    className="form-select"
+                    value={revieweeGroupId}
+                    onChange={(event) => setRevieweeGroupId(event.target.value ? Number(event.target.value) : '')}
+                    disabled={groupOptions.length < 2}
+                  >
+                    <option value="">Select group</option>
+                    {groupOptions.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : (
+                <p className="mb-0 small text-muted">
+                  Peer review mode assigns each member of the selected reviewer group to review every other member of the same group.
+                </p>
+              )}
             </div>
 
             <div className="col-12 col-md-2">
@@ -194,7 +235,7 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
                 onClick={handleAssign}
                 disabled={isSubmitting || groupOptions.length < 2}
               >
-                {isSubmitting ? 'Assigning...' : 'Assign Groups'}
+                {isSubmitting ? 'Assigning...' : groupReviewType === 'group' ? 'Assign Group Reviews' : 'Assign Peer Reviews'}
               </button>
             </div>
           </div>
@@ -281,6 +322,7 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
                 <li key={review.id}>
                   {assignmentMode === 'group' ? (
                     <>
+                      <span className="badge text-bg-light me-2 text-uppercase">{review.review_type || 'group'}</span>
                       <span className="fw-semibold">{reviewerGroupLabel || 'Ungrouped'}</span>{' '}
                       ({reviewerName}) reviews{' '}
                       <span className="fw-semibold">{revieweeGroupLabel || 'Ungrouped'}</span>{' '}

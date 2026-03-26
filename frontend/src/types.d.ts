@@ -116,12 +116,18 @@ interface ReviewCriterion {
 interface ReviewAssignment {
   id: number;
   assignmentID: number;
+  review_type?: 'group' | 'peer';
   reviewer?: ReviewParticipant;
   reviewee?: ReviewParticipant;
   criteria?: ReviewCriterion[];
   assignment?: Assignment;
   review_window_open?: boolean;
   is_complete?: boolean;
+}
+
+interface SeparatedReviewAssignments {
+  peer_reviews: ReviewAssignment[];
+  group_reviews: ReviewAssignment[];
 }
 
 interface CourseWithAssignments extends Course {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { listMyReviewsForAssignment, markReview } from "../util/api";
+import { listMySeparatedReviewsForAssignment, markReview } from "../util/api";
 import { formatDateTime } from "../util/dateUtils";
 
 import "./StudentAssignedReviews.css";
@@ -70,6 +70,16 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
     [reviews, selectedReviewId],
   );
 
+  const groupReviews = useMemo(
+    () => reviews.filter((review) => review.review_type === "group"),
+    [reviews],
+  );
+
+  const peerReviews = useMemo(
+    () => reviews.filter((review) => review.review_type !== "group"),
+    [reviews],
+  );
+
   const selectedReviewWindowMessage = selectedReview ? getReviewWindowMessage(selectedReview) : null;
 
   const loadAssignedReviews = async () => {
@@ -83,8 +93,11 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       setLoading(true);
       setError("");
       setSuccess("");
-      const payload = await listMyReviewsForAssignment(assignmentId);
-      const assignedReviews: ReviewAssignment[] = Array.isArray(payload) ? payload : [];
+      const payload: SeparatedReviewAssignments = await listMySeparatedReviewsForAssignment(assignmentId);
+      const assignedReviews: ReviewAssignment[] = [
+        ...(Array.isArray(payload.group_reviews) ? payload.group_reviews : []),
+        ...(Array.isArray(payload.peer_reviews) ? payload.peer_reviews : []),
+      ];
       setReviews(assignedReviews);
 
       const firstReview = assignedReviews[0] ?? null;
@@ -229,7 +242,11 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
     <div className="card border-0 shadow-sm p-3 p-md-4 mt-3">
       <h3 className="h5 mb-3">Your Assigned Peer Reviews</h3>
 
-      {!loading ? <p className="mb-3 text-muted">Assigned reviews: {reviews.length}</p> : null}
+      {!loading ? (
+        <p className="mb-3 text-muted">
+          Assigned reviews: {reviews.length} (Group: {groupReviews.length}, Peer: {peerReviews.length})
+        </p>
+      ) : null}
 
       {loading ? <p className="mb-0">Loading assigned reviews...</p> : null}
 
@@ -246,11 +263,25 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
               value={selectedReviewId ?? ""}
               onChange={(event) => handleReviewChange(Number(event.target.value))}
             >
-              {reviews.map((review) => (
-                <option key={review.id} value={review.id}>
-                  {review.reviewee?.name ?? `student ${review.reviewee?.id}`} ({isReviewComplete(review) ? "Complete" : "Pending"})
-                </option>
-              ))}
+              {groupReviews.length > 0 ? (
+                <optgroup label="Group Reviews">
+                  {groupReviews.map((review) => (
+                    <option key={review.id} value={review.id}>
+                      {review.reviewee?.name ?? `student ${review.reviewee?.id}`} ({isReviewComplete(review) ? "Complete" : "Pending"})
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+
+              {peerReviews.length > 0 ? (
+                <optgroup label="Peer Reviews">
+                  {peerReviews.map((review) => (
+                    <option key={review.id} value={review.id}>
+                      {review.reviewee?.name ?? `student ${review.reviewee?.id}`} ({isReviewComplete(review) ? "Complete" : "Pending"})
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </select>
           </div>
 
@@ -260,9 +291,14 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
                 <h4 className="h6 mb-0">
                   Reviewing: {selectedReview.reviewee?.name ?? `student ${selectedReview.reviewee?.id}`}
                 </h4>
-                <span className={`badge ${isReviewComplete(selectedReview) ? "text-bg-success" : "text-bg-secondary"}`}>
-                  {isReviewComplete(selectedReview) ? "Complete" : "Pending"}
-                </span>
+                <div className="d-flex gap-2">
+                  <span className="badge text-bg-light text-uppercase">
+                    {selectedReview.review_type === "group" ? "Group" : "Peer"}
+                  </span>
+                  <span className={`badge ${isReviewComplete(selectedReview) ? "text-bg-success" : "text-bg-secondary"}`}>
+                    {isReviewComplete(selectedReview) ? "Complete" : "Pending"}
+                  </span>
+                </div>
               </div>
 
               {selectedReview.assignment?.description ? (

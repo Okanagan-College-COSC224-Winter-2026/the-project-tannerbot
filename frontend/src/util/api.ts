@@ -425,11 +425,17 @@ export const deleteCriteria = async (criteriaId: number) => {
   return await response.json();
 }
 
-export const createRubric = async (assignmentID: number, canComment: boolean): Promise<{ id: number }> => {
+export const createRubric = async (
+  assignmentID: number,
+  canComment: boolean,
+  rubricType: 'peer' | 'group' = 'peer',
+): Promise<{ id: number }> => {
   const response = await fetch(`${BASE_URL}/create_rubric`, {
     method: 'POST',
     body: JSON.stringify({
-      assignmentID, canComment
+      assignmentID,
+      canComment,
+      rubricType,
     }),
     headers: {
       'Content-Type': 'application/json',
@@ -460,8 +466,11 @@ export const getRubric = async (rubricID: number) => {
   return await resp.json();
 }
 
-export const getRubricByAssignment = async (assignmentId: number) => {
-  const resp = await fetch(`${BASE_URL}/rubric/assignment/${assignmentId}`, {
+export const getRubricByAssignment = async (
+  assignmentId: number,
+  rubricType: 'peer' | 'group' = 'peer',
+) => {
+  const resp = await fetch(`${BASE_URL}/rubric/assignment/${assignmentId}?rubricType=${rubricType}`, {
     credentials: 'include'
   });
 
@@ -929,7 +938,8 @@ export const assignReview = async (
   assignmentID: number,
   params:
     | { reviewerID: number; revieweeID: number }
-    | { reviewerGroupID: number; revieweeGroupID: number },
+    | { reviewType: 'group'; reviewerGroupID: number; revieweeGroupID: number }
+    | { reviewType: 'peer'; reviewerGroupID: number },
 ) => {
   const payload = {
     assignmentID,
@@ -967,6 +977,82 @@ export const listReviewsForAssignment = async (assignmentID: number) => {
 
   maybeHandleExpire(response);
 
+  if (response.status === 404) {
+    const legacyPayload = await listMyReviewsForAssignment(assignmentID);
+    const reviews: ReviewAssignment[] = Array.isArray(legacyPayload) ? legacyPayload : [];
+    return {
+      peer_reviews: reviews.filter((review) => review.review_type !== 'group'),
+      group_reviews: reviews.filter((review) => review.review_type === 'group'),
+    };
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData.msg || `Response status: ${response.status}`);
+  }
+
+  const payload = await response.json().catch(() => null);
+  if (payload && typeof payload === 'object') {
+    return payload;
+  }
+
+  const legacyPayload = await listMyReviewsForAssignment(assignmentID);
+  const reviews: ReviewAssignment[] = Array.isArray(legacyPayload) ? legacyPayload : [];
+  return {
+    peer_reviews: reviews.filter((review) => review.review_type !== 'group'),
+    group_reviews: reviews.filter((review) => review.review_type === 'group'),
+  };
+}
+
+export const listSeparatedReviewsForAssignment = async (assignmentID: number) => {
+  const response = await fetch(`${BASE_URL}/review/assignment/${assignmentID}/separated`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(response);
+
+  if (response.status === 404) {
+    const legacyPayload = await listReviewsForAssignment(assignmentID);
+    const reviews: ReviewAssignment[] = Array.isArray(legacyPayload) ? legacyPayload : [];
+    return {
+      peer_reviews: reviews.filter((review) => review.review_type !== 'group'),
+      group_reviews: reviews.filter((review) => review.review_type === 'group'),
+    };
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
+  }
+
+  const payload = await response.json().catch(() => null);
+  if (payload && typeof payload === 'object') {
+    return payload;
+  }
+
+  const legacyPayload = await listReviewsForAssignment(assignmentID);
+  const reviews: ReviewAssignment[] = Array.isArray(legacyPayload) ? legacyPayload : [];
+  return {
+    peer_reviews: reviews.filter((review) => review.review_type !== 'group'),
+    group_reviews: reviews.filter((review) => review.review_type === 'group'),
+  };
+}
+
+export const listMyReviewsForAssignment = async (assignmentID: number) => {
+  const response = await fetch(`${BASE_URL}/review/my/assignment/${assignmentID}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(response);
+
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.msg || `Response status: ${response.status}`);
@@ -975,8 +1061,8 @@ export const listReviewsForAssignment = async (assignmentID: number) => {
   return await response.json();
 }
 
-export const listMyReviewsForAssignment = async (assignmentID: number) => {
-  const response = await fetch(`${BASE_URL}/review/my/assignment/${assignmentID}`, {
+export const listMySeparatedReviewsForAssignment = async (assignmentID: number) => {
+  const response = await fetch(`${BASE_URL}/review/my/assignment/${assignmentID}/separated`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',

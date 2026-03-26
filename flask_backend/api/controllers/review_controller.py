@@ -44,6 +44,7 @@ def assign_review():
     reviewee_id = data.get("revieweeID") or data.get("reviewee_id")
     reviewer_group_id = data.get("reviewerGroupID") or data.get("reviewer_group_id")
     reviewee_group_id = data.get("revieweeGroupID") or data.get("reviewee_group_id")
+    review_type = data.get("reviewType") or data.get("review_type")
 
     assignment_result, error = Review.assign_review_for_teacher(
         assignment_id=assignment_id,
@@ -51,6 +52,7 @@ def assign_review():
         reviewee_id=reviewee_id,
         reviewer_group_id=reviewer_group_id,
         reviewee_group_id=reviewee_group_id,
+        review_type=review_type,
         teacher_email=get_jwt_identity(),
     )
     if error:
@@ -62,10 +64,13 @@ def assign_review():
     mode = assignment_result.get("mode", "solo")
     if mode == "group":
         created_reviews = assignment_result.get("created_reviews", [])
+        assigned_review_type = assignment_result.get("review_type", "group")
+        message = "Group reviews assigned" if assigned_review_type == "group" else "Peer reviews assigned"
         return (
             jsonify(
                 {
-                    "msg": "Group reviews assigned",
+                    "msg": message,
+                    "review_type": assigned_review_type,
                     "created_count": len(created_reviews),
                     "reviews": [
                         _dump_review_with_markable_criteria(review)
@@ -94,6 +99,30 @@ def list_reviews_for_assignment(assignment_id):
     return jsonify(review_list_schema.dump(reviews)), 200
 
 
+@bp.route("/assignment/<int:assignment_id>/separated", methods=["GET"])
+@jwt_teacher_required
+def list_reviews_for_assignment_separated(assignment_id):
+    """List all review assignments for a given assignment split by review type."""
+    separated, error = Review.list_for_assignment_for_teacher_separated(
+        assignment_id=assignment_id,
+        teacher_email=get_jwt_identity(),
+    )
+    if error:
+        return jsonify({"msg": error["msg"]}), error["status"]
+
+    payload = {
+        "peer_reviews": [
+            _dump_review_with_markable_criteria(review)
+            for review in separated["peer_reviews"]
+        ],
+        "group_reviews": [
+            _dump_review_with_markable_criteria(review)
+            for review in separated["group_reviews"]
+        ],
+    }
+    return jsonify(payload), 200
+
+
 @bp.route("/my/assignment/<int:assignment_id>", methods=["GET"])
 @jwt_required()
 def list_my_reviews_for_assignment(assignment_id):
@@ -106,6 +135,30 @@ def list_my_reviews_for_assignment(assignment_id):
         return jsonify({"msg": error["msg"]}), error["status"]
 
     payload = [_dump_review_with_markable_criteria(review) for review in reviews]
+    return jsonify(payload), 200
+
+
+@bp.route("/my/assignment/<int:assignment_id>/separated", methods=["GET"])
+@jwt_required()
+def list_my_reviews_for_assignment_separated(assignment_id):
+    """List assigned reviews for an assignment, split by review type."""
+    separated, error = Review.list_for_assignment_for_reviewer_separated(
+        assignment_id=assignment_id,
+        reviewer_email=get_jwt_identity(),
+    )
+    if error:
+        return jsonify({"msg": error["msg"]}), error["status"]
+
+    payload = {
+        "peer_reviews": [
+            _dump_review_with_markable_criteria(review)
+            for review in separated["peer_reviews"]
+        ],
+        "group_reviews": [
+            _dump_review_with_markable_criteria(review)
+            for review in separated["group_reviews"]
+        ],
+    }
     return jsonify(payload), 200
 
 

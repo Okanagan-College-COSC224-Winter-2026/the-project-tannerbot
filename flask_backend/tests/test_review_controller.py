@@ -91,6 +91,27 @@ def _seed_course_with_assignment_and_rubric(db):
     }
 
 
+def _add_group_rubric_with_matching_criteria(db, seeded):
+    group_rubric = Rubric(
+        assignmentID=seeded["assignment"].id,
+        canComment=True,
+        rubric_type="group",
+    )
+    db.session.add(group_rubric)
+    db.session.commit()
+
+    for criterion in seeded["criteria"]:
+        db.session.add(
+            CriteriaDescription(
+                rubricID=group_rubric.id,
+                question=criterion.question,
+                scoreMax=criterion.scoreMax,
+                hasScore=criterion.hasScore,
+            )
+        )
+    db.session.commit()
+
+
 def test_assign_review_creates_markable_criteria(test_client, db, enroll_user_in_course):
     seeded = _seed_course_with_assignment_and_rubric(db)
 
@@ -172,7 +193,7 @@ def test_assign_review_fails_when_assignment_has_no_rubric(test_client, db, enro
     )
 
     assert assign_resp.status_code == 400
-    assert "no rubric" in assign_resp.get_json()["msg"].lower()
+    assert "no peer rubric" in assign_resp.get_json()["msg"].lower()
 
 
 def test_reviewer_can_mark_review_criteria(test_client, db, enroll_user_in_course):
@@ -401,6 +422,7 @@ def test_group_assignment_assigns_reviews_group_to_group(test_client, db, enroll
 
     seeded["assignment"].assignment_mode = "group"
     db.session.commit()
+    _add_group_rubric_with_matching_criteria(db, seeded)
 
     enroll_user_in_course(student_a.id, seeded["course"].id)
     enroll_user_in_course(student_b.id, seeded["course"].id)
@@ -436,6 +458,7 @@ def test_group_assignment_assigns_reviews_group_to_group(test_client, db, enroll
     assert assign_resp.status_code == 201
     payload = assign_resp.get_json()
     assert payload["msg"] == "Group reviews assigned"
+    assert payload["review_type"] == "group"
     assert payload["created_count"] == 2
 
     created_pairs = {
@@ -445,10 +468,71 @@ def test_group_assignment_assigns_reviews_group_to_group(test_client, db, enroll
     assert created_pairs == {(student_a.id, student_c.id), (student_b.id, student_c.id)}
 
 
+def test_group_assignment_can_assign_peer_reviews_within_group(test_client, db, enroll_user_in_course):
+    seeded = _seed_course_with_assignment_and_rubric(db)
+
+    student_a = seeded["reviewer"]
+    student_b = seeded["other_student"]
+
+    seeded["assignment"].assignment_mode = "group"
+    db.session.commit()
+
+    enroll_user_in_course(student_a.id, seeded["course"].id)
+    enroll_user_in_course(student_b.id, seeded["course"].id)
+
+    group_one = CourseGroup(name="Team One", assignmentID=seeded["assignment"].id)
+    db.session.add(group_one)
+    db.session.commit()
+
+    db.session.add_all(
+        [
+            Group_Members(userID=student_a.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_b.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+        ]
+    )
+    db.session.commit()
+
+    _login(test_client, seeded["teacher"].email, "Password1!")
+    assign_resp = test_client.post(
+        "/review/assign",
+        data=json.dumps(
+            {
+                "assignmentID": seeded["assignment"].id,
+                "reviewType": "peer",
+                "reviewerGroupID": group_one.id,
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert assign_resp.status_code == 201
+    payload = assign_resp.get_json()
+    assert payload["msg"] == "Peer reviews assigned"
+    assert payload["review_type"] == "peer"
+    assert payload["created_count"] == 2
+
+    created_pairs = {
+        (review["reviewer"]["id"], review["reviewee"]["id"], review["review_type"])
+        for review in payload["reviews"]
+    }
+    assert created_pairs == {
+        (student_a.id, student_b.id, "peer"),
+        (student_b.id, student_a.id, "peer"),
+    }
+
+    _login(test_client, student_a.email, "Password1!")
+    list_resp = test_client.get(f"/review/my/assignment/{seeded['assignment'].id}")
+    assert list_resp.status_code == 200
+    my_reviews = list_resp.get_json()
+    assert len(my_reviews) == 1
+    assert my_reviews[0]["review_type"] == "peer"
+
+
 def test_group_assignment_rejects_same_group_review_pair(test_client, db, enroll_user_in_course):
     seeded = _seed_course_with_assignment_and_rubric(db)
     seeded["assignment"].assignment_mode = "group"
     db.session.commit()
+    _add_group_rubric_with_matching_criteria(db, seeded)
 
     enroll_user_in_course(seeded["reviewer"].id, seeded["course"].id)
 
@@ -480,3 +564,144 @@ def test_group_assignment_rejects_same_group_review_pair(test_client, db, enroll
 
     assert assign_resp.status_code == 400
     assert "different" in assign_resp.get_json()["msg"].lower()
+
+
+def test_reviewer_can_list_assigned_reviews_separated_by_type(test_client, db, enroll_user_in_course):
+    seeded = _seed_course_with_assignment_and_rubric(db)
+
+    student_a = seeded["reviewer"]
+    student_b = seeded["other_student"]
+    student_c = seeded["reviewee"]
+
+    seeded["assignment"].assignment_mode = "group"
+    db.session.commit()
+    _add_group_rubric_with_matching_criteria(db, seeded)
+
+    enroll_user_in_course(student_a.id, seeded["course"].id)
+    enroll_user_in_course(student_b.id, seeded["course"].id)
+    enroll_user_in_course(student_c.id, seeded["course"].id)
+
+    group_one = CourseGroup(name="Team One", assignmentID=seeded["assignment"].id)
+    group_two = CourseGroup(name="Team Two", assignmentID=seeded["assignment"].id)
+    db.session.add_all([group_one, group_two])
+    db.session.commit()
+
+    db.session.add_all(
+        [
+            Group_Members(userID=student_a.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_b.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_c.id, groupID=group_two.id, assignmentID=seeded["assignment"].id),
+        ]
+    )
+    db.session.commit()
+
+    _login(test_client, seeded["teacher"].email, "Password1!")
+
+    group_assign_resp = test_client.post(
+        "/review/assign",
+        data=json.dumps(
+            {
+                "assignmentID": seeded["assignment"].id,
+                "reviewType": "group",
+                "reviewerGroupID": group_one.id,
+                "revieweeGroupID": group_two.id,
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    assert group_assign_resp.status_code == 201
+
+    peer_assign_resp = test_client.post(
+        "/review/assign",
+        data=json.dumps(
+            {
+                "assignmentID": seeded["assignment"].id,
+                "reviewType": "peer",
+                "reviewerGroupID": group_one.id,
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    assert peer_assign_resp.status_code == 201
+
+    _login(test_client, student_a.email, "Password1!")
+    list_resp = test_client.get(f"/review/my/assignment/{seeded['assignment'].id}/separated")
+
+    assert list_resp.status_code == 200
+    payload = list_resp.get_json()
+    assert "group_reviews" in payload
+    assert "peer_reviews" in payload
+    assert len(payload["group_reviews"]) == 1
+    assert len(payload["peer_reviews"]) == 1
+    assert payload["group_reviews"][0]["review_type"] == "group"
+    assert payload["peer_reviews"][0]["review_type"] == "peer"
+
+
+def test_teacher_can_list_assignment_reviews_separated_by_type(test_client, db, enroll_user_in_course):
+    seeded = _seed_course_with_assignment_and_rubric(db)
+
+    student_a = seeded["reviewer"]
+    student_b = seeded["other_student"]
+    student_c = seeded["reviewee"]
+
+    seeded["assignment"].assignment_mode = "group"
+    db.session.commit()
+    _add_group_rubric_with_matching_criteria(db, seeded)
+
+    enroll_user_in_course(student_a.id, seeded["course"].id)
+    enroll_user_in_course(student_b.id, seeded["course"].id)
+    enroll_user_in_course(student_c.id, seeded["course"].id)
+
+    group_one = CourseGroup(name="Team One", assignmentID=seeded["assignment"].id)
+    group_two = CourseGroup(name="Team Two", assignmentID=seeded["assignment"].id)
+    db.session.add_all([group_one, group_two])
+    db.session.commit()
+
+    db.session.add_all(
+        [
+            Group_Members(userID=student_a.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_b.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_c.id, groupID=group_two.id, assignmentID=seeded["assignment"].id),
+        ]
+    )
+    db.session.commit()
+
+    _login(test_client, seeded["teacher"].email, "Password1!")
+
+    group_assign_resp = test_client.post(
+        "/review/assign",
+        data=json.dumps(
+            {
+                "assignmentID": seeded["assignment"].id,
+                "reviewType": "group",
+                "reviewerGroupID": group_one.id,
+                "revieweeGroupID": group_two.id,
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    assert group_assign_resp.status_code == 201
+
+    peer_assign_resp = test_client.post(
+        "/review/assign",
+        data=json.dumps(
+            {
+                "assignmentID": seeded["assignment"].id,
+                "reviewType": "peer",
+                "reviewerGroupID": group_one.id,
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    assert peer_assign_resp.status_code == 201
+
+    list_resp = test_client.get(f"/review/assignment/{seeded['assignment'].id}/separated")
+    assert list_resp.status_code == 200
+
+    payload = list_resp.get_json()
+    assert "group_reviews" in payload
+    assert "peer_reviews" in payload
+    assert len(payload["group_reviews"]) == 2
+    assert len(payload["peer_reviews"]) == 2
+    assert all(review["review_type"] == "group" for review in payload["group_reviews"])
+    assert all(review["review_type"] == "peer" for review in payload["peer_reviews"])
