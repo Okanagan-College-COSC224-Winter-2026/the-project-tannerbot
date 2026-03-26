@@ -6,8 +6,10 @@ from datetime import datetime, timedelta, timezone
 from werkzeug.security import generate_password_hash
 
 from api.models.assignment_model import Assignment
+from api.models.course_group_model import CourseGroup
 from api.models.course_model import Course
 from api.models.criteria_description_model import CriteriaDescription
+from api.models.group_members_model import Group_Members
 from api.models.review_model import Review
 from api.models.rubric_model import Rubric
 from api.models.user_model import User
@@ -388,3 +390,93 @@ def test_reviewer_can_list_assigned_reviews_for_assignment(test_client, db, enro
     assert len(payload) == 1
     assert payload[0]["reviewee"]["id"] == seeded["reviewee"].id
     assert len(payload[0]["criteria"]) == 2
+
+
+def test_group_assignment_assigns_reviews_group_to_group(test_client, db, enroll_user_in_course):
+    seeded = _seed_course_with_assignment_and_rubric(db)
+
+    student_a = seeded["reviewer"]
+    student_b = seeded["other_student"]
+    student_c = seeded["reviewee"]
+
+    seeded["assignment"].assignment_mode = "group"
+    db.session.commit()
+
+    enroll_user_in_course(student_a.id, seeded["course"].id)
+    enroll_user_in_course(student_b.id, seeded["course"].id)
+    enroll_user_in_course(student_c.id, seeded["course"].id)
+
+    group_one = CourseGroup(name="Team One", assignmentID=seeded["assignment"].id)
+    group_two = CourseGroup(name="Team Two", assignmentID=seeded["assignment"].id)
+    db.session.add_all([group_one, group_two])
+    db.session.commit()
+
+    db.session.add_all(
+        [
+            Group_Members(userID=student_a.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_b.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_c.id, groupID=group_two.id, assignmentID=seeded["assignment"].id),
+        ]
+    )
+    db.session.commit()
+
+    _login(test_client, seeded["teacher"].email, "Password1!")
+    assign_resp = test_client.post(
+        "/review/assign",
+        data=json.dumps(
+            {
+                "assignmentID": seeded["assignment"].id,
+                "reviewerGroupID": group_one.id,
+                "revieweeGroupID": group_two.id,
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert assign_resp.status_code == 201
+    payload = assign_resp.get_json()
+    assert payload["msg"] == "Group reviews assigned"
+    assert payload["created_count"] == 2
+
+    created_pairs = {
+        (review["reviewer"]["id"], review["reviewee"]["id"])
+        for review in payload["reviews"]
+    }
+    assert created_pairs == {(student_a.id, student_c.id), (student_b.id, student_c.id)}
+
+
+def test_group_assignment_rejects_same_group_review_pair(test_client, db, enroll_user_in_course):
+    seeded = _seed_course_with_assignment_and_rubric(db)
+    seeded["assignment"].assignment_mode = "group"
+    db.session.commit()
+
+    enroll_user_in_course(seeded["reviewer"].id, seeded["course"].id)
+
+    group_one = CourseGroup(name="Team One", assignmentID=seeded["assignment"].id)
+    db.session.add(group_one)
+    db.session.commit()
+
+    db.session.add(
+        Group_Members(
+            userID=seeded["reviewer"].id,
+            groupID=group_one.id,
+            assignmentID=seeded["assignment"].id,
+        )
+    )
+    db.session.commit()
+
+    _login(test_client, seeded["teacher"].email, "Password1!")
+    assign_resp = test_client.post(
+        "/review/assign",
+        data=json.dumps(
+            {
+                "assignmentID": seeded["assignment"].id,
+                "reviewerGroupID": group_one.id,
+                "revieweeGroupID": group_one.id,
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert assign_resp.status_code == 400
+    assert "different" in assign_resp.get_json()["msg"].lower()

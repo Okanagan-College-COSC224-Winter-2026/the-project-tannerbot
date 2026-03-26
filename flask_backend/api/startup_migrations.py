@@ -12,6 +12,10 @@ PROFILE_PICTURE_COLUMN_STATEMENTS = {
     ),
 }
 
+ASSIGNMENT_GROUPING_COLUMN_STATEMENT = (
+    "ALTER TABLE Assignment ADD COLUMN assignment_mode VARCHAR(16) NOT NULL DEFAULT 'solo'"
+)
+
 
 def _sqlite_path_from_uri(database_uri: str) -> Path | None:
     if database_uri == "sqlite:///:memory:":
@@ -53,5 +57,67 @@ def ensure_profile_picture_columns_for_sqlite(database_uri: str) -> list[str]:
             connection.commit()
 
         return added_columns
+    finally:
+        connection.close()
+
+
+def ensure_assignment_grouping_schema_for_sqlite(database_uri: str) -> list[str]:
+    """Ensure SQLite databases have assignment grouping structures used by current models."""
+    database_path = _sqlite_path_from_uri(database_uri)
+    if database_path is None or not database_path.exists():
+        return []
+
+    connection = sqlite3.connect(database_path)
+    try:
+        cursor = connection.cursor()
+        tables = {
+            row[0] for row in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+
+        updated = []
+
+        if "Assignment" in tables:
+            assignment_columns = {row[1] for row in cursor.execute("PRAGMA table_info(Assignment)")}
+            if "assignment_mode" not in assignment_columns:
+                cursor.execute(ASSIGNMENT_GROUPING_COLUMN_STATEMENT)
+                updated.append("assignment_mode")
+
+        if "CourseGroup" not in tables:
+            cursor.execute(
+                """
+                CREATE TABLE CourseGroup (
+                    id INTEGER NOT NULL,
+                    name VARCHAR(255),
+                    assignmentID INTEGER NOT NULL,
+                    PRIMARY KEY (id),
+                    CONSTRAINT uq_course_group_assignment_name UNIQUE (assignmentID, name),
+                    FOREIGN KEY(assignmentID) REFERENCES Assignment (id)
+                )
+                """
+            )
+            cursor.execute("CREATE INDEX ix_CourseGroup_assignmentID ON CourseGroup (assignmentID)")
+            updated.append("CourseGroup")
+
+        if "Group_Members" not in tables:
+            cursor.execute(
+                """
+                CREATE TABLE Group_Members (
+                    userID INTEGER NOT NULL,
+                    groupID INTEGER NOT NULL,
+                    assignmentID INTEGER,
+                    PRIMARY KEY (userID, groupID),
+                    FOREIGN KEY(userID) REFERENCES User (id),
+                    FOREIGN KEY(groupID) REFERENCES CourseGroup (id),
+                    FOREIGN KEY(assignmentID) REFERENCES Assignment (id)
+                )
+                """
+            )
+            cursor.execute("CREATE INDEX ix_Group_Members_assignmentID ON Group_Members (assignmentID)")
+            updated.append("Group_Members")
+
+        if updated:
+            connection.commit()
+
+        return updated
     finally:
         connection.close()

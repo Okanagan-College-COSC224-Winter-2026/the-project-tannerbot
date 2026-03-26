@@ -58,7 +58,38 @@ interface Assignment {
   rubric?: string;
   due_date?: string;
   start_date?: string;
+  assignment_mode?: 'solo' | 'group';
   attachments?: AssignmentAttachment[];
+}
+
+interface AssignmentGroupingMember {
+  userID: number;
+  assignmentID: number;
+  groupID: number;
+  name: string;
+  email: string;
+  student_id?: string | null;
+}
+
+interface AssignmentGroupingGroup {
+  id: number;
+  name: string;
+  assignmentID: number;
+  members: AssignmentGroupingMember[];
+}
+
+interface AssignmentGroupingStudent {
+  id: number;
+  name: string;
+  email: string;
+  student_id?: string | null;
+  groupID?: number | null;
+}
+
+interface AssignmentGroupingResponse {
+  assignment: Assignment;
+  groups: AssignmentGroupingGroup[];
+  students: AssignmentGroupingStudent[];
 }
 
 interface ReviewParticipant {

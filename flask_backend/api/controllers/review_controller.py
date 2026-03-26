@@ -31,17 +31,26 @@ def _dump_review_with_markable_criteria(review):
 @bp.route("/assign", methods=["POST"])
 @jwt_teacher_required
 def assign_review():
-    """Assign a student to review another student for a specific assignment."""
+    """Assign peer reviews for an assignment.
+
+    Solo assignments expect reviewerID/revieweeID.
+    Group assignments support reviewerGroupID/revieweeGroupID and expand to
+    per-student reviews across both groups.
+    """
     data = request.get_json(silent=True) or {}
 
     assignment_id = data.get("assignmentID") or data.get("assignment_id")
     reviewer_id = data.get("reviewerID") or data.get("reviewer_id")
     reviewee_id = data.get("revieweeID") or data.get("reviewee_id")
+    reviewer_group_id = data.get("reviewerGroupID") or data.get("reviewer_group_id")
+    reviewee_group_id = data.get("revieweeGroupID") or data.get("reviewee_group_id")
 
-    review, error = Review.assign_review_for_teacher(
+    assignment_result, error = Review.assign_review_for_teacher(
         assignment_id=assignment_id,
         reviewer_id=reviewer_id,
         reviewee_id=reviewee_id,
+        reviewer_group_id=reviewer_group_id,
+        reviewee_group_id=reviewee_group_id,
         teacher_email=get_jwt_identity(),
     )
     if error:
@@ -50,6 +59,24 @@ def assign_review():
             body["review"] = _dump_review_with_markable_criteria(error["review"])
         return jsonify(body), error["status"]
 
+    mode = assignment_result.get("mode", "solo")
+    if mode == "group":
+        created_reviews = assignment_result.get("created_reviews", [])
+        return (
+            jsonify(
+                {
+                    "msg": "Group reviews assigned",
+                    "created_count": len(created_reviews),
+                    "reviews": [
+                        _dump_review_with_markable_criteria(review)
+                        for review in created_reviews
+                    ],
+                }
+            ),
+            201,
+        )
+
+    review = assignment_result.get("review")
     return jsonify({"msg": "Review assigned", "review": _dump_review_with_markable_criteria(review)}), 201
 
 

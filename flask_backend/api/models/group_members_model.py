@@ -44,6 +44,16 @@ class Group_Members(db.Model):
         db.session.commit()
         return group_member
 
+    @classmethod
+    def get_for_assignment(cls, assignment_id):
+        """Get all group members for an assignment."""
+        return cls.query.filter_by(assignmentID=int(assignment_id)).all()
+
+    @classmethod
+    def get_for_assignment_and_user(cls, assignment_id, user_id):
+        """Get the current group membership for a user on an assignment."""
+        return cls.query.filter_by(assignmentID=int(assignment_id), userID=int(user_id)).first()
+
     def delete(self):
         """Delete group member from the database"""
         db.session.delete(self)

@@ -2,6 +2,8 @@
 CourseGroup model for the peer evaluation app.
 """
 
+from sqlalchemy import UniqueConstraint
+
 from .db import db
 
 
@@ -13,6 +15,10 @@ class CourseGroup(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=True)
     assignmentID = db.Column(db.Integer, db.ForeignKey("Assignment.id"), nullable=False, index=True)
+
+    __table_args__ = (
+        UniqueConstraint("assignmentID", "name", name="uq_course_group_assignment_name"),
+    )
 
     # relationships
     assignment = db.relationship("Assignment", back_populates="groups")
@@ -38,6 +44,11 @@ class CourseGroup(db.Model):
         db.session.add(group)
         db.session.commit()
         return group
+
+    @classmethod
+    def get_by_assignment_id(cls, assignment_id):
+        """Get groups for an assignment ordered by id."""
+        return cls.query.filter_by(assignmentID=int(assignment_id)).order_by(cls.id.asc()).all()
 
     def update(self):
         """Update CourseGroup in the database"""
