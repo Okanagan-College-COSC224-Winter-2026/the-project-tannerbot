@@ -460,13 +460,13 @@ def test_group_assignment_assigns_reviews_group_to_group(test_client, db, enroll
     payload = assign_resp.get_json()
     assert payload["msg"] == "Group reviews assigned"
     assert payload["review_type"] == "group"
-    assert payload["created_count"] == 2
+    assert payload["created_count"] == 1
 
     created_pairs = {
         (review["reviewer"]["id"], review["reviewee"]["id"])
         for review in payload["reviews"]
     }
-    assert created_pairs == {(student_a.id, student_c.id), (student_b.id, student_c.id)}
+    assert created_pairs == {(student_a.id, student_c.id)}
 
 
 def test_group_assignment_can_assign_peer_reviews_within_group(test_client, db, enroll_user_in_course):
@@ -702,10 +702,86 @@ def test_teacher_can_list_assignment_reviews_separated_by_type(test_client, db, 
     payload = list_resp.get_json()
     assert "group_reviews" in payload
     assert "peer_reviews" in payload
-    assert len(payload["group_reviews"]) == 2
+    assert len(payload["group_reviews"]) == 1
     assert len(payload["peer_reviews"]) == 2
     assert all(review["review_type"] == "group" for review in payload["group_reviews"])
     assert all(review["review_type"] == "peer" for review in payload["peer_reviews"])
+
+
+def test_group_review_visible_and_markable_by_any_reviewer_group_member(
+    test_client,
+    db,
+    enroll_user_in_course,
+):
+    seeded = _seed_course_with_assignment_and_rubric(db)
+
+    student_a = seeded["reviewer"]
+    student_b = seeded["other_student"]
+    student_c = seeded["reviewee"]
+
+    seeded["assignment"].assignment_mode = "group"
+    db.session.commit()
+    _add_group_rubric_with_matching_criteria(db, seeded)
+
+    enroll_user_in_course(student_a.id, seeded["course"].id)
+    enroll_user_in_course(student_b.id, seeded["course"].id)
+    enroll_user_in_course(student_c.id, seeded["course"].id)
+
+    group_one = CourseGroup(name="Team One", assignmentID=seeded["assignment"].id)
+    group_two = CourseGroup(name="Team Two", assignmentID=seeded["assignment"].id)
+    db.session.add_all([group_one, group_two])
+    db.session.commit()
+
+    db.session.add_all(
+        [
+            Group_Members(userID=student_a.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_b.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_c.id, groupID=group_two.id, assignmentID=seeded["assignment"].id),
+        ]
+    )
+    db.session.commit()
+
+    _login(test_client, seeded["teacher"].email, "Password1!")
+    assign_resp = test_client.post(
+        "/review/assign",
+        data=json.dumps(
+            {
+                "assignmentID": seeded["assignment"].id,
+                "reviewType": "group",
+                "reviewerGroupID": group_one.id,
+                "revieweeGroupID": group_two.id,
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    assert assign_resp.status_code == 201
+    payload = assign_resp.get_json()
+    assert payload["created_count"] == 1
+
+    # student_b is not the canonical reviewer row owner, but can still see/mark team group review.
+    _login(test_client, student_b.email, "Password1!")
+    list_resp = test_client.get(f"/review/my/assignment/{seeded['assignment'].id}/separated")
+    assert list_resp.status_code == 200
+    list_payload = list_resp.get_json()
+    assert len(list_payload["group_reviews"]) == 1
+
+    group_review = list_payload["group_reviews"][0]
+    criterion_id = group_review["criteria"][0]["id"]
+    mark_resp = test_client.patch(
+        f"/review/{group_review['id']}/mark",
+        data=json.dumps(
+            {
+                "criteria": [
+                    {
+                        "criterionID": criterion_id,
+                        "grade": 4,
+                    }
+                ]
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    assert mark_resp.status_code == 200
 
 
 def test_student_group_members_auto_receive_peer_reviews_for_teammates(
@@ -765,6 +841,19 @@ def test_student_can_view_received_reviews_anonymously_across_peer_and_group(
 
     enroll_user_in_course(student_a.id, seeded["course"].id)
     enroll_user_in_course(student_b.id, seeded["course"].id)
+
+    reviewer_group = CourseGroup(name="Team One", assignmentID=seeded["assignment"].id)
+    reviewee_group = CourseGroup(name="Team Two", assignmentID=seeded["assignment"].id)
+    db.session.add_all([reviewer_group, reviewee_group])
+    db.session.commit()
+
+    db.session.add_all(
+        [
+            Group_Members(userID=student_a.id, groupID=reviewer_group.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_b.id, groupID=reviewee_group.id, assignmentID=seeded["assignment"].id),
+        ]
+    )
+    db.session.commit()
 
     peer_review = Review(
         assignmentID=seeded["assignment"].id,
@@ -863,3 +952,66 @@ def test_received_reviews_endpoint_only_returns_completed_reviews(
     assert list_resp.status_code == 200
     payload = list_resp.get_json()
     assert len(payload["peer_reviews"]) == 1
+
+
+def test_teacher_can_view_all_reviews_for_a_class(test_client, db, enroll_user_in_course):
+    seeded = _seed_course_with_assignment_and_rubric(db)
+
+    student_a = seeded["reviewer"]
+    student_b = seeded["reviewee"]
+
+    enroll_user_in_course(student_a.id, seeded["course"].id)
+    enroll_user_in_course(student_b.id, seeded["course"].id)
+
+    second_assignment = Assignment(
+        courseID=seeded["course"].id,
+        name="Peer Review 2",
+        rubric_text="",
+    )
+    db.session.add(second_assignment)
+    db.session.commit()
+
+    first_review = Review(
+        assignmentID=seeded["assignment"].id,
+        reviewerID=student_a.id,
+        revieweeID=student_b.id,
+        review_type="peer",
+    )
+    second_review = Review(
+        assignmentID=second_assignment.id,
+        reviewerID=student_b.id,
+        revieweeID=student_a.id,
+        review_type="peer",
+    )
+    db.session.add_all([first_review, second_review])
+    db.session.commit()
+
+    _login(test_client, seeded["teacher"].email, "Password1!")
+    list_resp = test_client.get(f"/review/class/{seeded['course'].id}")
+
+    assert list_resp.status_code == 200
+    payload = list_resp.get_json()
+    assert isinstance(payload, list)
+    assert len(payload) == 2
+
+    assignment_ids = {review["assignmentID"] for review in payload}
+    assert seeded["assignment"].id in assignment_ids
+    assert second_assignment.id in assignment_ids
+
+
+def test_teacher_cannot_view_reviews_for_other_teachers_class(test_client, db):
+    seeded = _seed_course_with_assignment_and_rubric(db)
+
+    other_teacher = User(
+        name="Other Teacher",
+        email="other-teacher@example.com",
+        hash_pass=generate_password_hash("Password1!"),
+        role="teacher",
+    )
+    db.session.add(other_teacher)
+    db.session.commit()
+
+    _login(test_client, other_teacher.email, "Password1!")
+    list_resp = test_client.get(f"/review/class/{seeded['course'].id}")
+
+    assert list_resp.status_code == 403

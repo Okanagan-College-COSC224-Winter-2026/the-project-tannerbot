@@ -69,6 +69,21 @@ class Review(db.Model):
             return normalized
         return None
 
+    @staticmethod
+    def _member_ids_for_group(assignment_id, group_id):
+        memberships = Group_Members.query.filter_by(
+            assignmentID=assignment_id,
+            groupID=group_id,
+        ).all()
+        return sorted({membership.userID for membership in memberships})
+
+    @classmethod
+    def _group_member_ids_for_user(cls, assignment_id, user_id):
+        membership = Group_Members.get_for_assignment_and_user(assignment_id, user_id)
+        if not membership:
+            return []
+        return cls._member_ids_for_group(assignment_id, membership.groupID)
+
     @classmethod
     def _resolve_rubric_for_assignment(cls, assignment, review_type):
         if assignment.assignment_mode == "group":
@@ -366,17 +381,8 @@ class Review(db.Model):
                 "status": 400,
             }
 
-        reviewer_memberships = Group_Members.query.filter_by(
-            assignmentID=assignment_id,
-            groupID=reviewer_group_id,
-        ).all()
-        reviewee_memberships = Group_Members.query.filter_by(
-            assignmentID=assignment_id,
-            groupID=reviewee_group_id,
-        ).all()
-
-        reviewer_student_ids = sorted({membership.userID for membership in reviewer_memberships})
-        reviewee_student_ids = sorted({membership.userID for membership in reviewee_memberships})
+        reviewer_student_ids = cls._member_ids_for_group(assignment_id, reviewer_group_id)
+        reviewee_student_ids = cls._member_ids_for_group(assignment_id, reviewee_group_id)
 
         if not reviewer_student_ids or not reviewee_student_ids:
             return None, {
@@ -399,30 +405,57 @@ class Review(db.Model):
         if review_type == "peer":
             reviewee_student_ids = reviewer_student_ids
 
-        for reviewer_student_id in reviewer_student_ids:
-            for reviewee_student_id in reviewee_student_ids:
-                if reviewer_student_id == reviewee_student_id:
-                    continue
-                if (reviewer_student_id, reviewee_student_id) in existing_pairs:
-                    continue
+        if review_type == "group":
+            # True group review semantics: one review record per reviewer-group/reviewee-group pair.
+            reviewer_student_id = reviewer_student_ids[0]
+            reviewee_student_id = reviewee_student_ids[0]
 
-                review = cls(
-                    assignmentID=assignment_id,
-                    reviewerID=reviewer_student_id,
-                    revieweeID=reviewee_student_id,
-                    review_type=review_type,
-                )
-                db.session.add(review)
-                db.session.flush()
+            if (reviewer_student_id, reviewee_student_id) in existing_pairs:
+                return None, {
+                    "msg": "All requested group assignment reviews already exist",
+                    "status": 409,
+                }
 
-                criteria = [
-                    Criterion(reviewID=review.id, criterionRowID=row.id)
-                    for row in criteria_rows
-                ]
-                db.session.add_all(criteria)
+            review = cls(
+                assignmentID=assignment_id,
+                reviewerID=reviewer_student_id,
+                revieweeID=reviewee_student_id,
+                review_type=review_type,
+            )
+            db.session.add(review)
+            db.session.flush()
 
-                created_reviews.append(review)
-                existing_pairs.add((reviewer_student_id, reviewee_student_id))
+            criteria = [
+                Criterion(reviewID=review.id, criterionRowID=row.id)
+                for row in criteria_rows
+            ]
+            db.session.add_all(criteria)
+            created_reviews.append(review)
+        else:
+            for reviewer_student_id in reviewer_student_ids:
+                for reviewee_student_id in reviewee_student_ids:
+                    if reviewer_student_id == reviewee_student_id:
+                        continue
+                    if (reviewer_student_id, reviewee_student_id) in existing_pairs:
+                        continue
+
+                    review = cls(
+                        assignmentID=assignment_id,
+                        reviewerID=reviewer_student_id,
+                        revieweeID=reviewee_student_id,
+                        review_type=review_type,
+                    )
+                    db.session.add(review)
+                    db.session.flush()
+
+                    criteria = [
+                        Criterion(reviewID=review.id, criterionRowID=row.id)
+                        for row in criteria_rows
+                    ]
+                    db.session.add_all(criteria)
+
+                    created_reviews.append(review)
+                    existing_pairs.add((reviewer_student_id, reviewee_student_id))
 
         if not created_reviews:
             return None, {
@@ -464,6 +497,12 @@ class Review(db.Model):
             return None, {"msg": "Course not found", "status": 404}
 
         can_mark = actor.id == review.reviewerID or actor.is_admin() or actor.id == course.teacherID
+        if not can_mark and review.review_type == "group":
+            reviewer_group_member_ids = cls._group_member_ids_for_user(
+                assignment_id=assignment.id,
+                user_id=review.reviewerID,
+            )
+            can_mark = actor.id in reviewer_group_member_ids
         if not can_mark:
             return None, {"msg": "Insufficient permissions", "status": 403}
 
@@ -557,6 +596,31 @@ class Review(db.Model):
         return reviews, None
 
     @classmethod
+    def list_for_class_for_teacher(cls, class_id, teacher_email):
+        """List all reviews across assignments in a class for teacher/admin."""
+        course = Course.get_by_id(class_id)
+        if not course:
+            return None, {"msg": "Class not found", "status": 404}
+
+        current_user = User.get_by_email(teacher_email)
+        if not current_user:
+            return None, {"msg": "User not found", "status": 404}
+
+        if course.teacherID != current_user.id and not current_user.is_admin():
+            return None, {"msg": "Unauthorized: You are not the teacher of this class", "status": 403}
+
+        assignment_ids = [assignment.id for assignment in Assignment.query.filter_by(courseID=course.id).all()]
+        if not assignment_ids:
+            return [], None
+
+        reviews = (
+            cls.query.filter(cls.assignmentID.in_(assignment_ids))
+            .order_by(cls.assignmentID.asc(), cls.id.asc())
+            .all()
+        )
+        return reviews, None
+
+    @classmethod
     def list_for_assignment_for_teacher_separated(cls, assignment_id, teacher_email):
         """List assignment reviews split into peer and group review buckets for teachers."""
         reviews, error = cls.list_for_assignment_for_teacher(
@@ -593,12 +657,32 @@ class Review(db.Model):
             reviewer=reviewer,
         )
 
-        query = cls.query.filter_by(assignmentID=assignment_id, reviewerID=reviewer.id)
-        if review_type:
-            query = query.filter_by(review_type=review_type)
+        if assignment.assignment_mode != "group":
+            query = cls.query.filter_by(assignmentID=assignment_id, reviewerID=reviewer.id)
+            if review_type:
+                query = query.filter_by(review_type=review_type)
+            reviews = query.order_by(cls.id.asc()).all()
+            return reviews, None
 
-        reviews = query.order_by(cls.id.asc()).all()
-        return reviews, None
+        reviewer_group_member_ids = set(
+            cls._group_member_ids_for_user(assignment_id=assignment_id, user_id=reviewer.id)
+        )
+
+        reviews = cls.query.filter_by(assignmentID=assignment_id).order_by(cls.id.asc()).all()
+        visible_reviews = []
+        for review in reviews:
+            if review.review_type == "group":
+                if review.reviewerID in reviewer_group_member_ids:
+                    visible_reviews.append(review)
+                continue
+
+            if review.reviewerID == reviewer.id:
+                visible_reviews.append(review)
+
+        if review_type:
+            visible_reviews = [review for review in visible_reviews if review.review_type == review_type]
+
+        return visible_reviews, None
 
     @classmethod
     def _ensure_group_peer_reviews_for_reviewer(cls, assignment, reviewer):
@@ -689,8 +773,23 @@ class Review(db.Model):
         if not reviewee:
             return None, {"msg": "User not found", "status": 404}
 
-        query = cls.query.filter_by(assignmentID=assignment_id, revieweeID=reviewee.id)
-        reviews = query.order_by(cls.id.asc()).all()
+        if assignment.assignment_mode != "group":
+            query = cls.query.filter_by(assignmentID=assignment_id, revieweeID=reviewee.id)
+            reviews = query.order_by(cls.id.asc()).all()
+        else:
+            reviewee_group_member_ids = set(
+                cls._group_member_ids_for_user(assignment_id=assignment_id, user_id=reviewee.id)
+            )
+            reviews = cls.query.filter_by(assignmentID=assignment_id).order_by(cls.id.asc()).all()
+            reviews = [
+                review
+                for review in reviews
+                if (
+                    (review.review_type != "group" and review.revieweeID == reviewee.id)
+                    or (review.review_type == "group" and review.revieweeID in reviewee_group_member_ids)
+                )
+            ]
+
         if completed_only:
             reviews = [review for review in reviews if review.completion_status()]
 

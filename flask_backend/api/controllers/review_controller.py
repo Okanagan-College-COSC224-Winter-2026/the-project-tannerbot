@@ -13,6 +13,10 @@ criterion_schema = CriterionSchema(many=True)
 
 def _dump_review_with_markable_criteria(review):
     payload = review_schema.dump(review)
+    # Keep FK id fields available even when schema omits include_fk.
+    payload["assignmentID"] = review.assignmentID
+    payload["reviewerID"] = review.reviewerID
+    payload["revieweeID"] = review.revieweeID
     criteria_rows = review.criteria.order_by("id").all()
     criteria_payload = criterion_schema.dump(criteria_rows)
     for entry, row in zip(criteria_payload, criteria_rows):
@@ -104,6 +108,21 @@ def list_reviews_for_assignment(assignment_id):
         return jsonify({"msg": error["msg"]}), error["status"]
 
     return jsonify(review_list_schema.dump(reviews)), 200
+
+
+@bp.route("/class/<int:class_id>", methods=["GET"])
+@jwt_teacher_required
+def list_reviews_for_class(class_id):
+    """List all reviews across all assignments in a class for teachers/admins."""
+    reviews, error = Review.list_for_class_for_teacher(
+        class_id=class_id,
+        teacher_email=get_jwt_identity(),
+    )
+    if error:
+        return jsonify({"msg": error["msg"]}), error["status"]
+
+    payload = [_dump_review_with_markable_criteria(review) for review in reviews]
+    return jsonify(payload), 200
 
 
 @bp.route("/assignment/<int:assignment_id>/separated", methods=["GET"])

@@ -1095,6 +1095,25 @@ export const listMyReviewsForAssignment = async (assignmentID: number) => {
   return await response.json();
 }
 
+export const listReviewsForClass = async (classID: number) => {
+  const response = await fetch(`${BASE_URL}/review/class/${classID}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
 export const listMySeparatedReviewsForAssignment = async (assignmentID: number) => {
   const response = await fetch(`${BASE_URL}/review/my/assignment/${assignmentID}/separated`, {
     method: 'GET',
