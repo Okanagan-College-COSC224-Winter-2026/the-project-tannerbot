@@ -925,14 +925,20 @@ export const createTeacherAccount = async (name: string, email: string, password
 }
 
 // Review - Assign reviewer to peer review
-export const assignReview = async (assignmentID: number, reviewerID: number, revieweeID: number) => {
+export const assignReview = async (
+  assignmentID: number,
+  params:
+    | { reviewerID: number; revieweeID: number }
+    | { reviewerGroupID: number; revieweeGroupID: number },
+) => {
+  const payload = {
+    assignmentID,
+    ...params,
+  };
+
   const response = await fetch(`${BASE_URL}/review/assign`, {
     method: 'POST',
-    body: JSON.stringify({
-      assignmentID,
-      reviewerID,
-      revieweeID,
-    }),
+    body: JSON.stringify(payload),
     headers: {
       'Content-Type': 'application/json',
     },

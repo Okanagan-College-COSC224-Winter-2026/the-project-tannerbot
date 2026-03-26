@@ -8,7 +8,9 @@ from .db import db
 from .assignment_model import Assignment
 from .criterion_model import Criterion
 from .criteria_description_model import CriteriaDescription
+from .course_group_model import CourseGroup
 from .course_model import Course
+from .group_members_model import Group_Members
 from .rubric_model import Rubric
 from .user_course_model import User_Course
 from .user_model import User
@@ -111,25 +113,29 @@ class Review(db.Model):
         return cls.query.options(joinedload(cls.assignment).joinedload("course")).all()
 
     @classmethod
-    def assign_review_for_teacher(cls, assignment_id, reviewer_id, reviewee_id, teacher_email):
+    def assign_review_for_teacher(
+        cls,
+        assignment_id,
+        reviewer_id,
+        reviewee_id,
+        teacher_email,
+        reviewer_group_id=None,
+        reviewee_group_id=None,
+    ):
         """Assign a review for an assignment after validating teacher access and enrollment.
 
         Returns:
-            (review, None) on success
+            ({"mode": "solo", "review": review}, None) on success
+            ({"mode": "group", "created_reviews": [review, ...]}, None) on success
             (None, {"msg": str, "status": int}) on failure
         """
-        if not assignment_id or not reviewer_id or not reviewee_id:
-            return None, {"msg": "assignmentID, reviewerID, and revieweeID are required", "status": 400}
+        if not assignment_id:
+            return None, {"msg": "assignmentID is required", "status": 400}
 
         try:
             assignment_id = int(assignment_id)
-            reviewer_id = int(reviewer_id)
-            reviewee_id = int(reviewee_id)
         except (TypeError, ValueError):
-            return None, {"msg": "IDs must be integers", "status": 400}
-
-        if reviewer_id == reviewee_id:
-            return None, {"msg": "Reviewer and reviewee must be different users", "status": 400}
+            return None, {"msg": "assignmentID must be an integer", "status": 400}
 
         assignment = Assignment.get_by_id(assignment_id)
         if not assignment:
@@ -145,6 +151,46 @@ class Review(db.Model):
 
         if course.teacherID != current_user.id and not current_user.is_admin():
             return None, {"msg": "Unauthorized: You are not the teacher of this class", "status": 403}
+
+        rubric = Rubric.query.filter_by(assignmentID=assignment_id).order_by(Rubric.id.desc()).first()
+        if not rubric:
+            return None, {
+                "msg": "Cannot assign review because assignment has no rubric",
+                "status": 400,
+            }
+
+        criteria_rows = rubric.criteria_descriptions.order_by(CriteriaDescription.id.asc()).all()
+        if not criteria_rows:
+            return None, {
+                "msg": "Cannot assign review because rubric has no criteria",
+                "status": 400,
+            }
+
+        if assignment.assignment_mode == "group":
+            return cls._assign_group_to_group_reviews(
+                assignment=assignment,
+                course=course,
+                reviewer_id=reviewer_id,
+                reviewee_id=reviewee_id,
+                reviewer_group_id=reviewer_group_id,
+                reviewee_group_id=reviewee_group_id,
+                criteria_rows=criteria_rows,
+            )
+
+        if not reviewer_id or not reviewee_id:
+            return None, {
+                "msg": "reviewerID and revieweeID are required for solo assignments",
+                "status": 400,
+            }
+
+        try:
+            reviewer_id = int(reviewer_id)
+            reviewee_id = int(reviewee_id)
+        except (TypeError, ValueError):
+            return None, {"msg": "reviewerID and revieweeID must be integers", "status": 400}
+
+        if reviewer_id == reviewee_id:
+            return None, {"msg": "Reviewer and reviewee must be different users", "status": 400}
 
         reviewer = User.get_by_id(reviewer_id)
         reviewee = User.get_by_id(reviewee_id)
@@ -165,20 +211,6 @@ class Review(db.Model):
         if existing:
             return None, {"msg": "This review assignment already exists", "status": 409, "review": existing}
 
-        rubric = Rubric.query.filter_by(assignmentID=assignment_id).order_by(Rubric.id.desc()).first()
-        if not rubric:
-            return None, {
-                "msg": "Cannot assign review because assignment has no rubric",
-                "status": 400,
-            }
-
-        criteria_rows = rubric.criteria_descriptions.order_by(CriteriaDescription.id.asc()).all()
-        if not criteria_rows:
-            return None, {
-                "msg": "Cannot assign review because rubric has no criteria",
-                "status": 400,
-            }
-
         review = cls(assignmentID=assignment_id, reviewerID=reviewer_id, revieweeID=reviewee_id)
         db.session.add(review)
         db.session.flush()
@@ -187,7 +219,138 @@ class Review(db.Model):
         db.session.add_all(criteria)
         db.session.commit()
 
-        return review, None
+        return {"mode": "solo", "review": review}, None
+
+    @classmethod
+    def _assign_group_to_group_reviews(
+        cls,
+        assignment,
+        course,
+        reviewer_id,
+        reviewee_id,
+        reviewer_group_id,
+        reviewee_group_id,
+        criteria_rows,
+    ):
+        assignment_id = assignment.id
+
+        if reviewer_group_id is None or reviewee_group_id is None:
+            if reviewer_id is None or reviewee_id is None:
+                return None, {
+                    "msg": (
+                        "reviewerGroupID and revieweeGroupID are required for group assignments "
+                        "(or provide reviewerID/revieweeID already mapped to groups)"
+                    ),
+                    "status": 400,
+                }
+            try:
+                reviewer_id = int(reviewer_id)
+                reviewee_id = int(reviewee_id)
+            except (TypeError, ValueError):
+                return None, {
+                    "msg": "reviewerID and revieweeID must be integers",
+                    "status": 400,
+                }
+
+            reviewer_membership = Group_Members.get_for_assignment_and_user(assignment_id, reviewer_id)
+            reviewee_membership = Group_Members.get_for_assignment_and_user(assignment_id, reviewee_id)
+            if not reviewer_membership or not reviewee_membership:
+                return None, {
+                    "msg": "Both students must be assigned to groups for this assignment",
+                    "status": 400,
+                }
+
+            reviewer_group_id = reviewer_membership.groupID
+            reviewee_group_id = reviewee_membership.groupID
+
+        try:
+            reviewer_group_id = int(reviewer_group_id)
+            reviewee_group_id = int(reviewee_group_id)
+        except (TypeError, ValueError):
+            return None, {
+                "msg": "reviewerGroupID and revieweeGroupID must be integers",
+                "status": 400,
+            }
+
+        if reviewer_group_id == reviewee_group_id:
+            return None, {
+                "msg": "Reviewer and reviewee groups must be different",
+                "status": 400,
+            }
+
+        reviewer_group = CourseGroup.get_by_id(reviewer_group_id)
+        reviewee_group = CourseGroup.get_by_id(reviewee_group_id)
+        if not reviewer_group or not reviewee_group:
+            return None, {"msg": "Reviewer or reviewee group not found", "status": 404}
+
+        if reviewer_group.assignmentID != assignment_id or reviewee_group.assignmentID != assignment_id:
+            return None, {
+                "msg": "Groups must belong to the selected assignment",
+                "status": 400,
+            }
+
+        reviewer_memberships = Group_Members.query.filter_by(
+            assignmentID=assignment_id,
+            groupID=reviewer_group_id,
+        ).all()
+        reviewee_memberships = Group_Members.query.filter_by(
+            assignmentID=assignment_id,
+            groupID=reviewee_group_id,
+        ).all()
+
+        reviewer_student_ids = sorted({membership.userID for membership in reviewer_memberships})
+        reviewee_student_ids = sorted({membership.userID for membership in reviewee_memberships})
+
+        if not reviewer_student_ids or not reviewee_student_ids:
+            return None, {
+                "msg": "Both groups must have at least one student",
+                "status": 400,
+            }
+
+        if any(not User_Course.get(student_id, course.id) for student_id in reviewer_student_ids + reviewee_student_ids):
+            return None, {
+                "msg": "All group members must be enrolled in the class",
+                "status": 400,
+            }
+
+        existing_pairs = {
+            (review.reviewerID, review.revieweeID)
+            for review in cls.query.filter_by(assignmentID=assignment_id).all()
+        }
+
+        created_reviews = []
+        for reviewer_student_id in reviewer_student_ids:
+            for reviewee_student_id in reviewee_student_ids:
+                if reviewer_student_id == reviewee_student_id:
+                    continue
+                if (reviewer_student_id, reviewee_student_id) in existing_pairs:
+                    continue
+
+                review = cls(
+                    assignmentID=assignment_id,
+                    reviewerID=reviewer_student_id,
+                    revieweeID=reviewee_student_id,
+                )
+                db.session.add(review)
+                db.session.flush()
+
+                criteria = [
+                    Criterion(reviewID=review.id, criterionRowID=row.id)
+                    for row in criteria_rows
+                ]
+                db.session.add_all(criteria)
+
+                created_reviews.append(review)
+                existing_pairs.add((reviewer_student_id, reviewee_student_id))
+
+        if not created_reviews:
+            return None, {
+                "msg": "All group-to-group review assignments already exist",
+                "status": 409,
+            }
+
+        db.session.commit()
+        return {"mode": "group", "created_reviews": created_reviews}, None
 
     @classmethod
     def mark_review_for_user(cls, review_id, actor_email, criteria_updates):
