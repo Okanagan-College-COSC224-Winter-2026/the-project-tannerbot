@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { listMySeparatedReviewsForAssignment, markReview } from "../util/api";
+import {
+  listMyReceivedSeparatedReviewsForAssignment,
+  listMySeparatedReviewsForAssignment,
+  markReview,
+} from "../util/api";
 import { formatDateTime } from "../util/dateUtils";
 
 import "./StudentAssignedReviews.css";
@@ -58,6 +62,7 @@ interface Props {
 
 export default function StudentAssignedReviews({ assignmentId }: Props) {
   const [reviews, setReviews] = useState<ReviewAssignment[]>([]);
+  const [receivedReviews, setReceivedReviews] = useState<ReviewAssignment[]>([]);
   const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
   const [draft, setDraft] = useState<DraftValues>({});
   const [loading, setLoading] = useState(true);
@@ -100,6 +105,14 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       ];
       setReviews(assignedReviews);
 
+      const receivedPayload: SeparatedReviewAssignments =
+        await listMyReceivedSeparatedReviewsForAssignment(assignmentId);
+      const allReceivedReviews: ReviewAssignment[] = [
+        ...(Array.isArray(receivedPayload.group_reviews) ? receivedPayload.group_reviews : []),
+        ...(Array.isArray(receivedPayload.peer_reviews) ? receivedPayload.peer_reviews : []),
+      ];
+      setReceivedReviews(allReceivedReviews);
+
       const firstReview = assignedReviews[0] ?? null;
       setSelectedReviewId(firstReview?.id ?? null);
       if (firstReview?.criteria) {
@@ -118,6 +131,7 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       const message = err instanceof Error ? err.message : "Failed to load assigned reviews";
       setError(message);
       setReviews([]);
+      setReceivedReviews([]);
       setSelectedReviewId(null);
       setDraft({});
     } finally {
@@ -370,6 +384,40 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
 
       {error ? <p className="text-danger mt-3 mb-0">{error}</p> : null}
       {success ? <p className="text-success mt-3 mb-0">{success}</p> : null}
+
+      <hr className="my-4" />
+      <h3 className="h5 mb-3">Reviews About You</h3>
+      {receivedReviews.length === 0 ? (
+        <p className="mb-0 text-muted">No completed reviews about you yet.</p>
+      ) : (
+        <div className="d-grid gap-3">
+          {receivedReviews.map((review) => (
+            <div key={review.id} className="ReviewCriterionCard p-3">
+              <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <h4 className="h6 mb-0">
+                  {review.review_type === "group" ? "Group Review" : "Peer Review"}
+                </h4>
+                <span className="badge text-bg-secondary">Reviewer: Anonymous</span>
+              </div>
+
+              {review.criteria?.map((criterion) => {
+                const hasScore = criterion.criterion_row?.hasScore ?? true;
+                return (
+                  <div key={criterion.id} className="mb-2">
+                    <div className="fw-semibold">{criterion.criterion_row?.question ?? "Criterion"}</div>
+                    {hasScore ? (
+                      <div className="small">Score: {criterion.grade ?? "Not scored"}</div>
+                    ) : null}
+                    <div className="small text-muted">
+                      Comments: {criterion.comments?.trim() ? criterion.comments : "No comments"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

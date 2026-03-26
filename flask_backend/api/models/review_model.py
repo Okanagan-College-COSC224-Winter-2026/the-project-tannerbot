@@ -679,6 +679,24 @@ class Review(db.Model):
         return separated, None
 
     @classmethod
+    def list_for_assignment_for_reviewee(cls, assignment_id, reviewee_email, completed_only=True):
+        """List reviews received by the current user for a given assignment."""
+        assignment = Assignment.get_by_id(assignment_id)
+        if not assignment:
+            return None, {"msg": "Assignment not found", "status": 404}
+
+        reviewee = User.get_by_email(reviewee_email)
+        if not reviewee:
+            return None, {"msg": "User not found", "status": 404}
+
+        query = cls.query.filter_by(assignmentID=assignment_id, revieweeID=reviewee.id)
+        reviews = query.order_by(cls.id.asc()).all()
+        if completed_only:
+            reviews = [review for review in reviews if review.completion_status()]
+
+        return reviews, None
+
+    @classmethod
     def create_review(cls, review):
         """Add a new review to the database"""
         db.session.add(review)

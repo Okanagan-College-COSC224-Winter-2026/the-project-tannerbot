@@ -9,6 +9,7 @@ from api.models.assignment_model import Assignment
 from api.models.course_group_model import CourseGroup
 from api.models.course_model import Course
 from api.models.criteria_description_model import CriteriaDescription
+from api.models.criterion_model import Criterion
 from api.models.group_members_model import Group_Members
 from api.models.review_model import Review
 from api.models.rubric_model import Rubric
@@ -746,3 +747,119 @@ def test_student_group_members_auto_receive_peer_reviews_for_teammates(
     assert len(payload["peer_reviews"]) == 1
     assert payload["peer_reviews"][0]["reviewee"]["id"] == student_b.id
     assert payload["peer_reviews"][0]["review_type"] == "peer"
+
+
+def test_student_can_view_received_reviews_anonymously_across_peer_and_group(
+    test_client,
+    db,
+    enroll_user_in_course,
+):
+    seeded = _seed_course_with_assignment_and_rubric(db)
+
+    student_a = seeded["reviewer"]
+    student_b = seeded["reviewee"]
+
+    seeded["assignment"].assignment_mode = "group"
+    db.session.commit()
+    _add_group_rubric_with_matching_criteria(db, seeded)
+
+    enroll_user_in_course(student_a.id, seeded["course"].id)
+    enroll_user_in_course(student_b.id, seeded["course"].id)
+
+    peer_review = Review(
+        assignmentID=seeded["assignment"].id,
+        reviewerID=student_a.id,
+        revieweeID=student_b.id,
+        review_type="peer",
+    )
+    group_review = Review(
+        assignmentID=seeded["assignment"].id,
+        reviewerID=student_a.id,
+        revieweeID=student_b.id,
+        review_type="group",
+    )
+    db.session.add_all([peer_review, group_review])
+    db.session.commit()
+
+    peer_criterion_row = seeded["criteria"][0]
+    group_criterion_row = CriteriaDescription.query.filter_by(
+        question=peer_criterion_row.question,
+        rubricID=Rubric.get_for_assignment(seeded["assignment"].id, "group").id,
+    ).first()
+
+    db.session.add_all(
+        [
+            Criterion(
+                reviewID=peer_review.id,
+                criterionRowID=peer_criterion_row.id,
+                grade=4,
+                comments="Peer contribution was strong.",
+            ),
+            Criterion(
+                reviewID=group_review.id,
+                criterionRowID=group_criterion_row.id,
+                grade=5,
+                comments="Group delivery was excellent.",
+            ),
+        ]
+    )
+    db.session.commit()
+
+    _login(test_client, student_b.email, "Password1!")
+    list_resp = test_client.get(
+        f"/review/my/received/assignment/{seeded['assignment'].id}/separated"
+    )
+
+    assert list_resp.status_code == 200
+    payload = list_resp.get_json()
+    assert len(payload["peer_reviews"]) == 1
+    assert len(payload["group_reviews"]) == 1
+
+    for review in payload["peer_reviews"] + payload["group_reviews"]:
+        assert review["reviewer"]["name"] == "Anonymous"
+        assert review["reviewer_anonymous"] is True
+        assert review["reviewee"]["id"] == student_b.id
+
+
+def test_received_reviews_endpoint_only_returns_completed_reviews(
+    test_client,
+    db,
+    enroll_user_in_course,
+):
+    seeded = _seed_course_with_assignment_and_rubric(db)
+
+    enroll_user_in_course(seeded["reviewer"].id, seeded["course"].id)
+    enroll_user_in_course(seeded["reviewee"].id, seeded["course"].id)
+
+    complete_review = Review(
+        assignmentID=seeded["assignment"].id,
+        reviewerID=seeded["reviewer"].id,
+        revieweeID=seeded["reviewee"].id,
+        review_type="peer",
+    )
+    incomplete_review = Review(
+        assignmentID=seeded["assignment"].id,
+        reviewerID=seeded["reviewer"].id,
+        revieweeID=seeded["reviewee"].id,
+        review_type="peer",
+    )
+    db.session.add_all([complete_review, incomplete_review])
+    db.session.commit()
+
+    criterion_row = seeded["criteria"][0]
+    db.session.add_all(
+        [
+            Criterion(reviewID=complete_review.id, criterionRowID=criterion_row.id, grade=3),
+            Criterion(reviewID=incomplete_review.id, criterionRowID=criterion_row.id, grade=None),
+        ]
+    )
+    db.session.commit()
+
+    _login(test_client, seeded["reviewee"].email, "Password1!")
+    list_resp = test_client.get(
+        f"/review/my/received/assignment/{seeded['assignment'].id}/separated"
+    )
+
+    assert list_resp.status_code == 200
+    payload = list_resp.get_json()
+    assert len(payload["peer_reviews"]) == 1

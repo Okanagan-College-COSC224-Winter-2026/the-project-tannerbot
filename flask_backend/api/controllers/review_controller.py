@@ -28,6 +28,13 @@ def _dump_review_with_markable_criteria(review):
     return payload
 
 
+def _dump_received_review_anonymized(review):
+    payload = _dump_review_with_markable_criteria(review)
+    payload["reviewer"] = {"id": 0, "name": "Anonymous"}
+    payload["reviewer_anonymous"] = True
+    return payload
+
+
 @bp.route("/assign", methods=["POST"])
 @jwt_teacher_required
 def assign_review():
@@ -157,6 +164,33 @@ def list_my_reviews_for_assignment_separated(assignment_id):
         "group_reviews": [
             _dump_review_with_markable_criteria(review)
             for review in separated["group_reviews"]
+        ],
+    }
+    return jsonify(payload), 200
+
+
+@bp.route("/my/received/assignment/<int:assignment_id>/separated", methods=["GET"])
+@jwt_required()
+def list_reviews_received_for_assignment_separated(assignment_id):
+    """List completed reviews received by the current user, with anonymous reviewer identity."""
+    reviews, error = Review.list_for_assignment_for_reviewee(
+        assignment_id=assignment_id,
+        reviewee_email=get_jwt_identity(),
+        completed_only=True,
+    )
+    if error:
+        return jsonify({"msg": error["msg"]}), error["status"]
+
+    payload = {
+        "peer_reviews": [
+            _dump_received_review_anonymized(review)
+            for review in reviews
+            if review.review_type != "group"
+        ],
+        "group_reviews": [
+            _dump_received_review_anonymized(review)
+            for review in reviews
+            if review.review_type == "group"
         ],
     }
     return jsonify(payload), 200

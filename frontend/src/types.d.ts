@@ -117,6 +117,7 @@ interface ReviewAssignment {
   id: number;
   assignmentID: number;
   review_type?: 'group' | 'peer';
+  reviewer_anonymous?: boolean;
   reviewer?: ReviewParticipant;
   reviewee?: ReviewParticipant;
   criteria?: ReviewCriterion[];

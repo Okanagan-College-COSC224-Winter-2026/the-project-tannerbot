@@ -1004,6 +1004,40 @@ export const listReviewsForAssignment = async (assignmentID: number) => {
   };
 }
 
+export const listMyReceivedSeparatedReviewsForAssignment = async (assignmentID: number) => {
+  const response = await fetch(`${BASE_URL}/review/my/received/assignment/${assignmentID}/separated`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(response);
+
+  if (response.status === 404) {
+    return {
+      peer_reviews: [],
+      group_reviews: [],
+    };
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
+  }
+
+  const payload = await response.json().catch(() => null);
+  if (payload && typeof payload === 'object') {
+    return payload;
+  }
+
+  return {
+    peer_reviews: [],
+    group_reviews: [],
+  };
+}
+
 export const listSeparatedReviewsForAssignment = async (assignmentID: number) => {
   const response = await fetch(`${BASE_URL}/review/assignment/${assignmentID}/separated`, {
     method: 'GET',
