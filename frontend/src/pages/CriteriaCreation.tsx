@@ -4,7 +4,7 @@ import RubricCreator from "../components/RubricCreator";
 import Button from "../components/Button";
 import ManageAssignment from "../components/ManageAssignment";
 import TabNavigation from "../components/TabNavigation";
-import { deleteCriteria, getRubricByAssignment, updateCriteria } from "../util/api";
+import { deleteCriteria, getAssignmentGrouping, getRubricByAssignment, updateCriteria } from "../util/api";
 import { isAdmin, isTeacher } from "../util/login";
 import "./CriteriaCreation.css";
 
@@ -20,6 +20,7 @@ interface RubricData {
   id: number;
   assignmentID: number;
   canComment: boolean;
+  rubric_type?: "peer" | "group";
   criteria_descriptions: CriteriaDescription[];
 }
 
@@ -32,10 +33,12 @@ export default function CriteriaCreation() {
   const stateClassId = (location.state as { classId?: string | number } | null)?.classId;
   const searchClassId = new URLSearchParams(location.search).get("classId");
   const classId = stateClassId ?? searchClassId;
+  const classIdForManage = classId ?? undefined;
   const classQuery = classId ? `?classId=${classId}` : "";
-  const assignmentName = location.state?.assignmentName;
 
   const [rubric, setRubric] = useState<RubricData | null>(null);
+  const [assignmentMode, setAssignmentMode] = useState<"solo" | "group">("solo");
+  const [rubricType, setRubricType] = useState<"peer" | "group">("peer");
   const [editingCriteriaId, setEditingCriteriaId] = useState<number | null>(null);
   const [editQuestion, setEditQuestion] = useState("");
   const [editScoreMax, setEditScoreMax] = useState(0);
@@ -48,13 +51,32 @@ export default function CriteriaCreation() {
 
   const fetchRubric = async () => {
     if (!id) return;
-    const data = await getRubricByAssignment(Number(id));
+    const data = await getRubricByAssignment(Number(id), rubricType);
     setRubric(data);
   };
 
+  const fetchAssignmentMode = async () => {
+    if (!id) return;
+    try {
+      const groupingPayload: AssignmentGroupingResponse = await getAssignmentGrouping(Number(id));
+      const mode = groupingPayload.assignment.assignment_mode === "group" ? "group" : "solo";
+      setAssignmentMode(mode);
+      if (mode === "solo") {
+        setRubricType("peer");
+      }
+    } catch {
+      setAssignmentMode("solo");
+      setRubricType("peer");
+    }
+  };
+
+  useEffect(() => {
+    fetchAssignmentMode();
+  }, [id]);
+
   useEffect(() => {
     fetchRubric();
-  }, [id]);
+  }, [id, rubricType]);
 
   const beginEdit = (criteria: CriteriaDescription) => {
     setEditingCriteriaId(criteria.id);
@@ -122,7 +144,7 @@ export default function CriteriaCreation() {
           </Button>
           <ManageAssignment
             assignmentId={id ? Number(id) : undefined}
-            classId={classId}
+            classId={classIdForManage}
           />
         </div>
       </div>
@@ -153,9 +175,25 @@ export default function CriteriaCreation() {
       />
 
       <div className="CriteriaCreationBody">
+        {assignmentMode === "group" ? (
+          <div className="card border-0 shadow-sm p-3 mb-3">
+            <label className="form-label mb-1">Rubric Type</label>
+            <select
+              className="form-select"
+              value={rubricType}
+              onChange={(event) => setRubricType(event.target.value === "group" ? "group" : "peer")}
+            >
+              <option value="peer">Peer Review Rubric</option>
+              <option value="group">Group Review Rubric</option>
+            </select>
+          </div>
+        ) : null}
+
         {rubric && rubric.criteria_descriptions.length > 0 && (
           <div className="ExistingCriteria">
-            <h3>Existing Criteria</h3>
+            <h3>
+              Existing {rubricType === "group" ? "Group Review" : "Peer Review"} Criteria
+            </h3>
             <table className="ExistingCriteriaTable">
               <thead>
                 <tr>
@@ -241,6 +279,7 @@ export default function CriteriaCreation() {
           id={Number(id)}
           onRubricCreated={fetchRubric}
           existingScoredTotal={existingScoredTotal}
+          rubricType={rubricType}
         />
       </div>
     </div>

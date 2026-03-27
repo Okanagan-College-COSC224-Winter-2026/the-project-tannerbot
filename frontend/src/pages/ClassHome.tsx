@@ -14,7 +14,7 @@ import {
 import TabNavigation from "../components/TabNavigation";
 import { importCSV } from "../util/csv";
 import StatusMessage from "../components/StatusMessage";
-import { isTeacher } from "../util/login";
+import { isAdmin, isTeacher } from "../util/login";
 
 export default function ClassHome() {
   const { id } = useParams();
@@ -162,6 +162,14 @@ export default function ClassHome() {
               label: "Members",
               path: `/classes/${id}/members`,
             },
+            ...(isTeacher() || isAdmin()
+              ? [
+                  {
+                    label: "Reviews",
+                    path: `/classes/${id}/reviews`,
+                  },
+                ]
+              : []),
           ]}
         />
 

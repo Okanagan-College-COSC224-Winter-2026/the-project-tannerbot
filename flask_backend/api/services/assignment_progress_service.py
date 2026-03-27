@@ -37,6 +37,11 @@ def build_assignment_progress_payload(assignment):
         assigned_reviews = reviews_by_reviewer.get(student.id, [])
         total_reviews = len(assigned_reviews)
         completed_reviews = sum(1 for review in assigned_reviews if review.completion_status())
+        assigned_peer_reviews = [review for review in assigned_reviews if review.review_type != "group"]
+        total_peer_reviews = len(assigned_peer_reviews)
+        completed_peer_reviews = sum(
+            1 for review in assigned_peer_reviews if review.completion_status()
+        )
 
         students_payload.append(
             {
@@ -51,6 +56,19 @@ def build_assignment_progress_payload(assignment):
                     "total_assigned_reviews": total_reviews,
                     "pending_assigned_reviews": max(total_reviews - completed_reviews, 0),
                     "is_complete": total_reviews > 0 and completed_reviews == total_reviews,
+                },
+                "peer_review_status": {
+                    "has_reviewed": completed_peer_reviews > 0,
+                    "completed_assigned_reviews": completed_peer_reviews,
+                    "total_assigned_reviews": total_peer_reviews,
+                    "pending_assigned_reviews": max(
+                        total_peer_reviews - completed_peer_reviews,
+                        0,
+                    ),
+                    "is_complete": (
+                        total_peer_reviews > 0
+                        and completed_peer_reviews == total_peer_reviews
+                    ),
                 },
             }
         )

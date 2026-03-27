@@ -1,0 +1,99 @@
+.GroupManagementPanel {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.GroupSection {
+	border: 1px solid #d8dee6;
+	border-radius: 10px;
+	padding: 0.9rem;
+	background: #f8fafc;
+}
+
+.GroupSectionLabel {
+	display: block;
+	font-size: 0.95rem;
+	font-weight: 600;
+	margin-bottom: 0.5rem;
+}
+
+.GroupRow {
+	display: flex;
+	gap: 0.6rem;
+	flex-wrap: wrap;
+}
+
+.GroupRow input,
+.GroupRow select {
+	min-width: 220px;
+	border: 1px solid #bdc7d3;
+	border-radius: 8px;
+	padding: 0.5rem 0.6rem;
+	background: #fff;
+}
+
+.GroupList {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+}
+
+.GroupCard {
+	border: 1px solid #dce4ee;
+	border-radius: 8px;
+	padding: 0.65rem;
+	background: #ffffff;
+}
+
+.GroupStudentsTable {
+	border: 1px solid #d8dee6;
+	border-radius: 10px;
+	overflow: hidden;
+}
+
+.GroupStudentsHeader,
+.GroupStudentsRow {
+	display: grid;
+	grid-template-columns: 1fr minmax(180px, 260px);
+	gap: 0.6rem;
+	align-items: center;
+	padding: 0.55rem 0.7rem;
+}
+
+.GroupStudentsHeader {
+	background: #e9f0f8;
+	font-weight: 600;
+}
+
+.GroupStudentsRow:nth-child(odd) {
+	background: #fafcff;
+}
+
+.GroupStudentsRow select {
+	border: 1px solid #bdc7d3;
+	border-radius: 8px;
+	padding: 0.45rem 0.55rem;
+	background: #fff;
+}
+
+.GroupActionsRow {
+	margin-top: 0.75rem;
+}
+
+.GroupError {
+	color: #b42318;
+	margin: 0;
+}
+
+.GroupSuccess {
+	color: #027a48;
+	margin: 0;
+}
+
+@media (max-width: 740px) {
+	.GroupStudentsHeader,
+	.GroupStudentsRow {
+		grid-template-columns: 1fr;
+	}
+}

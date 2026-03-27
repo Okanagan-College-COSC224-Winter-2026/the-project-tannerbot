@@ -9,6 +9,7 @@ import CreateClass from "./pages/CreateClass";
 import LoginPage from "./pages/LoginPage";
 import ClassHome from "./pages/ClassHome";
 import ClassMembers from "./pages/ClassMembers";
+import ClassReviews from "./pages/ClassReviews";
 import Assignment from "./pages/Assignment";
 import Group from "./pages/Group";
 import AssignmentProgress from "./pages/AssignmentProgress";
@@ -77,6 +78,12 @@ function AppContent() {
           <Route path="/classes/:id/members" element={
             <ProtectedRoute>
               <ClassMembers />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/classes/:id/reviews" element={
+            <ProtectedRoute allowedRoles={["teacher", "admin"]}>
+              <ClassReviews />
             </ProtectedRoute>
           } />
 

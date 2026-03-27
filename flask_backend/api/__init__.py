@@ -21,7 +21,12 @@ from .controllers import (
     user_controller,
 )
 from .models.db import db, ma
-from .startup_migrations import ensure_profile_picture_columns_for_sqlite
+from .startup_migrations import (
+    ensure_assignment_grouping_schema_for_sqlite,
+    ensure_profile_picture_columns_for_sqlite,
+    ensure_rubric_schema_for_sqlite,
+    ensure_review_schema_for_sqlite,
+)
 
 
 def create_app(test_config=None):
@@ -79,6 +84,9 @@ def create_app(test_config=None):
         pass
 
     ensure_profile_picture_columns_for_sqlite(app.config["SQLALCHEMY_DATABASE_URI"])
+    ensure_assignment_grouping_schema_for_sqlite(app.config["SQLALCHEMY_DATABASE_URI"])
+    ensure_review_schema_for_sqlite(app.config["SQLALCHEMY_DATABASE_URI"])
+    ensure_rubric_schema_for_sqlite(app.config["SQLALCHEMY_DATABASE_URI"])
 
     # Initialize extensions
     db.init_app(app)

@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { listMyReviewsForAssignment, markReview } from "../util/api";
+import {
+  listMyReceivedSeparatedReviewsForAssignment,
+  listMySeparatedReviewsForAssignment,
+  markReview,
+} from "../util/api";
 import { formatDateTime } from "../util/dateUtils";
 
 import "./StudentAssignedReviews.css";
@@ -58,6 +62,7 @@ interface Props {
 
 export default function StudentAssignedReviews({ assignmentId }: Props) {
   const [reviews, setReviews] = useState<ReviewAssignment[]>([]);
+  const [receivedReviews, setReceivedReviews] = useState<ReviewAssignment[]>([]);
   const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
   const [draft, setDraft] = useState<DraftValues>({});
   const [loading, setLoading] = useState(true);
@@ -68,6 +73,16 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
   const selectedReview = useMemo(
     () => reviews.find((review) => review.id === selectedReviewId) ?? null,
     [reviews, selectedReviewId],
+  );
+
+  const groupReviews = useMemo(
+    () => reviews.filter((review) => review.review_type === "group"),
+    [reviews],
+  );
+
+  const peerReviews = useMemo(
+    () => reviews.filter((review) => review.review_type !== "group"),
+    [reviews],
   );
 
   const selectedReviewWindowMessage = selectedReview ? getReviewWindowMessage(selectedReview) : null;
@@ -83,9 +98,20 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       setLoading(true);
       setError("");
       setSuccess("");
-      const payload = await listMyReviewsForAssignment(assignmentId);
-      const assignedReviews: ReviewAssignment[] = Array.isArray(payload) ? payload : [];
+      const payload: SeparatedReviewAssignments = await listMySeparatedReviewsForAssignment(assignmentId);
+      const assignedReviews: ReviewAssignment[] = [
+        ...(Array.isArray(payload.group_reviews) ? payload.group_reviews : []),
+        ...(Array.isArray(payload.peer_reviews) ? payload.peer_reviews : []),
+      ];
       setReviews(assignedReviews);
+
+      const receivedPayload: SeparatedReviewAssignments =
+        await listMyReceivedSeparatedReviewsForAssignment(assignmentId);
+      const allReceivedReviews: ReviewAssignment[] = [
+        ...(Array.isArray(receivedPayload.group_reviews) ? receivedPayload.group_reviews : []),
+        ...(Array.isArray(receivedPayload.peer_reviews) ? receivedPayload.peer_reviews : []),
+      ];
+      setReceivedReviews(allReceivedReviews);
 
       const firstReview = assignedReviews[0] ?? null;
       setSelectedReviewId(firstReview?.id ?? null);
@@ -105,6 +131,7 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       const message = err instanceof Error ? err.message : "Failed to load assigned reviews";
       setError(message);
       setReviews([]);
+      setReceivedReviews([]);
       setSelectedReviewId(null);
       setDraft({});
     } finally {
@@ -229,7 +256,11 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
     <div className="card border-0 shadow-sm p-3 p-md-4 mt-3">
       <h3 className="h5 mb-3">Your Assigned Peer Reviews</h3>
 
-      {!loading ? <p className="mb-3 text-muted">Assigned reviews: {reviews.length}</p> : null}
+      {!loading ? (
+        <p className="mb-3 text-muted">
+          Assigned reviews: {reviews.length} (Group: {groupReviews.length}, Peer: {peerReviews.length})
+        </p>
+      ) : null}
 
       {loading ? <p className="mb-0">Loading assigned reviews...</p> : null}
 
@@ -246,11 +277,25 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
               value={selectedReviewId ?? ""}
               onChange={(event) => handleReviewChange(Number(event.target.value))}
             >
-              {reviews.map((review) => (
-                <option key={review.id} value={review.id}>
-                  {review.reviewee?.name ?? `student ${review.reviewee?.id}`} ({isReviewComplete(review) ? "Complete" : "Pending"})
-                </option>
-              ))}
+              {groupReviews.length > 0 ? (
+                <optgroup label="Group Reviews">
+                  {groupReviews.map((review) => (
+                    <option key={review.id} value={review.id}>
+                      {review.reviewee?.name ?? `student ${review.reviewee?.id}`} ({isReviewComplete(review) ? "Complete" : "Pending"})
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+
+              {peerReviews.length > 0 ? (
+                <optgroup label="Peer Reviews">
+                  {peerReviews.map((review) => (
+                    <option key={review.id} value={review.id}>
+                      {review.reviewee?.name ?? `student ${review.reviewee?.id}`} ({isReviewComplete(review) ? "Complete" : "Pending"})
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </select>
           </div>
 
@@ -260,9 +305,14 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
                 <h4 className="h6 mb-0">
                   Reviewing: {selectedReview.reviewee?.name ?? `student ${selectedReview.reviewee?.id}`}
                 </h4>
-                <span className={`badge ${isReviewComplete(selectedReview) ? "text-bg-success" : "text-bg-secondary"}`}>
-                  {isReviewComplete(selectedReview) ? "Complete" : "Pending"}
-                </span>
+                <div className="d-flex gap-2">
+                  <span className="badge text-bg-light text-uppercase">
+                    {selectedReview.review_type === "group" ? "Group" : "Peer"}
+                  </span>
+                  <span className={`badge ${isReviewComplete(selectedReview) ? "text-bg-success" : "text-bg-secondary"}`}>
+                    {isReviewComplete(selectedReview) ? "Complete" : "Pending"}
+                  </span>
+                </div>
               </div>
 
               {selectedReview.assignment?.description ? (
@@ -334,6 +384,40 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
 
       {error ? <p className="text-danger mt-3 mb-0">{error}</p> : null}
       {success ? <p className="text-success mt-3 mb-0">{success}</p> : null}
+
+      <hr className="my-4" />
+      <h3 className="h5 mb-3">Reviews About You</h3>
+      {receivedReviews.length === 0 ? (
+        <p className="mb-0 text-muted">No completed reviews about you yet.</p>
+      ) : (
+        <div className="d-grid gap-3">
+          {receivedReviews.map((review) => (
+            <div key={review.id} className="ReviewCriterionCard p-3">
+              <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <h4 className="h6 mb-0">
+                  {review.review_type === "group" ? "Group Review" : "Peer Review"}
+                </h4>
+                <span className="badge text-bg-secondary">Reviewer: Anonymous</span>
+              </div>
+
+              {review.criteria?.map((criterion) => {
+                const hasScore = criterion.criterion_row?.hasScore ?? true;
+                return (
+                  <div key={criterion.id} className="mb-2">
+                    <div className="fw-semibold">{criterion.criterion_row?.question ?? "Criterion"}</div>
+                    {hasScore ? (
+                      <div className="small">Score: {criterion.grade ?? "Not scored"}</div>
+                    ) : null}
+                    <div className="small text-muted">
+                      Comments: {criterion.comments?.trim() ? criterion.comments : "No comments"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

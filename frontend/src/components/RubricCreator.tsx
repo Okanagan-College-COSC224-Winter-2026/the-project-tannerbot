@@ -8,9 +8,15 @@ interface RubricCreatorProps {
     onRubricCreated?: (rubricId: number) => void;
     id: number;
     existingScoredTotal?: number;
+    rubricType?: 'peer' | 'group';
 }
 
-export default function RubricCreator({ onRubricCreated, id, existingScoredTotal = 0 }: RubricCreatorProps) {
+export default function RubricCreator({
+    onRubricCreated,
+    id,
+    existingScoredTotal = 0,
+    rubricType = 'peer',
+}: RubricCreatorProps) {
     const [newCriteria, setNewCriteria] = useState<Criterion[]>([{ rubricID: 0, question: '', scoreMax: 0, hasScore: true }]);
     const [criterionErrors, setCriterionErrors] = useState<Array<{ question?: string; scoreMax?: string }>>([{}]);
     const [statusMessage, setStatusMessage] = useState('');
@@ -57,7 +63,7 @@ export default function RubricCreator({ onRubricCreated, id, existingScoredTotal
                 return;
             }
 
-            const rubricResponse = await createRubric(id, false);
+            const rubricResponse = await createRubric(id, false, rubricType);
             const newRubricID = rubricResponse.id;
             await Promise.all(newCriteria.map(({ question, scoreMax, hasScore }) => 
                 createCriteria(newRubricID, question, Math.max(0, Math.min(scoreMax, 100)), false, hasScore)
@@ -129,7 +135,7 @@ export default function RubricCreator({ onRubricCreated, id, existingScoredTotal
 
     return (
         <div className="RubricCreator">
-            <h2>Create New Criteria</h2>
+            <h2>Create New {rubricType === 'group' ? 'Group Review' : 'Peer Review'} Criteria</h2>
 
             <StatusMessage message={statusMessage} type={statusType} />
 
