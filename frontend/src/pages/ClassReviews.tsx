@@ -15,6 +15,20 @@ export default function ClassReviews() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
 
+  const displayReviewer = (review: ReviewAssignment): string => {
+    if (review.review_type === "group") {
+      return review.reviewer_group_name || "Ungrouped";
+    }
+    return review.reviewer?.name || `Student ${review.reviewer?.id ?? ""}`;
+  };
+
+  const displayReviewee = (review: ReviewAssignment): string => {
+    if (review.review_type === "group") {
+      return review.reviewee_group_name || "Ungrouped";
+    }
+    return review.reviewee?.name || `Student ${review.reviewee?.id ?? ""}`;
+  };
+
   const reviewsByAssignment = useMemo(() => {
     const grouped = new Map<number, ReviewAssignment[]>();
     for (const review of reviews) {
@@ -130,8 +144,8 @@ export default function ClassReviews() {
                         title={isComplete ? "View completed review" : undefined}
                       >
                         <td>{review.review_type === "group" ? "Group" : "Peer"}</td>
-                        <td>{review.reviewer?.name || `Student ${review.reviewer?.id ?? ""}`}</td>
-                        <td>{review.reviewee?.name || `Student ${review.reviewee?.id ?? ""}`}</td>
+                        <td>{displayReviewer(review)}</td>
+                        <td>{displayReviewee(review)}</td>
                         <td>
                           {isComplete ? (
                             <span className="badge text-bg-success">Complete</span>
@@ -168,11 +182,11 @@ export default function ClassReviews() {
             </div>
             <div className="col-12 col-md-4">
               <div className="text-muted small">Reviewer</div>
-              <div className="fw-semibold">{selectedCompletedReview.reviewer?.name || "Unknown"}</div>
+              <div className="fw-semibold">{displayReviewer(selectedCompletedReview)}</div>
             </div>
             <div className="col-12 col-md-4">
               <div className="text-muted small">Reviewee</div>
-              <div className="fw-semibold">{selectedCompletedReview.reviewee?.name || "Unknown"}</div>
+              <div className="fw-semibold">{displayReviewee(selectedCompletedReview)}</div>
             </div>
           </div>
 

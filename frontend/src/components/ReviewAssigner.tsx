@@ -64,6 +64,11 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
     return map;
   }, [groups]);
 
+  const canAssignGroupToGroup = groupOptions.length >= 2;
+  const canAssignIntraGroupPeer = groupOptions.length >= 1;
+  const canAssignSelectedGroupMode =
+    groupReviewType === 'group' ? canAssignGroupToGroup : canAssignIntraGroupPeer;
+
   const loadGrouping = async () => {
     try {
       const payload: AssignmentGroupingResponse = await getAssignmentGrouping(assignmentId);
@@ -165,9 +170,15 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
 
       {assignmentMode === 'group' ? (
         <>
-          {groupOptions.length < 2 ? (
+          {groupReviewType === 'group' && !canAssignGroupToGroup ? (
             <p className="ReviewAssignerHint mb-2">
               At least two groups are required for group-to-group review assignment.
+            </p>
+          ) : null}
+
+          {groupReviewType === 'peer' && !canAssignIntraGroupPeer ? (
+            <p className="ReviewAssignerHint mb-2">
+              Create at least one group to assign intra-group peer reviews.
             </p>
           ) : null}
 
@@ -192,7 +203,7 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
                 className="form-select"
                 value={reviewerGroupId}
                 onChange={(event) => setReviewerGroupId(event.target.value ? Number(event.target.value) : '')}
-                disabled={groupOptions.length < 2}
+                disabled={!canAssignIntraGroupPeer}
               >
                 <option value="">Select group</option>
                 {groupOptions.map((group) => (
@@ -211,7 +222,7 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
                     className="form-select"
                     value={revieweeGroupId}
                     onChange={(event) => setRevieweeGroupId(event.target.value ? Number(event.target.value) : '')}
-                    disabled={groupOptions.length < 2}
+                    disabled={!canAssignGroupToGroup}
                   >
                     <option value="">Select group</option>
                     {groupOptions.map((group) => (
@@ -233,7 +244,7 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
                 type="button"
                 className="btn btn-primary w-100"
                 onClick={handleAssign}
-                disabled={isSubmitting || groupOptions.length < 2}
+                disabled={isSubmitting || !canAssignSelectedGroupMode}
               >
                 {isSubmitting ? 'Assigning...' : groupReviewType === 'group' ? 'Assign Group Reviews' : 'Assign Peer Reviews'}
               </button>
@@ -321,13 +332,19 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
               return (
                 <li key={review.id}>
                   {assignmentMode === 'group' ? (
-                    <>
-                      <span className="badge text-bg-light me-2 text-uppercase">{review.review_type || 'group'}</span>
-                      <span className="fw-semibold">{reviewerGroupLabel || 'Ungrouped'}</span>{' '}
-                      ({reviewerName}) reviews{' '}
-                      <span className="fw-semibold">{revieweeGroupLabel || 'Ungrouped'}</span>{' '}
-                      ({revieweeName})
-                    </>
+                    review.review_type === 'group' ? (
+                      <>
+                        <span className="badge text-bg-light me-2 text-uppercase">GROUP</span>
+                        <span className="fw-semibold">{reviewerGroupLabel || 'Ungrouped'}</span> reviews{' '}
+                        <span className="fw-semibold">{revieweeGroupLabel || 'Ungrouped'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="badge text-bg-light me-2 text-uppercase">PEER</span>
+                        <span className="fw-semibold">{reviewerName}</span> reviews{' '}
+                        <span className="fw-semibold">{revieweeName}</span>
+                      </>
+                    )
                   ) : (
                     <>
                       <span className="fw-semibold">{reviewerName}</span> reviews{' '}

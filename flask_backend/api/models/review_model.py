@@ -496,14 +496,18 @@ class Review(db.Model):
         if not course:
             return None, {"msg": "Course not found", "status": 404}
 
-        can_mark = actor.id == review.reviewerID or actor.is_admin() or actor.id == course.teacherID
-        if not can_mark and review.review_type == "group":
-            reviewer_group_member_ids = cls._group_member_ids_for_user(
-                assignment_id=assignment.id,
-                user_id=review.reviewerID,
-            )
-            can_mark = actor.id in reviewer_group_member_ids
+        can_mark = cls.can_user_mark_review(
+            review=review,
+            actor=actor,
+            assignment=assignment,
+            course=course,
+        )
         if not can_mark:
+            if review.review_type == "group" and review.completion_status():
+                return None, {
+                    "msg": "This group review has already been completed by a teammate",
+                    "status": 403,
+                }
             return None, {"msg": "Insufficient permissions", "status": 403}
 
         if not review.is_review_window_open():
@@ -568,6 +572,35 @@ class Review(db.Model):
 
         db.session.commit()
         return review, None
+
+    @classmethod
+    def can_user_mark_review(cls, review, actor, assignment=None, course=None):
+        """Return whether actor may submit/modify the given review."""
+        if not review or not actor:
+            return False
+
+        assignment = assignment or Assignment.get_by_id(review.assignmentID)
+        if not assignment:
+            return False
+
+        course = course or Course.get_by_id(assignment.courseID)
+        if not course:
+            return False
+
+        if actor.is_admin() or actor.id == course.teacherID:
+            return True
+
+        if review.review_type == "group":
+            if review.completion_status():
+                return False
+
+            reviewer_group_member_ids = cls._group_member_ids_for_user(
+                assignment_id=assignment.id,
+                user_id=review.reviewerID,
+            )
+            return actor.id in reviewer_group_member_ids
+
+        return actor.id == review.reviewerID
 
     @classmethod
     def list_for_assignment_for_teacher(cls, assignment_id, teacher_email):

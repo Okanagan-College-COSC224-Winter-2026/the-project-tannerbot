@@ -1,6 +1,15 @@
 from flask import Blueprint, jsonify, request # type: ignore
+from flask_jwt_extended import get_jwt_identity
 
-from ..models import Assignment, CriteriaDescription, Rubric, CriteriaDescriptionSchema, RubricSchema
+from ..models import (
+    Assignment,
+    Course,
+    CriteriaDescription,
+    CriteriaDescriptionSchema,
+    Rubric,
+    RubricSchema,
+    User,
+)
 from .auth_controller import jwt_teacher_required
 
 bp = Blueprint("rubric", __name__)
@@ -36,6 +45,31 @@ def _rubric_scored_total(rubric, exclude_criteria_id=None):
         if row.hasScore:
             total += max(0, _safe_int(row.scoreMax, 0))
     return total
+
+
+def _can_manage_assignment(assignment):
+    user = User.get_by_email(get_jwt_identity())
+    if not user:
+        return False
+
+    course = Course.get_by_id(assignment.courseID)
+    if not course:
+        return False
+
+    return user.is_admin() or course.teacherID == user.id
+
+
+def _validate_assignment_scope_for_rubric(assignment_id, rubric):
+    if rubric.assignmentID != int(assignment_id):
+        return jsonify({"msg": "Rubric does not belong to the specified assignment"}), 400
+    return None
+
+
+def _validate_assignment_scope_for_criteria(assignment_id, criteria):
+    rubric = Rubric.get_by_id(criteria.rubricID)
+    if not rubric or rubric.assignmentID != int(assignment_id):
+        return None, (jsonify({"msg": "Criteria not found for this assignment"}), 404)
+    return rubric, None
 
 
 @bp.route("/rubric/assignment/<int:assignment_id>", methods=["GET"])
@@ -113,6 +147,9 @@ def create_rubric():
     if not assignment:
         return jsonify({"msg": "Assignment not found"}), 404
 
+    if not _can_manage_assignment(assignment):
+        return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
+
     if assignment.assignment_mode == "solo" and normalized_rubric_type != "peer":
         return jsonify({"msg": "Solo assignments only support peer rubrics"}), 400
 
@@ -153,6 +190,12 @@ def create_criteria():
     if not rubric:
         return jsonify({"msg": "Rubric not found"}), 404
 
+    assignment = Assignment.get_by_id(rubric.assignmentID)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+    if not _can_manage_assignment(assignment):
+        return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
+
     score_max = max(0, min(score_max, MAX_ASSIGNMENT_SCORE))
     if has_score and score_max == 0:
         return jsonify({"msg": "scoreMax must be greater than 0 when hasScore is true"}), 400
@@ -176,6 +219,32 @@ def create_criteria():
     return jsonify(CriteriaDescriptionSchema().dump(criteria)), 201
 
 
+@bp.route("/assignment/<int:assignment_id>/criteria", methods=["POST"])
+@jwt_teacher_required
+def create_criteria_for_assignment(assignment_id):
+    """Create a new criteria description scoped to a specific assignment."""
+    assignment = Assignment.get_by_id(assignment_id)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+    if not _can_manage_assignment(assignment):
+        return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
+
+    data = request.get_json() or {}
+    rubric_id = data.get("rubricID")
+    if not rubric_id:
+        return jsonify({"msg": "rubricID is required"}), 400
+
+    rubric = Rubric.get_by_id(rubric_id)
+    if not rubric:
+        return jsonify({"msg": "Rubric not found"}), 404
+
+    scope_error = _validate_assignment_scope_for_rubric(assignment_id, rubric)
+    if scope_error:
+        return scope_error
+
+    return create_criteria()
+
+
 @bp.route("/criteria/<int:criteria_id>", methods=["PATCH"])
 @jwt_teacher_required
 def edit_criteria(criteria_id):
@@ -183,6 +252,16 @@ def edit_criteria(criteria_id):
     criteria = CriteriaDescription.get_by_id(criteria_id)
     if not criteria:
         return jsonify({"msg": "Criteria not found"}), 404
+
+    rubric = Rubric.get_by_id(criteria.rubricID)
+    if not rubric:
+        return jsonify({"msg": "Rubric not found"}), 404
+
+    assignment = Assignment.get_by_id(rubric.assignmentID)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+    if not _can_manage_assignment(assignment):
+        return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
 
     data = request.get_json() or {}
 
@@ -201,7 +280,6 @@ def edit_criteria(criteria_id):
     if criteria.hasScore and criteria.scoreMax == 0:
         return jsonify({"msg": "scoreMax must be greater than 0 when hasScore is true"}), 400
 
-    rubric = Rubric.get_by_id(criteria.rubricID)
     if rubric:
         proposed_score = criteria.scoreMax if criteria.hasScore else 0
         current_total = _rubric_scored_total(rubric, exclude_criteria_id=criteria.id)
@@ -218,6 +296,27 @@ def edit_criteria(criteria_id):
     return jsonify(CriteriaDescriptionSchema().dump(criteria)), 200
 
 
+@bp.route("/assignment/<int:assignment_id>/criteria/<int:criteria_id>", methods=["PATCH"])
+@jwt_teacher_required
+def edit_criteria_for_assignment(assignment_id, criteria_id):
+    """Edit an existing criteria description scoped to a specific assignment."""
+    assignment = Assignment.get_by_id(assignment_id)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+    if not _can_manage_assignment(assignment):
+        return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
+
+    criteria = CriteriaDescription.get_by_id(criteria_id)
+    if not criteria:
+        return jsonify({"msg": "Criteria not found"}), 404
+
+    _, scope_error = _validate_assignment_scope_for_criteria(assignment_id, criteria)
+    if scope_error:
+        return scope_error
+
+    return edit_criteria(criteria_id)
+
+
 @bp.route("/criteria/<int:criteria_id>", methods=["DELETE"])
 @jwt_teacher_required
 def delete_criteria(criteria_id):
@@ -226,8 +325,39 @@ def delete_criteria(criteria_id):
     if not criteria:
         return jsonify({"msg": "Criteria not found"}), 404
 
+    rubric = Rubric.get_by_id(criteria.rubricID)
+    if not rubric:
+        return jsonify({"msg": "Rubric not found"}), 404
+
+    assignment = Assignment.get_by_id(rubric.assignmentID)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+    if not _can_manage_assignment(assignment):
+        return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
+
     criteria.delete()
     return jsonify({"msg": "Criteria deleted"}), 200
+
+
+@bp.route("/assignment/<int:assignment_id>/criteria/<int:criteria_id>", methods=["DELETE"])
+@jwt_teacher_required
+def delete_criteria_for_assignment(assignment_id, criteria_id):
+    """Delete a criteria description scoped to a specific assignment."""
+    assignment = Assignment.get_by_id(assignment_id)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+    if not _can_manage_assignment(assignment):
+        return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
+
+    criteria = CriteriaDescription.get_by_id(criteria_id)
+    if not criteria:
+        return jsonify({"msg": "Criteria not found"}), 404
+
+    _, scope_error = _validate_assignment_scope_for_criteria(assignment_id, criteria)
+    if scope_error:
+        return scope_error
+
+    return delete_criteria(criteria_id)
 
 
 @bp.route("/rubric", methods=["GET"])
