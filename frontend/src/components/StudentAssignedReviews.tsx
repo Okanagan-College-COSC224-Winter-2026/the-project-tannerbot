@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import {
+  downloadMyAssignmentSubmission,
+  getMyAssignmentSubmission,
   listMyReceivedSeparatedReviewsForAssignment,
   listMySeparatedReviewsForAssignment,
   markReview,
+  uploadAssignmentSubmission,
 } from "../util/api";
 import { formatDateTime } from "../util/dateUtils";
 
@@ -61,8 +65,20 @@ interface Props {
 }
 
 export default function StudentAssignedReviews({ assignmentId }: Props) {
+  const location = useLocation();
+  const latestLoadId = useRef(0);
+  const submissionFileInputRef = useRef<HTMLInputElement | null>(null);
   const [reviews, setReviews] = useState<ReviewAssignment[]>([]);
   const [receivedReviews, setReceivedReviews] = useState<ReviewAssignment[]>([]);
+  const [selectedSubmissionFile, setSelectedSubmissionFile] = useState<File | null>(null);
+  const [submissionStatus, setSubmissionStatus] = useState<AssignmentSubmissionStatus>({
+    has_submitted: false,
+    submission: null,
+  });
+  const [submissionLoading, setSubmissionLoading] = useState(false);
+  const [submissionSaving, setSubmissionSaving] = useState(false);
+  const [submissionError, setSubmissionError] = useState("");
+  const [submissionSuccess, setSubmissionSuccess] = useState("");
   const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
   const [draft, setDraft] = useState<DraftValues>({});
   const [loading, setLoading] = useState(true);
@@ -73,6 +89,11 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
   const selectedReview = useMemo(
     () => reviews.find((review) => review.id === selectedReviewId) ?? null,
     [reviews, selectedReviewId],
+  );
+
+  const isGroupAssignment = useMemo(
+    () => reviews.some((review) => review.assignment?.assignment_mode === "group"),
+    [reviews],
   );
 
   const groupReviews = useMemo(
@@ -86,6 +107,27 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
   );
 
   const selectedReviewWindowMessage = selectedReview ? getReviewWindowMessage(selectedReview) : null;
+  const selectedReviewCanMark = selectedReview ? selectedReview.can_mark !== false : false;
+
+  const queryClassIdRaw = new URLSearchParams(location.search).get("classId");
+  const queryClassId = queryClassIdRaw ? Number(queryClassIdRaw) : null;
+  const shouldKeepReview = (review: ReviewAssignment) => {
+    const sameAssignment = Number(review.assignmentID) === assignmentId;
+    if (!sameAssignment) {
+      return false;
+    }
+
+    if (!Number.isFinite(queryClassId ?? NaN)) {
+      return true;
+    }
+
+    const reviewCourseId = review.assignment?.courseID;
+    if (typeof reviewCourseId !== "number") {
+      return true;
+    }
+
+    return reviewCourseId === queryClassId;
+  };
 
   const loadAssignedReviews = useCallback(async () => {
     if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
@@ -94,7 +136,9 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       return;
     }
 
+    let loadId = 0;
     try {
+      loadId = ++latestLoadId.current;
       setLoading(true);
       setError("");
       setSuccess("");
@@ -102,7 +146,10 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       const assignedReviews: ReviewAssignment[] = [
         ...(Array.isArray(payload.group_reviews) ? payload.group_reviews : []),
         ...(Array.isArray(payload.peer_reviews) ? payload.peer_reviews : []),
-      ];
+      ].filter(shouldKeepReview);
+      if (loadId !== latestLoadId.current) {
+        return;
+      }
       setReviews(assignedReviews);
 
       const receivedPayload: SeparatedReviewAssignments =
@@ -110,7 +157,10 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       const allReceivedReviews: ReviewAssignment[] = [
         ...(Array.isArray(receivedPayload.group_reviews) ? receivedPayload.group_reviews : []),
         ...(Array.isArray(receivedPayload.peer_reviews) ? receivedPayload.peer_reviews : []),
-      ];
+      ].filter(shouldKeepReview);
+      if (loadId !== latestLoadId.current) {
+        return;
+      }
       setReceivedReviews(allReceivedReviews);
 
       const firstReview = assignedReviews[0] ?? null;
@@ -128,6 +178,9 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
         setDraft({});
       }
     } catch (err) {
+      if (loadId !== latestLoadId.current) {
+        return;
+      }
       const message = err instanceof Error ? err.message : "Failed to load assigned reviews";
       setError(message);
       setReviews([]);
@@ -135,13 +188,39 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       setSelectedReviewId(null);
       setDraft({});
     } finally {
+      if (loadId !== latestLoadId.current) {
+        return;
+      }
       setLoading(false);
     }
-  }, [assignmentId]);
+  }, [assignmentId, queryClassId]);
 
   useEffect(() => {
     loadAssignedReviews();
   }, [loadAssignedReviews]);
+
+  const loadSubmissionStatus = useCallback(async () => {
+    if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
+      return;
+    }
+
+    try {
+      setSubmissionLoading(true);
+      setSubmissionError("");
+      const payload = (await getMyAssignmentSubmission(assignmentId)) as AssignmentSubmissionStatus;
+      setSubmissionStatus(payload);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load submission status";
+      setSubmissionError(message);
+      setSubmissionStatus({ has_submitted: false, submission: null });
+    } finally {
+      setSubmissionLoading(false);
+    }
+  }, [assignmentId]);
+
+  useEffect(() => {
+    loadSubmissionStatus();
+  }, [loadSubmissionStatus]);
 
   const handleReviewChange = (reviewId: number) => {
     setSelectedReviewId(reviewId);
@@ -181,6 +260,11 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
   const handleSubmit = async () => {
     if (!selectedReview) {
       setError("Select a review to submit.");
+      return;
+    }
+
+    if (!selectedReviewCanMark) {
+      setError("This group review has already been completed by a teammate.");
       return;
     }
 
@@ -252,8 +336,108 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
     }
   };
 
+  const handleSubmissionFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setSelectedSubmissionFile(file);
+    setSubmissionError("");
+    setSubmissionSuccess("");
+  };
+
+  const handleSubmissionUpload = async () => {
+    if (!selectedSubmissionFile) {
+      setSubmissionError("Choose a file to submit.");
+      return;
+    }
+
+    try {
+      setSubmissionSaving(true);
+      setSubmissionError("");
+      setSubmissionSuccess("");
+      const payload = (await uploadAssignmentSubmission(
+        assignmentId,
+        selectedSubmissionFile,
+      )) as AssignmentSubmissionStatus;
+      setSubmissionStatus(payload);
+      setSelectedSubmissionFile(null);
+      if (submissionFileInputRef.current) {
+        submissionFileInputRef.current.value = "";
+      }
+      setSubmissionSuccess("Submission uploaded successfully.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to upload submission";
+      if (
+        isGroupAssignment
+        && message.toLowerCase().includes("already submitted")
+      ) {
+        setSubmissionError(
+          "Group submission already received from your team. Download the current group submission below.",
+        );
+        await loadSubmissionStatus();
+      } else {
+        setSubmissionError(message);
+      }
+    } finally {
+      setSubmissionSaving(false);
+    }
+  };
+
+  const handleSubmissionDownload = async () => {
+    if (!submissionStatus.submission?.original_name) {
+      return;
+    }
+
+    try {
+      setSubmissionError("");
+      await downloadMyAssignmentSubmission(assignmentId, submissionStatus.submission.original_name);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to download submission";
+      setSubmissionError(message);
+    }
+  };
+
   return (
     <div className="card border-0 shadow-sm p-3 p-md-4 mt-3">
+      <h3 className="h5 mb-3">Assignment Submission</h3>
+      <p className="text-muted mb-2">Upload your assignment file. Any file type is accepted.</p>
+
+      {submissionLoading ? <p className="mb-2">Loading submission status...</p> : null}
+
+      {!submissionLoading && submissionStatus.has_submitted && submissionStatus.submission ? (
+        <div className="ReviewCriterionCard mb-3 p-3">
+          {isGroupAssignment ? (
+            <p className="mb-2 text-muted">
+              Group submission already received from your team.
+            </p>
+          ) : null}
+          <p className="mb-2">
+            Current submission: <strong>{submissionStatus.submission.original_name}</strong>
+          </p>
+          <button className="btn btn-outline-secondary btn-sm" onClick={handleSubmissionDownload}>
+            Download Current Submission
+          </button>
+        </div>
+      ) : null}
+
+      <div className="mb-2">
+        <input
+          ref={submissionFileInputRef}
+          className="form-control"
+          type="file"
+          onChange={handleSubmissionFileChange}
+        />
+      </div>
+      <button
+        className="btn btn-primary"
+        onClick={handleSubmissionUpload}
+        disabled={submissionSaving || !selectedSubmissionFile}
+      >
+        {submissionSaving ? "Uploading..." : "Submit Assignment File"}
+      </button>
+
+      {submissionError ? <p className="text-danger mt-3 mb-0">{submissionError}</p> : null}
+      {submissionSuccess ? <p className="text-success mt-3 mb-0">{submissionSuccess}</p> : null}
+
+      <hr className="my-4" />
       <h3 className="h5 mb-3">Your Assigned Peer Reviews</h3>
 
       {!loading ? (
@@ -281,7 +465,7 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
                 <optgroup label="Group Reviews">
                   {groupReviews.map((review) => (
                     <option key={review.id} value={review.id}>
-                      {review.reviewee?.name ?? `student ${review.reviewee?.id}`} ({isReviewComplete(review) ? "Complete" : "Pending"})
+                      {review.reviewee_group_name ?? "Ungrouped"} ({isReviewComplete(review) ? "Complete" : "Pending"})
                     </option>
                   ))}
                 </optgroup>
@@ -303,7 +487,9 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
             <div className="ReviewCriterionCard mb-3 p-3">
               <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
                 <h4 className="h6 mb-0">
-                  Reviewing: {selectedReview.reviewee?.name ?? `student ${selectedReview.reviewee?.id}`}
+                  Reviewing: {selectedReview.review_type === "group"
+                    ? selectedReview.reviewee_group_name ?? "Ungrouped"
+                    : selectedReview.reviewee?.name ?? `student ${selectedReview.reviewee?.id}`}
                 </h4>
                 <div className="d-flex gap-2">
                   <span className="badge text-bg-light text-uppercase">
@@ -331,6 +517,11 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
           ) : null}
 
           {selectedReviewWindowMessage ? <p className="text-warning mt-2">{selectedReviewWindowMessage}</p> : null}
+          {selectedReview && selectedReview.can_mark === false ? (
+            <p className="text-warning mt-2 mb-0">
+              This group review has already been completed by a teammate and is now locked.
+            </p>
+          ) : null}
 
           {selectedReview?.criteria?.map((criterion) => {
             const criterionRow = criterion.criterion_row;
@@ -375,7 +566,7 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={saving || selectedReview?.review_window_open === false}
+            disabled={saving || selectedReview?.review_window_open === false || !selectedReviewCanMark}
           >
             {saving ? "Submitting..." : "Submit Review"}
           </button>

@@ -1,6 +1,16 @@
 from collections import defaultdict
+from sqlalchemy import or_
 
 from ..models import Review, Submission
+from ..models.group_members_model import Group_Members
+
+
+def _extract_original_name(stored_name):
+    normalized = (stored_name or "").replace("\\", "/").split("/")[-1]
+    if "__" in normalized:
+        _, original_name = normalized.split("__", 1)
+        return original_name
+    return normalized
 
 
 def build_assignment_progress_payload(assignment):
@@ -11,6 +21,7 @@ def build_assignment_progress_payload(assignment):
 
     submissions = []
     reviews = []
+    memberships = []
     if student_ids:
         submissions = (
             Submission.query.filter(
@@ -26,8 +37,27 @@ def build_assignment_progress_payload(assignment):
             )
             .all()
         )
+        memberships = (
+            Group_Members.query.filter(Group_Members.userID.in_(student_ids))
+            .filter(
+                or_(
+                    Group_Members.assignmentID == assignment.id,
+                    (Group_Members.assignmentID.is_(None))
+                    & Group_Members.group.has(assignmentID=assignment.id),
+                )
+            )
+            .all()
+        )
 
-    submitted_student_ids = {submission.studentID for submission in submissions}
+    submission_by_student_id = {submission.studentID: submission for submission in submissions}
+    group_by_student_id = {}
+    for membership in sorted(memberships, key=lambda membership: (membership.userID, membership.groupID)):
+        if membership.userID not in group_by_student_id:
+            group_by_student_id[membership.userID] = {
+                "id": membership.groupID,
+                "name": membership.group.name if membership.group else None,
+            }
+
     reviews_by_reviewer = defaultdict(list)
     for review in reviews:
         reviews_by_reviewer[review.reviewerID].append(review)
@@ -49,7 +79,21 @@ def build_assignment_progress_payload(assignment):
                 "student_id": student.student_id,
                 "name": student.name,
                 "email": student.email,
-                "has_submitted": student.id in submitted_student_ids,
+                "group": group_by_student_id.get(student.id),
+                "has_submitted": student.id in submission_by_student_id,
+                "submission": (
+                    {
+                        "id": submission_by_student_id[student.id].id,
+                        "original_name": _extract_original_name(
+                            submission_by_student_id[student.id].path
+                        ),
+                        "download_url": (
+                            f"/assignment/{assignment.id}/submission/{student.id}/download"
+                        ),
+                    }
+                    if student.id in submission_by_student_id
+                    else None
+                ),
                 "review_status": {
                     "has_reviewed": completed_reviews > 0,
                     "completed_assigned_reviews": completed_reviews,
@@ -78,6 +122,7 @@ def build_assignment_progress_payload(assignment):
             "id": assignment.id,
             "name": assignment.name,
             "courseID": assignment.courseID,
+            "assignment_mode": assignment.assignment_mode,
         },
         "students": students_payload,
     }
