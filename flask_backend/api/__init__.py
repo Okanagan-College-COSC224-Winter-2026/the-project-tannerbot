@@ -10,8 +10,10 @@ from .controllers import (
     admin_controller,
     assignment_attachment_controller,
     assignment_controller,
+    assignment_grouping_controller,
     auth_controller,
     class_controller,
+    class_enrollment_controller,
     course_search_controller,
     fake_api_controller,
     practice_tanner_controller,
@@ -124,8 +126,10 @@ def create_app(test_config=None):
     app.register_blueprint(profile_picture_controller.bp)
     app.register_blueprint(admin_controller.bp)
     app.register_blueprint(class_controller.bp)
+    app.register_blueprint(class_enrollment_controller.bp)
     app.register_blueprint(course_search_controller.bp)
     app.register_blueprint(assignment_controller.bp)
+    app.register_blueprint(assignment_grouping_controller.bp)
     app.register_blueprint(review_controller.bp)
     app.register_blueprint(rubric_controller.bp)
     app.register_blueprint(assignment_attachment_controller.bp)
