@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Button from "../components/Button";
 import TabNavigation from "../components/TabNavigation";
 import {
+  autoAssignAssignmentGroups,
   createAssignmentGroup,
   deleteAssignmentGroup,
   getAssignmentGrouping,
@@ -194,6 +195,27 @@ export default function Group() {
     }
   };
 
+  const handleAutoAssignPlacements = async () => {
+    setIsSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await autoAssignAssignmentGroups(assignmentId);
+      await loadGrouping();
+      setSuccess("Students were auto-assigned to groups.");
+    } catch (autoAssignError: unknown) {
+      console.error("Failed to auto-assign group placements", autoAssignError);
+      setError(
+        autoAssignError instanceof Error
+          ? autoAssignError.message
+          : "Failed to auto-assign student group assignments.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="AssignmentPage container-fluid py-4 px-3 px-md-4">
       <div className="AssignmentHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
@@ -351,6 +373,13 @@ export default function Group() {
                     </div>
                   )}
                   <div className="GroupActionsRow">
+                    <Button
+                      type="secondary"
+                      onClick={handleAutoAssignPlacements}
+                      disabled={isSaving || groups.length === 0 || students.length === 0}
+                    >
+                      Auto-Assign
+                    </Button>
                     <Button onClick={handleSavePlacements} disabled={isSaving || groups.length === 0}>
                       Save Student Placements
                     </Button>

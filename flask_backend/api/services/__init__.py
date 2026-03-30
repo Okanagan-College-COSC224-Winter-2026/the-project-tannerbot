@@ -3,6 +3,7 @@ from .class_progress_service import build_class_progress_payload
 from .assignment_progress_service import build_assignment_progress_payload
 from .assignment_grouping_service import (
 	build_grouping_student_payload,
+	auto_assign_students_to_groups,
 	clear_assignment_groups,
 	get_course_students,
 	replace_group_members,
@@ -24,6 +25,7 @@ __all__ = [
 	"calculate_student_course_total_grade",
 	"build_class_progress_payload",
 	"build_assignment_progress_payload",
+	"auto_assign_students_to_groups",
 	"clear_assignment_groups",
 	"get_course_students",
 	"serialize_assignment_groups",
