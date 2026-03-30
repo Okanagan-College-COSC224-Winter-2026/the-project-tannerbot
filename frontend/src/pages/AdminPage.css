@@ -15,6 +15,26 @@
   margin-top: 1rem;
 }
 
+.AdminStatusMessage {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  border: 1px solid transparent;
+}
+
+.AdminStatusMessage.Error {
+  color: #b42318;
+  border-color: #fecdca;
+  background: #fef3f2;
+}
+
+.AdminStatusMessage.Success {
+  color: #027a48;
+  border-color: #abefc6;
+  background: #ecfdf3;
+}
+
 /* Main table */
 .AdminTable {
   width: 100%;

@@ -3,6 +3,7 @@ User model for the peer evaluation app.
 """
 
 from sqlalchemy import CheckConstraint
+from sqlalchemy.exc import IntegrityError
 
 from .db import db
 
@@ -105,7 +106,22 @@ class User(db.Model):
     def delete(self):
         """Delete user from the database"""
         db.session.delete(self)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            raise
+
+    def get_delete_blockers(self):
+        """Return related-record counts that block deleting this user."""
+        return {
+            "teaching_courses": self.teaching_courses.count(),
+            "enrollments": self.user_courses.count(),
+            "submissions": self.submissions.count(),
+            "reviews_made": self.reviews_made.count(),
+            "reviews_received": self.reviews_received.count(),
+            "group_memberships": self.group_memberships.count(),
+        }
 
     def is_teacher_user(self):
         """Check if the user is a teacher (backward compatibility)"""

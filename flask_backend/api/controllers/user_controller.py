@@ -3,6 +3,7 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from marshmallow import Schema, ValidationError, fields, validate
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..models import User, UserSchema
@@ -126,7 +127,31 @@ def delete_user(user_id):
     if current_user.id == user_id and current_user.is_admin():
         return jsonify({"msg": "Cannot delete your own admin account"}), 400
 
-    user.delete()
+    blockers = user.get_delete_blockers()
+    blocking_references = {key: value for key, value in blockers.items() if value > 0}
+    if blocking_references:
+        return (
+            jsonify(
+                {
+                    "msg": "Cannot delete user because they are still referenced by existing records",
+                    "blockers": blocking_references,
+                }
+            ),
+            409,
+        )
+
+    try:
+        user.delete()
+    except IntegrityError:
+        return (
+            jsonify(
+                {
+                    "msg": "Cannot delete user because they are still referenced by existing records",
+                    "blockers": user.get_delete_blockers(),
+                }
+            ),
+            409,
+        )
 
     return jsonify({"msg": "User deleted successfully"}), 200
 
