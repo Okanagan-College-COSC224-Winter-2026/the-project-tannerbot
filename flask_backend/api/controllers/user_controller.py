@@ -6,6 +6,7 @@ from marshmallow import Schema, ValidationError, fields, validate
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..models import User, UserSchema
+from ..models.schemas import validate_password_strength
 
 bp = Blueprint("user", __name__, url_prefix="/user")
 
@@ -121,6 +122,10 @@ def delete_user(user_id):
     if current_user.id != user_id and not current_user.is_admin():
         return jsonify({"msg": "Insufficient permissions"}), 403
 
+    # Prevent admin users from deleting their own account via the generic user endpoint.
+    if current_user.id == user_id and current_user.is_admin():
+        return jsonify({"msg": "Cannot delete your own admin account"}), 400
+
     user.delete()
 
     return jsonify({"msg": "User deleted successfully"}), 200
@@ -135,15 +140,18 @@ def change_password():
     if not request.is_json:
         return jsonify({"msg": "Missing JSON in request"}), 400
 
-    current_password = request.json.get("current_password", None)
-    new_password = request.json.get("new_password", None)
+    data = request.get_json(silent=True) or {}
+    current_password = data.get("current_password", None)
+    new_password = data.get("new_password", None)
 
     if not current_password:
         return jsonify({"msg": "Current password is required"}), 400
     if not new_password:
         return jsonify({"msg": "New password is required"}), 400
-    if len(new_password) < 6:
-        return jsonify({"msg": "New password must be at least 6 characters"}), 400
+    try:
+        validate_password_strength(new_password)
+    except ValidationError as err:
+        return jsonify({"msg": str(err)}), 400
 
     user = _get_authenticated_user()
 

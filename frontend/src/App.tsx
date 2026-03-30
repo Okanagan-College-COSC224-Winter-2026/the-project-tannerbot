@@ -92,7 +92,7 @@ function AppContent() {
           <Route
             path="/classes/create"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={["teacher", "admin"]}>
                 <CreateClass />
               </ProtectedRoute>
             }

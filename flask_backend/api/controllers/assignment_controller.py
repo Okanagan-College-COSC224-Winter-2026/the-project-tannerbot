@@ -79,6 +79,15 @@ def create_assignment():
     if not assignment_name:
         return jsonify({"msg": "Assignment name is required"}), 400
 
+    if len(assignment_name) > 100:
+        return jsonify({"msg": "Assignment name must not exceed 100 characters"}), 400
+
+    if rubric_text and len(rubric_text) > 255:
+        return jsonify({"msg": "Rubric must not exceed 255 characters"}), 400
+
+    if description and len(description) > 255:
+        return jsonify({"msg": "Description must not exceed 255 characters"}), 400
+
     # Validate that start_date does not exceed due_date
     if start_date and due_date:
         if start_date > due_date:
@@ -129,10 +138,26 @@ def edit_assignment(assignment_id):
     if not assignment.can_modify():
         return jsonify({"msg": "Assignment cannot be modified after its due date"}), 400
 
-    assignment.name = data.get("name", assignment.name)
-    assignment.rubric_text = data.get("rubric", assignment.rubric_text)
+    # Validate name length if provided
+    if "name" in data:
+        name = data.get("name")
+        if name and len(name) > 100:
+            return jsonify({"msg": "Assignment name must not exceed 100 characters"}), 400
+        assignment.name = name
+
+    # Validate rubric length if provided
+    if "rubric" in data:
+        rubric = data.get("rubric")
+        if rubric and len(rubric) > 255:
+            return jsonify({"msg": "Rubric must not exceed 255 characters"}), 400
+        assignment.rubric_text = rubric
+
+    # Validate description length if provided
     if "description" in data:
-        assignment.description = data.get("description")
+        description = data.get("description")
+        if description and len(description) > 255:
+            return jsonify({"msg": "Description must not exceed 255 characters"}), 400
+        assignment.description = description
 
     # Handle due_date update - only update if the key is present in request
     if "due_date" in data:

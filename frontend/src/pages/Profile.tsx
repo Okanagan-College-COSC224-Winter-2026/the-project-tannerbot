@@ -160,13 +160,15 @@ export default function Profile() {
               <Button onClick={handleChoosePicture} disabled={uploadingPicture}>
                 {uploadingPicture ? 'Saving...' : 'Change Photo'}
               </Button>
-              <Button
-                onClick={handleRemovePicture}
-                disabled={uploadingPicture || !user?.profile_picture_url}
-                type="secondary"
-              >
-                Remove Photo
-              </Button>
+              {user?.profile_picture_url && (
+                <Button
+                  onClick={handleRemovePicture}
+                  disabled={uploadingPicture}
+                  type="secondary"
+                >
+                  Remove Photo
+                </Button>
+              )}
             </div>
           )}
         </div>
