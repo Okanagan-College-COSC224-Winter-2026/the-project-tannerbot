@@ -22,21 +22,23 @@ export default function RubricCreator({
     const [statusMessage, setStatusMessage] = useState('');
     const [statusType, setStatusType] = useState<'error' | 'success'>('error');
     const newScoredTotal = newCriteria.reduce((sum, criterion) => {
-        if (!criterion.hasScore) {
-            return sum;
-        }
         return sum + Math.max(0, Math.min(criterion.scoreMax, 100));
     }, 0);
     const combinedTotal = existingScoredTotal + newScoredTotal;
     const remainingPoints = Math.max(0, 100 - combinedTotal);
+
+    const formatCriterionError = (error: { question?: string; scoreMax?: string }) => {
+        const messages = [error.question, error.scoreMax].filter(Boolean);
+        return messages.join(' ');
+    };
 
     const validateCriterion = (criterion: Criterion) => {
         const errors: { question?: string; scoreMax?: string } = {};
         if (!criterion.question.trim()) {
             errors.question = 'A criterion title is required.';
         }
-        if (criterion.hasScore && criterion.scoreMax <= 0) {
-            errors.scoreMax = 'A score greater than 0 is required when Has score is checked.';
+        if (criterion.scoreMax < 0) {
+            errors.scoreMax = 'Max score cannot be negative.';
         }
         return errors;
     };
@@ -53,7 +55,7 @@ export default function RubricCreator({
             const hasValidationErrors = validateAllCriteria(newCriteria);
             if (hasValidationErrors) {
                 setStatusType('error');
-                setStatusMessage('Each criterion needs a title and a valid score before it can be added.');
+                setStatusMessage('Each criterion needs a title and a valid max score before it can be added.');
                 return;
             }
 
@@ -102,24 +104,11 @@ export default function RubricCreator({
         setCriterionErrors(updatedErrors);
     };
 
-    const handleHasScoreChange = (index: number, value: boolean) => {
-        const updatedCriteria = [...newCriteria];
-        updatedCriteria[index].hasScore = value;
-        if (!value) {
-            updatedCriteria[index].scoreMax = 0;
-        }
-        setNewCriteria(updatedCriteria);
-
-        const updatedErrors = [...criterionErrors];
-        updatedErrors[index] = validateCriterion(updatedCriteria[index]);
-        setCriterionErrors(updatedErrors);
-    };
-
     const handleAddNewSection = () => {
         const hasValidationErrors = validateAllCriteria(newCriteria);
         if (hasValidationErrors) {
             setStatusType('error');
-            setStatusMessage('Add a title and score before adding another criterion.');
+            setStatusMessage('Add a title and valid max score before adding another criterion.');
             return;
         }
 
@@ -143,9 +132,13 @@ export default function RubricCreator({
                 Remaining points: <strong>{remainingPoints}</strong> / 100
             </p>
 
-            {newCriteria.map((item, index) => (
-                <div key={index} className="criteria-input-section">
-                    <div className="criteria-row">
+            {newCriteria.map((item, index) => {
+                const criterionErrorMessage = formatCriterionError(criterionErrors[index] || {});
+
+                return (
+                <div key={index} className="criteria-input-block">
+                    <div className="criteria-input-section card border-0 shadow-sm">
+                        <div className="card-body criteria-row">
                         <input
                             type="text"
                             value={item.question}
@@ -154,35 +147,30 @@ export default function RubricCreator({
                             aria-invalid={Boolean(criterionErrors[index]?.question)}
                             className={criterionErrors[index]?.question ? 'invalid-input' : ''}
                         />
-                        <label>
-                            Has score:
-                            <input
-                                type="checkbox"
-                                checked={item.hasScore}
-                                onChange={(e) => handleHasScoreChange(index, e.target.checked)}
-                            />
-                        </label>
-                        {item.hasScore && (
-                            <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={item.scoreMax === 0 ? '' : item.scoreMax}
-                                onChange={(e) => handleScoreMaxChange(index, Number(e.target.value || 0))}
-                                placeholder="Max Score"
-                                aria-invalid={Boolean(criterionErrors[index]?.scoreMax)}
-                                className={criterionErrors[index]?.scoreMax ? 'invalid-input' : ''}
-                            />
-                        )}
+                        <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={item.scoreMax === 0 ? '' : item.scoreMax}
+                            onChange={(e) => handleScoreMaxChange(index, Number(e.target.value || 0))}
+                            placeholder="Max Score"
+                            aria-label="Max Score"
+                            aria-invalid={Boolean(criterionErrors[index]?.scoreMax)}
+                            className={criterionErrors[index]?.scoreMax ? 'invalid-input' : ''}
+                        />
                         <Button type="secondary" onClick={() => handleRemoveSection(index)}>Remove Criterion</Button>
+                        </div>
                     </div>
-                    {(criterionErrors[index]?.question || criterionErrors[index]?.scoreMax) && (
-                        <p className="criteria-inline-error">
-                            {criterionErrors[index]?.question || criterionErrors[index]?.scoreMax}
-                        </p>
+                    {criterionErrorMessage && (
+                        <StatusMessage
+                            message={criterionErrorMessage}
+                            type="error"
+                            className="criteria-row-error"
+                        />
                     )}
                 </div>
-            ))}
+                );
+            })}
 
             <div className="button-group">
                 <Button onClick={handleAddNewSection}>Add New Criterion</Button>
