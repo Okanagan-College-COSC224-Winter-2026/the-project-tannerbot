@@ -106,13 +106,14 @@
 
 .student-import-table-wrapper {
   overflow: auto;
-  padding: 0.5rem 1.25rem 0.75rem;
+  padding: 0 1.25rem 0.75rem 1.25rem;
   flex: 1;
 }
 
 .student-import-table {
   width: 100%;
   border-collapse: collapse;
+  margin-top: 0.5rem;
 }
 
 .student-import-table th,
@@ -125,7 +126,7 @@
 
 .student-import-table th {
   position: sticky;
-  top: 0;
+  top: -0.5rem;
   background: #f9fafb;
   z-index: 1;
 }
