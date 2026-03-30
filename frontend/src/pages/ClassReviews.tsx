@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Button from "../components/Button";
 import TabNavigation from "../components/TabNavigation";
 import { listReviewsForClass } from "../util/api";
+import "./ClassReviews.css";
 
 export default function ClassReviews() {
   const { id } = useParams();
@@ -96,8 +97,8 @@ export default function ClassReviews() {
               </h3>
               <p className="text-muted small mb-3">Total reviews: {assignmentReviews.length}</p>
 
-              <div className="table-responsive">
-                <table className="table align-middle mb-0">
+              <div className="table-responsive ClassReviewsTableWrap">
+                <table className="table align-middle ClassReviewsTable mb-0">
                   <thead>
                     <tr>
                       <th>Type</th>
@@ -114,8 +115,7 @@ export default function ClassReviews() {
                         key={review.id}
                         role={isComplete ? "button" : undefined}
                         tabIndex={isComplete ? 0 : undefined}
-                        className={isComplete ? "cursor-pointer" : undefined}
-                        style={isComplete ? { cursor: "pointer" } : undefined}
+                        className={isComplete ? "ClassReviewsClickableRow" : undefined}
                         onClick={isComplete ? () => setSelectedCompletedReview(review) : undefined}
                         onKeyDown={
                           isComplete
