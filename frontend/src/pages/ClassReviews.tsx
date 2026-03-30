@@ -16,7 +16,7 @@ export default function ClassReviews() {
   const [selectedCompletedReview, setSelectedCompletedReview] = useState<ReviewAssignment | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
-  const [studentSearch, setStudentSearch] = useState<string>("");
+  const [reviewSearch, setReviewSearch] = useState<string>("");
 
   const displayReviewer = (review: ReviewAssignment): string => {
     if (review.review_type === "group") {
@@ -32,7 +32,7 @@ export default function ClassReviews() {
     return review.reviewee?.name || `Student ${review.reviewee?.id ?? ""}`;
   };
 
-  const reviewMatchesStudentSearch = (review: ReviewAssignment, searchTerm: string): boolean => {
+  const reviewMatchesSearch = (review: ReviewAssignment, searchTerm: string): boolean => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     if (!normalizedSearch) {
       return true;
@@ -40,13 +40,20 @@ export default function ClassReviews() {
 
     const reviewerName = review.reviewer?.name?.toLowerCase() || "";
     const revieweeName = review.reviewee?.name?.toLowerCase() || "";
+    const reviewerGroupName = review.reviewer_group_name?.toLowerCase() || "";
+    const revieweeGroupName = review.reviewee_group_name?.toLowerCase() || "";
 
-    return reviewerName.includes(normalizedSearch) || revieweeName.includes(normalizedSearch);
+    return (
+      reviewerName.includes(normalizedSearch)
+      || revieweeName.includes(normalizedSearch)
+      || reviewerGroupName.includes(normalizedSearch)
+      || revieweeGroupName.includes(normalizedSearch)
+    );
   };
 
   const reviewsByAssignment = useMemo(() => {
     const filteredReviews = reviews.filter((review) =>
-      reviewMatchesStudentSearch(review, studentSearch),
+      reviewMatchesSearch(review, reviewSearch),
     );
 
     const grouped = new Map<number, ReviewAssignment[]>();
@@ -57,7 +64,7 @@ export default function ClassReviews() {
       grouped.set(assignmentId, existing);
     }
     return Array.from(grouped.entries()).sort((a, b) => a[0] - b[0]);
-  }, [reviews, studentSearch]);
+  }, [reviews, reviewSearch]);
 
   useEffect(() => {
     if (!Number.isFinite(classId) || classId <= 0) {
@@ -115,16 +122,16 @@ export default function ClassReviews() {
       />
 
       <div className="card border-0 shadow-sm p-3 p-md-4 mt-3">
-        <label htmlFor="student-review-search" className="form-label fw-semibold mb-2">
-          Search Reviews By Student Name
+        <label htmlFor="review-search" className="form-label fw-semibold mb-2">
+          Search Reviews By Student Or Group Name
         </label>
         <input
-          id="student-review-search"
+          id="review-search"
           type="text"
           className="form-control"
-          placeholder="Enter student name"
-          value={studentSearch}
-          onChange={(event) => setStudentSearch(event.target.value)}
+          placeholder="Enter student or group name"
+          value={reviewSearch}
+          onChange={(event) => setReviewSearch(event.target.value)}
         />
       </div>
 
