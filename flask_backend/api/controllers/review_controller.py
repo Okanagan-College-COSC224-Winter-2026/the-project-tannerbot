@@ -1,42 +1,17 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..models import CriterionSchema, Review, ReviewSchema
+from ..models import Review, ReviewSchema
+from ..services import (
+    dump_received_review_anonymized,
+    dump_review_with_markable_criteria,
+    split_reviews_by_type,
+)
 from .auth_controller import jwt_teacher_required
 
 bp = Blueprint("review", __name__, url_prefix="/review")
 
-review_schema = ReviewSchema()
 review_list_schema = ReviewSchema(many=True)
-criterion_schema = CriterionSchema(many=True)
-
-
-def _dump_review_with_markable_criteria(review):
-    payload = review_schema.dump(review)
-    # Keep FK id fields available even when schema omits include_fk.
-    payload["assignmentID"] = review.assignmentID
-    payload["reviewerID"] = review.reviewerID
-    payload["revieweeID"] = review.revieweeID
-    criteria_rows = review.criteria.order_by("id").all()
-    criteria_payload = criterion_schema.dump(criteria_rows)
-    for entry, row in zip(criteria_payload, criteria_rows):
-        entry["criterion_row"] = {
-            "id": row.criterion_row.id,
-            "question": row.criterion_row.question,
-            "scoreMax": row.criterion_row.scoreMax,
-            "hasScore": row.criterion_row.hasScore,
-        }
-    payload["criteria"] = criteria_payload
-    payload["review_window_open"] = review.is_review_window_open()
-    payload["is_complete"] = review.completion_status()
-    return payload
-
-
-def _dump_received_review_anonymized(review):
-    payload = _dump_review_with_markable_criteria(review)
-    payload["reviewer"] = {"id": 0, "name": "Anonymous"}
-    payload["reviewer_anonymous"] = True
-    return payload
 
 
 @bp.route("/assign", methods=["POST"])
@@ -69,7 +44,7 @@ def assign_review():
     if error:
         body = {"msg": error["msg"]}
         if "review" in error:
-            body["review"] = _dump_review_with_markable_criteria(error["review"])
+            body["review"] = dump_review_with_markable_criteria(error["review"])
         return jsonify(body), error["status"]
 
     mode = assignment_result.get("mode", "solo")
@@ -84,7 +59,7 @@ def assign_review():
                     "review_type": assigned_review_type,
                     "created_count": len(created_reviews),
                     "reviews": [
-                        _dump_review_with_markable_criteria(review)
+                        dump_review_with_markable_criteria(review)
                         for review in created_reviews
                     ],
                 }
@@ -93,7 +68,7 @@ def assign_review():
         )
 
     review = assignment_result.get("review")
-    return jsonify({"msg": "Review assigned", "review": _dump_review_with_markable_criteria(review)}), 201
+    return jsonify({"msg": "Review assigned", "review": dump_review_with_markable_criteria(review)}), 201
 
 
 @bp.route("/assignment/<int:assignment_id>", methods=["GET"])
@@ -121,7 +96,7 @@ def list_reviews_for_class(class_id):
     if error:
         return jsonify({"msg": error["msg"]}), error["status"]
 
-    payload = [_dump_review_with_markable_criteria(review) for review in reviews]
+    payload = [dump_review_with_markable_criteria(review) for review in reviews]
     return jsonify(payload), 200
 
 
@@ -138,11 +113,11 @@ def list_reviews_for_assignment_separated(assignment_id):
 
     payload = {
         "peer_reviews": [
-            _dump_review_with_markable_criteria(review)
+            dump_review_with_markable_criteria(review)
             for review in separated["peer_reviews"]
         ],
         "group_reviews": [
-            _dump_review_with_markable_criteria(review)
+            dump_review_with_markable_criteria(review)
             for review in separated["group_reviews"]
         ],
     }
@@ -160,7 +135,7 @@ def list_my_reviews_for_assignment(assignment_id):
     if error:
         return jsonify({"msg": error["msg"]}), error["status"]
 
-    payload = [_dump_review_with_markable_criteria(review) for review in reviews]
+    payload = [dump_review_with_markable_criteria(review) for review in reviews]
     return jsonify(payload), 200
 
 
@@ -177,11 +152,11 @@ def list_my_reviews_for_assignment_separated(assignment_id):
 
     payload = {
         "peer_reviews": [
-            _dump_review_with_markable_criteria(review)
+            dump_review_with_markable_criteria(review)
             for review in separated["peer_reviews"]
         ],
         "group_reviews": [
-            _dump_review_with_markable_criteria(review)
+            dump_review_with_markable_criteria(review)
             for review in separated["group_reviews"]
         ],
     }
@@ -200,18 +175,7 @@ def list_reviews_received_for_assignment_separated(assignment_id):
     if error:
         return jsonify({"msg": error["msg"]}), error["status"]
 
-    payload = {
-        "peer_reviews": [
-            _dump_received_review_anonymized(review)
-            for review in reviews
-            if review.review_type != "group"
-        ],
-        "group_reviews": [
-            _dump_received_review_anonymized(review)
-            for review in reviews
-            if review.review_type == "group"
-        ],
-    }
+    payload = split_reviews_by_type(reviews, dump_received_review_anonymized)
     return jsonify(payload), 200
 
 
@@ -230,4 +194,4 @@ def mark_review(review_id):
     if error:
         return jsonify({"msg": error["msg"]}), error["status"]
 
-    return jsonify({"msg": "Review updated", "review": _dump_review_with_markable_criteria(review)}), 200
+    return jsonify({"msg": "Review updated", "review": dump_review_with_markable_criteria(review)}), 200
