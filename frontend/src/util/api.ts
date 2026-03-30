@@ -1327,6 +1327,18 @@ export const updateUserRole = async (id: number, role: string) => {
   return await response.json();
 };
 
+export class DeleteUserConflictError extends Error {
+  associations: Record<string, { count: number; items: Array<Record<string, unknown>> }>;
+  blockers: Record<string, number>;
+
+  constructor(msg: string, associations: unknown, blockers: unknown) {
+    super(msg);
+    this.name = 'DeleteUserConflictError';
+    this.associations = associations as typeof this.associations;
+    this.blockers = blockers as typeof this.blockers;
+  }
+}
+
 export const deleteUser = async (userId: number) => {
   const response = await fetch(`${BASE_URL}/admin/users/${userId}`, {
     method: 'DELETE',
@@ -1338,12 +1350,33 @@ export const deleteUser = async (userId: number) => {
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     if (errorData?.msg && errorData?.blockers && typeof errorData.blockers === 'object') {
+      // If there are associations, throw a special error
+      if (errorData?.associations && typeof errorData.associations === 'object') {
+        const error = new DeleteUserConflictError(errorData.msg, errorData.associations, errorData.blockers);
+        throw error;
+      }
       const blockerSummary = Object.entries(errorData.blockers)
         .filter(([, count]) => Number(count) > 0)
         .map(([key, count]) => `${key}: ${count}`)
         .join(', ');
       throw new Error(blockerSummary ? `${errorData.msg}. ${blockerSummary}` : errorData.msg);
     }
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+export const deleteUserCascade = async (userId: number) => {
+  const response = await fetch(`${BASE_URL}/admin/users/${userId}?cascade=true`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.msg || `Response status: ${response.status}`);
   }
 

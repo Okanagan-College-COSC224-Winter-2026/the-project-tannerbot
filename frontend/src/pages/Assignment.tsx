@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import Button from "../components/Button";
@@ -17,6 +18,14 @@ export default function Assignment() {
   const searchClassId = new URLSearchParams(location.search).get("classId");
   const classId = stateClassId ?? searchClassId;
   const classQuery = classId ? `?classId=${classId}` : "";
+
+  useEffect(() => {
+    if (!canManageAssignment || !id) {
+      return;
+    }
+
+    navigate(`/assignment/${id}/criteria${classQuery}`, { replace: true });
+  }, [canManageAssignment, id, classQuery, navigate]);
 
   return (
     <div className="AssignmentPage container-fluid py-4 px-3 px-md-4">
@@ -57,28 +66,9 @@ export default function Assignment() {
         ]}
       />
 
-      {canManageAssignment ? (
-        <div className="card border-0 shadow-sm p-3 p-md-4 mt-3 AssignmentHomePanel">
-          <h3 className="h5 fw-semibold mb-2">Assignment Overview</h3>
-          <p className="text-muted mb-3">
-            Use this page as the instructor landing area for assignment setup and monitoring.
-          </p>
-
-          <div className="AssignmentHomeActions">
-            <button type="button" onClick={() => (window.location.href = `/assignment/${id}/criteria`)}>
-              Edit Criteria
-            </button>
-            <button type="button" onClick={() => (window.location.href = `/assignments/${id}/reviews`)}>
-              Manage Reviews
-            </button>
-            <button type="button" onClick={() => (window.location.href = `/assignments/${id}/progress`)}>
-              View Progress
-            </button>
-          </div>
-        </div>
-      ) : (
+      {!canManageAssignment ? (
         <StudentAssignedReviews assignmentId={assignmentId} />
-      )}
+      ) : null}
     </div>
   );
 }
