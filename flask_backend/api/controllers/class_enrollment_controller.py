@@ -25,7 +25,9 @@ def enroll_students():
 
     email = get_jwt_identity()
     user = User.get_by_email(email)
-    if course.teacherID != user.id:
+    if user is None:
+        return jsonify({"msg": "User not found"}), 404
+    if course.teacherID != user.id and not user.is_admin():
         return jsonify({"msg": "You are not authorized to enroll students in this class"}), 403
 
     students, parse_errors = csv_to_list(student_emails_csv)

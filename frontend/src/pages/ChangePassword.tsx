@@ -61,13 +61,13 @@ export default function ChangePassword() {
       navigate('/home');
     }, 2000);
 
-  } catch {
-  setError('User password is incorrect. Your password will not be changed. Logging Out.');
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'An error occurred. Please try again.');
 
-  setTimeout(() => {
-    setError('');
-  }, 10000);
-}
+    setTimeout(() => {
+      setError('');
+    }, 10000);
+  }
 };
 
   return (

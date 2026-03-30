@@ -1,7 +1,9 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy.exc import IntegrityError
 
-from ..models import AssignmentSchema, CourseGroup, db
+from ..models import AssignmentSchema, CourseGroup, User, db
+from ..models.group_members_model import Group_Members
+from ..models.review_model import Review
 from ..services import (
     build_grouping_student_payload,
     get_course_students,
@@ -154,4 +156,16 @@ def replace_assignment_group_members(assignment_id, group_id):
         group,
         normalized_student_ids,
     )
+
+    # Ensure peer reviews exist for each group member (explicit write operation)
+    all_group_members = Group_Members.query.filter_by(
+        assignmentID=assignment.id,
+        groupID=group.id,
+    ).all()
+    member_ids = [m.userID for m in all_group_members]
+    if member_ids:
+        member_users = User.query.filter(User.id.in_(member_ids)).all()
+        for member_user in member_users:
+            Review._ensure_group_peer_reviews_for_reviewer(assignment, member_user)
+
     return jsonify({"msg": "Group members updated", "group": {"id": group.id, "name": group.name, "assignmentID": group.assignmentID, "members": members_payload}}), 200

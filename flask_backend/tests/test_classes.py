@@ -495,15 +495,15 @@ def test_enroll_in_class_not_found(test_client, make_admin):
     assert response.status_code == 404
     assert response.json["msg"] == "Class not found"
 
-def test_enroll_in_class_unauthorized(test_client, make_admin):
+def test_enroll_in_class_unauthorized(test_client, make_teacher):
     """
     GIVEN a logged-in teacher user who is not the teacher of the class
     WHEN POST /class/enroll_students is called
     THEN the request should return a 403 error
     """
-    # Set the admin user by default into the database
-    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
-    make_admin(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
+    # Create two teacher users (not admins, so unauthorized access returns 403)
+    make_teacher(email="teacher@example.com", password="teacher", name="teacheruser")
+    make_teacher(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
     # Login as teacher/admin
     test_client.post(
         "/auth/login",

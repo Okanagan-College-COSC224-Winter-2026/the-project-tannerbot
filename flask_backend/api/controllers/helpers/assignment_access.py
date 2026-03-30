@@ -22,7 +22,7 @@ def get_teacher_managed_assignment(assignment_id):
     if not course:
         return None, None, None, (jsonify({"msg": "Course not found"}), 404)
 
-    if course.teacherID != user.id:
+    if course.teacherID != user.id and not user.is_admin():
         return None, None, None, (
             jsonify({"msg": "Unauthorized: You are not the teacher of this class"}),
             403,

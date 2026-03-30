@@ -9,7 +9,12 @@ export default function ProtectedRoute({
   children,
   allowedRoles,
 }: ProtectedRouteProps) {
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem("user") || "null");
+  } catch {
+    user = null;
+  }
 
   if (!user) {
     return <Navigate to="/" replace />;

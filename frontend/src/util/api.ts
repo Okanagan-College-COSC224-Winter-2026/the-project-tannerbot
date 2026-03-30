@@ -967,8 +967,18 @@ export const assignReview = async (
   return await response.json();
 }
 
+function isSeparatedReviewAssignments(payload: unknown): payload is SeparatedReviewAssignments {
+  return (
+    payload !== null &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload) &&
+    'peer_reviews' in payload &&
+    'group_reviews' in payload
+  );
+}
+
 // Review - List reviews for an assignment
-export const listReviewsForAssignment = async (assignmentID: number) => {
+export const listReviewsForAssignment = async (assignmentID: number): Promise<SeparatedReviewAssignments> => {
   const response = await fetch(`${BASE_URL}/review/assignment/${assignmentID}`, {
     method: 'GET',
     headers: {
@@ -990,16 +1000,14 @@ export const listReviewsForAssignment = async (assignmentID: number) => {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
-    throw new Error(errorData.msg || `Response status: ${response.status}`);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
   }
 
   const payload = await response.json().catch(() => null);
-  if (payload && typeof payload === 'object') {
+  if (isSeparatedReviewAssignments(payload)) {
     return payload;
   }
-
-  const legacyPayload = await listMyReviewsForAssignment(assignmentID);
-  const reviews: ReviewAssignment[] = Array.isArray(legacyPayload) ? legacyPayload : [];
+  const reviews: ReviewAssignment[] = Array.isArray(payload) ? payload : [];
   return {
     peer_reviews: reviews.filter((review) => review.review_type !== 'group'),
     group_reviews: reviews.filter((review) => review.review_type === 'group'),
@@ -1052,12 +1060,7 @@ export const listSeparatedReviewsForAssignment = async (assignmentID: number) =>
   maybeHandleExpire(response);
 
   if (response.status === 404) {
-    const legacyPayload = await listReviewsForAssignment(assignmentID);
-    const reviews: ReviewAssignment[] = Array.isArray(legacyPayload) ? legacyPayload : [];
-    return {
-      peer_reviews: reviews.filter((review) => review.review_type !== 'group'),
-      group_reviews: reviews.filter((review) => review.review_type === 'group'),
-    };
+    return await listReviewsForAssignment(assignmentID);
   }
 
   if (!response.ok) {
@@ -1066,16 +1069,11 @@ export const listSeparatedReviewsForAssignment = async (assignmentID: number) =>
   }
 
   const payload = await response.json().catch(() => null);
-  if (payload && typeof payload === 'object') {
+  if (isSeparatedReviewAssignments(payload)) {
     return payload;
   }
 
-  const legacyPayload = await listReviewsForAssignment(assignmentID);
-  const reviews: ReviewAssignment[] = Array.isArray(legacyPayload) ? legacyPayload : [];
-  return {
-    peer_reviews: reviews.filter((review) => review.review_type !== 'group'),
-    group_reviews: reviews.filter((review) => review.review_type === 'group'),
-  };
+  return await listReviewsForAssignment(assignmentID);
 }
 
 export const listMyReviewsForAssignment = async (assignmentID: number) => {
@@ -1128,8 +1126,8 @@ export const listMySeparatedReviewsForAssignment = async (assignmentID: number) 
   maybeHandleExpire(response);
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.msg || `Response status: ${response.status}`);
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
   }
 
   return await response.json();

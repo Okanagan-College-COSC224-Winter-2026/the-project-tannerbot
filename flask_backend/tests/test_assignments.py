@@ -265,15 +265,15 @@ def test_teacher_cannot_edit_assignment_after_due_date(test_client, make_admin):
     assert edit_response.status_code == 400
     assert edit_response.json["msg"] == "Assignment cannot be modified after its due date"
 
-def test_non_assigned_teacher_cannot_edit_assignment(test_client, make_admin):
+def test_non_assigned_teacher_cannot_edit_assignment(test_client, make_teacher):
     """
     GIVEN a teacher user who is not assigned to the class
     WHEN they try to edit an assignment for that class
     THEN the API should return a 403 error
     """
-    # Use make_admin fixture to create a teacher user
-    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
-    make_admin(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
+    # Create two teacher users
+    make_teacher(email="teacher@example.com", password="teacher", name="teacheruser")
+    make_teacher(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
     # Create a teacher user and log in
     test_client.post(
         "/auth/login",
@@ -454,15 +454,15 @@ def test_delete_assignment_after_due_date(test_client, make_admin):
     assert delete_response.status_code == 400
     assert delete_response.json["msg"] == "Assignment cannot be deleted after its due date"
 
-def test_non_assigned_teacher_cannot_delete_assignment(test_client, make_admin):
+def test_non_assigned_teacher_cannot_delete_assignment(test_client, make_teacher):
     """
     GIVEN a teacher user who is not assigned to the class
     WHEN they try to delete an assignment for that class
     THEN the API should return a 403 error
     """
-    # Use make_admin fixture to create a teacher user
-    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
-    make_admin(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
+    # Create two teacher users
+    make_teacher(email="teacher@example.com", password="teacher", name="teacheruser")
+    make_teacher(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
     # Create a teacher user and log in
     test_client.post(
         "/auth/login",

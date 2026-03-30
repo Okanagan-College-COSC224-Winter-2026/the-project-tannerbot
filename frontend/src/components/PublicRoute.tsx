@@ -5,7 +5,12 @@ interface PublicRouteProps {
 }
 
 export default function PublicRoute({ children }: PublicRouteProps) {
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem("user") || "null");
+  } catch {
+    user = null;
+  }
 
   // If logged in → block access to login/register pages
   if (user) {
