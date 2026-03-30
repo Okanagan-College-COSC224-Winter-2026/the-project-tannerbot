@@ -8,6 +8,7 @@ from flask_jwt_extended import get_jwt_identity
 from werkzeug.security import generate_password_hash
 
 from ..models import User, UserSchema
+from ..models.schemas import validate_password_strength
 from .auth_controller import jwt_admin_required
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -28,16 +29,27 @@ def create_user():
     if not request.is_json:
         return jsonify({"msg": "Missing JSON in request"}), 400
 
-    name = request.json.get("name", None)
-    password = request.json.get("password", None)
-    email = request.json.get("email", None)
-    role = request.json.get("role", "student")
-    must_change_password = request.json.get("must_change_password", False)
+    data = request.get_json(silent=True) or {}
+
+    name = data.get("name", None)
+    password = data.get("password", None)
+    email = data.get("email", None)
+    role = data.get("role", "student")
+    must_change_password = data.get("must_change_password", False)
 
     if not name:
         return jsonify({"msg": "Name is required"}), 400
+    if len(name) > 255:
+        return jsonify({"msg": "Name must not exceed 255 characters"}), 400
     if not password:
         return jsonify({"msg": "Password is required"}), 400
+    
+    # Validate password strength
+    try:
+        validate_password_strength(password)
+    except Exception as e:
+        return jsonify({"msg": str(e)}), 400
+    
     if not email:
         return jsonify({"msg": "Email is required"}), 400
 
@@ -78,7 +90,8 @@ def update_user_role(user_id):
     if not request.is_json:
         return jsonify({"msg": "Missing JSON in request"}), 400
 
-    new_role = request.json.get("role", None)
+    data = request.get_json(silent=True) or {}
+    new_role = data.get("role", None)
 
     if not new_role:
         return jsonify({"msg": "Role is required"}), 400

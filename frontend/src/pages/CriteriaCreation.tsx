@@ -1,9 +1,11 @@
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import RubricCreator from "../components/RubricCreator";
 import Button from "../components/Button";
 import ManageAssignment from "../components/ManageAssignment";
-import { deleteCriteria, getRubricByAssignment, updateCriteria } from "../util/api";
+import TabNavigation from "../components/TabNavigation";
+import { deleteCriteria, getAssignmentGrouping, getRubricByAssignment, updateCriteria } from "../util/api";
+import { isAdmin, isTeacher } from "../util/login";
 import "./CriteriaCreation.css";
 
 interface CriteriaDescription {
@@ -18,6 +20,7 @@ interface RubricData {
   id: number;
   assignmentID: number;
   canComment: boolean;
+  rubric_type?: "peer" | "group";
   criteria_descriptions: CriteriaDescription[];
 }
 
@@ -25,11 +28,17 @@ export default function CriteriaCreation() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const canManageAssignment = isTeacher() || isAdmin();
 
-  const classId = location.state?.classId;
-  const assignmentName = location.state?.assignmentName;
+  const stateClassId = (location.state as { classId?: string | number } | null)?.classId;
+  const searchClassId = new URLSearchParams(location.search).get("classId");
+  const classId = stateClassId ?? searchClassId;
+  const classIdForManage = classId ?? undefined;
+  const classQuery = classId ? `?classId=${classId}` : "";
 
   const [rubric, setRubric] = useState<RubricData | null>(null);
+  const [assignmentMode, setAssignmentMode] = useState<"solo" | "group">("solo");
+  const [rubricType, setRubricType] = useState<"peer" | "group">("peer");
   const [editingCriteriaId, setEditingCriteriaId] = useState<number | null>(null);
   const [editQuestion, setEditQuestion] = useState("");
   const [editScoreMax, setEditScoreMax] = useState(0);
@@ -40,15 +49,34 @@ export default function CriteriaCreation() {
     0
   );
 
-  const fetchRubric = async () => {
+  const fetchRubric = useCallback(async () => {
     if (!id) return;
-    const data = await getRubricByAssignment(Number(id));
+    const data = await getRubricByAssignment(Number(id), rubricType);
     setRubric(data);
-  };
+  }, [id, rubricType]);
+
+  const fetchAssignmentMode = useCallback(async () => {
+    if (!id) return;
+    try {
+      const groupingPayload: AssignmentGroupingResponse = await getAssignmentGrouping(Number(id));
+      const mode = groupingPayload.assignment.assignment_mode === "group" ? "group" : "solo";
+      setAssignmentMode(mode);
+      if (mode === "solo") {
+        setRubricType("peer");
+      }
+    } catch {
+      setAssignmentMode("solo");
+      setRubricType("peer");
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchAssignmentMode();
+  }, [fetchAssignmentMode]);
 
   useEffect(() => {
     fetchRubric();
-  }, [id]);
+  }, [fetchRubric]);
 
   const beginEdit = (criteria: CriteriaDescription) => {
     setEditingCriteriaId(criteria.id);
@@ -105,26 +133,67 @@ export default function CriteriaCreation() {
   };
 
   return (
-    <div className="CriteriaCreationPage">
-      <div className="CriteriaCreationHeader">
+    <div className="AssignmentPage CriteriaCreationPage container-fluid py-4 px-3 px-md-4">
+      <div className="AssignmentHeader CriteriaCreationHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
         <div className="CriteriaCreationHeaderLeft">
-          {assignmentName && <h2 className="CriteriaCreationAssignmentHeading">{assignmentName}</h2>}
+          <h2 className="h3 fw-bold mb-0">Assignment {id}</h2>
         </div>
         <div className="CriteriaCreationHeaderRight">
           <Button onClick={handleBackToClass} type="secondary">
-            ← Back to Class
+            Return to Class
           </Button>
           <ManageAssignment
             assignmentId={id ? Number(id) : undefined}
-            classId={classId}
+            classId={classIdForManage}
           />
         </div>
       </div>
 
+      <TabNavigation
+        tabs={[
+          {
+            label: "Group",
+            path: `/assignments/${id}/group${classQuery}`,
+          },
+          {
+            label: "Criteria",
+            path: `/assignment/${id}/criteria${classQuery}`,
+          },
+          ...(canManageAssignment
+            ? [
+                {
+                  label: "Reviews",
+                  path: `/assignments/${id}/reviews${classQuery}`,
+                },
+                {
+                  label: "Progress",
+                  path: `/assignments/${id}/progress${classQuery}`,
+                },
+              ]
+            : []),
+        ]}
+      />
+
       <div className="CriteriaCreationBody">
+        {assignmentMode === "group" ? (
+          <div className="card border-0 shadow-sm p-3 mb-3">
+            <label className="form-label mb-1">Rubric Type</label>
+            <select
+              className="form-select"
+              value={rubricType}
+              onChange={(event) => setRubricType(event.target.value === "group" ? "group" : "peer")}
+            >
+              <option value="peer">Peer Review Rubric</option>
+              <option value="group">Group Review Rubric</option>
+            </select>
+          </div>
+        ) : null}
+
         {rubric && rubric.criteria_descriptions.length > 0 && (
           <div className="ExistingCriteria">
-            <h3>Existing Criteria</h3>
+            <h3>
+              Existing {rubricType === "group" ? "Group Review" : "Peer Review"} Criteria
+            </h3>
             <table className="ExistingCriteriaTable">
               <thead>
                 <tr>
@@ -210,6 +279,7 @@ export default function CriteriaCreation() {
           id={Number(id)}
           onRubricCreated={fetchRubric}
           existingScoredTotal={existingScoredTotal}
+          rubricType={rubricType}
         />
       </div>
     </div>

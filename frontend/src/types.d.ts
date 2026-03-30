@@ -2,6 +2,7 @@ interface Course {
   id: number;
   teacherID: number;
   name: string;
+  total_grade?: number | null;
 }
 
 interface User {
@@ -57,7 +58,38 @@ interface Assignment {
   rubric?: string;
   due_date?: string;
   start_date?: string;
+  assignment_mode?: 'solo' | 'group';
   attachments?: AssignmentAttachment[];
+}
+
+interface AssignmentGroupingMember {
+  userID: number;
+  assignmentID: number;
+  groupID: number;
+  name: string;
+  email: string;
+  student_id?: string | null;
+}
+
+interface AssignmentGroupingGroup {
+  id: number;
+  name: string;
+  assignmentID: number;
+  members: AssignmentGroupingMember[];
+}
+
+interface AssignmentGroupingStudent {
+  id: number;
+  name: string;
+  email: string;
+  student_id?: string | null;
+  groupID?: number | null;
+}
+
+interface AssignmentGroupingResponse {
+  assignment: Assignment;
+  groups: AssignmentGroupingGroup[];
+  students: AssignmentGroupingStudent[];
 }
 
 interface ReviewParticipant {
@@ -84,6 +116,8 @@ interface ReviewCriterion {
 interface ReviewAssignment {
   id: number;
   assignmentID: number;
+  review_type?: 'group' | 'peer';
+  reviewer_anonymous?: boolean;
   reviewer?: ReviewParticipant;
   reviewee?: ReviewParticipant;
   criteria?: ReviewCriterion[];
@@ -92,7 +126,39 @@ interface ReviewAssignment {
   is_complete?: boolean;
 }
 
+interface SeparatedReviewAssignments {
+  peer_reviews: ReviewAssignment[];
+  group_reviews: ReviewAssignment[];
+}
+
 interface CourseWithAssignments extends Course {
   assignments?: Assignment[];
   assignmentCount?: number;
+}
+
+interface AssignmentStudentReviewStatus {
+  has_reviewed: boolean;
+  completed_assigned_reviews: number;
+  total_assigned_reviews: number;
+  pending_assigned_reviews: number;
+  is_complete: boolean;
+}
+
+interface AssignmentProgressStudent {
+  id: number;
+  student_id?: string | null;
+  name: string;
+  email: string;
+  has_submitted: boolean;
+  review_status: AssignmentStudentReviewStatus;
+  peer_review_status?: AssignmentStudentReviewStatus;
+}
+
+interface AssignmentProgressResponse {
+  assignment: {
+    id: number;
+    name: string;
+    courseID: number;
+  };
+  students: AssignmentProgressStudent[];
 }

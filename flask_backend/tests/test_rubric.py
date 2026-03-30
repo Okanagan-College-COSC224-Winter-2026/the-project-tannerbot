@@ -35,20 +35,28 @@ def _create_class(client, name="Test Course"):
     return resp.json["class"]["id"]
 
 
-def _create_assignment(client, course_id, name="Assignment 1"):
+def _create_assignment(client, course_id, name="Assignment 1", assignment_mode="solo"):
     due = datetime.datetime(2027, 12, 31, 23, 59, 59).isoformat()
     resp = client.post(
         "/assignment/create_assignment",
-        data=json.dumps({"courseID": course_id, "name": name, "rubric": "", "due_date": due}),
+        data=json.dumps(
+            {
+                "courseID": course_id,
+                "name": name,
+                "rubric": "",
+                "due_date": due,
+                "assignment_mode": assignment_mode,
+            }
+        ),
         headers={"Content-Type": "application/json"},
     )
     return resp.json["assignment"]["id"]
 
 
-def _create_rubric(client, assignment_id):
+def _create_rubric(client, assignment_id, rubric_type="peer"):
     resp = client.post(
         "/create_rubric",
-        data=json.dumps({"assignmentID": assignment_id}),
+        data=json.dumps({"assignmentID": assignment_id, "rubricType": rubric_type}),
         headers={"Content-Type": "application/json"},
     )
     return resp
@@ -151,6 +159,52 @@ class TestCreateRubricAndAttachToAssignment:
         """
         resp = test_client.get("/rubric/assignment/9999")
         assert resp.status_code == 404
+
+    def test_group_assignment_supports_separate_peer_and_group_rubrics(self, test_client, make_admin):
+        make_admin(email="teacher@example.com", password="pass", name="Teacher")
+        _login(test_client, "teacher@example.com", "pass")
+        course_id = _create_class(test_client)
+        assignment_id = _create_assignment(test_client, course_id, assignment_mode="group")
+
+        peer_resp = _create_rubric(test_client, assignment_id, rubric_type="peer")
+        group_resp = _create_rubric(test_client, assignment_id, rubric_type="group")
+
+        assert peer_resp.status_code == 201
+        assert group_resp.status_code == 201
+        assert peer_resp.get_json()["rubric_type"] == "peer"
+        assert group_resp.get_json()["rubric_type"] == "group"
+        assert peer_resp.get_json()["id"] != group_resp.get_json()["id"]
+
+    def test_group_assignment_rubrics_can_be_fetched_by_type(self, test_client, make_admin):
+        make_admin(email="teacher@example.com", password="pass", name="Teacher")
+        _login(test_client, "teacher@example.com", "pass")
+        course_id = _create_class(test_client)
+        assignment_id = _create_assignment(test_client, course_id, assignment_mode="group")
+
+        peer_rubric = _create_rubric(test_client, assignment_id, rubric_type="peer").get_json()
+        group_rubric = _create_rubric(test_client, assignment_id, rubric_type="group").get_json()
+
+        peer_get = test_client.get(f"/rubric/assignment/{assignment_id}?rubricType=peer")
+        group_get = test_client.get(f"/rubric/assignment/{assignment_id}?rubricType=group")
+        separated_get = test_client.get(f"/rubric/assignment/{assignment_id}/separated")
+
+        assert peer_get.status_code == 200
+        assert group_get.status_code == 200
+        assert separated_get.status_code == 200
+        assert peer_get.get_json()["id"] == peer_rubric["id"]
+        assert group_get.get_json()["id"] == group_rubric["id"]
+        assert separated_get.get_json()["peer_rubric"]["id"] == peer_rubric["id"]
+        assert separated_get.get_json()["group_rubric"]["id"] == group_rubric["id"]
+
+    def test_solo_assignment_rejects_group_rubric_creation(self, test_client, make_admin):
+        make_admin(email="teacher@example.com", password="pass", name="Teacher")
+        _login(test_client, "teacher@example.com", "pass")
+        course_id = _create_class(test_client)
+        assignment_id = _create_assignment(test_client, course_id, assignment_mode="solo")
+
+        resp = _create_rubric(test_client, assignment_id, rubric_type="group")
+        assert resp.status_code == 400
+        assert "Solo assignments" in resp.get_json()["msg"]
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +310,43 @@ class TestAddMultipleCriteria:
 
         assert resp.status_code == 400
         assert resp.get_json()["msg"] == "question is required"
+
+    def test_get_criteria_with_non_integer_rubric_id_returns_400(self, test_client):
+        """
+        GIVEN an invalid rubricID query parameter
+        WHEN GET /criteria is called
+        THEN the API returns a 400 instead of crashing
+        """
+        resp = test_client.get("/criteria?rubricID=abc")
+        assert resp.status_code == 400
+        assert resp.get_json()["msg"] == "rubricID must be an integer"
+
+    def test_get_rubric_with_non_integer_rubric_id_returns_400(self, test_client):
+        """
+        GIVEN an invalid rubricID query parameter
+        WHEN GET /rubric is called
+        THEN the API returns a 400 instead of crashing
+        """
+        resp = test_client.get("/rubric?rubricID=xyz")
+        assert resp.status_code == 400
+        assert resp.get_json()["msg"] == "rubricID must be an integer"
+
+    def test_create_criteria_without_json_returns_400(self, test_client, make_admin):
+        """
+        GIVEN a teacher sending a non-JSON request
+        WHEN POST /create_criteria is called
+        THEN the API returns 400 with a clear message
+        """
+        make_admin(email="teacher@example.com", password="pass", name="Teacher")
+        _login(test_client, "teacher@example.com", "pass")
+
+        resp = test_client.post(
+            "/create_criteria",
+            data="rubricID=1&question=Q&scoreMax=10",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        assert resp.status_code == 400
+        assert resp.get_json()["msg"] == "Missing JSON in request"
 
 
 # ---------------------------------------------------------------------------

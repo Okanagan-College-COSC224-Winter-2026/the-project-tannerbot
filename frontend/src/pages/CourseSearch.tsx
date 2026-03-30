@@ -63,6 +63,7 @@ export default function CourseSearch() {
                   placeholder="Example: COSC 404 or Math"
                   aria-label="Search courses"
                   className="form-control form-control-lg"
+                  maxLength={100}
                 />
               </div>
               <div className="col-6 col-md-auto d-grid">

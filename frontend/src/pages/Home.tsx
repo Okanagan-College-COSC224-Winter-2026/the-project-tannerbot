@@ -8,6 +8,7 @@ import { isTeacher, isStudent } from "../util/login";
 export default function Home() {
   const [courses, setCourses] = useState<CourseWithAssignments[]>([]);
   const [loading, setLoading] = useState(true);
+  const studentView = isStudent();
 
   useEffect(() => {
     ;(async () => {
@@ -79,6 +80,11 @@ export default function Home() {
         {courses.length > 0 ? (
           courses.map((course) => {
             const assignmentText = `${course.assignmentCount || 0} assignments`;
+            const hasTotalGrade =
+              typeof course.total_grade === "number" && Number.isFinite(course.total_grade);
+            const formattedGrade = hasTotalGrade
+              ? `${course.total_grade!.toFixed(1).replace(/\.0$/, "")}%`
+              : "Grade unavailable";
 
             return (
               <ClassCard
@@ -86,6 +92,8 @@ export default function Home() {
                 image="https://crc.losrios.edu//shared/img/social-1200-630/programs/general-science-social.jpg"
                 name={course.name}
                 subtitle={assignmentText}
+                gradeLabel={studentView ? formattedGrade : undefined}
+                gradeUnavailable={studentView && !hasTotalGrade}
                 onclick={() => {
                   window.location.href = `/classes/${course.id}/home`
                 }}

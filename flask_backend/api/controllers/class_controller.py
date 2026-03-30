@@ -1,13 +1,9 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from werkzeug.security import generate_password_hash
 
 from ..models import Course, User, User_Course
+from ..services import build_class_progress_payload, calculate_student_course_total_grade
 from .auth_controller import jwt_teacher_required
-import re
-import csv
-import io
-from typing import List, Dict, Tuple
 
 bp = Blueprint("class", __name__, url_prefix="/class")
 
@@ -16,10 +12,13 @@ bp = Blueprint("class", __name__, url_prefix="/class")
 @jwt_teacher_required
 def create_class():
     """Create a new class where the authenticated user is the teacher"""
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     class_name = data.get("name")
     if not class_name:
         return jsonify({"msg": "Class name is required"}), 400
+    
+    if len(class_name) > 100:
+        return jsonify({"msg": "Class name must not exceed 100 characters"}), 400
 
     email = get_jwt_identity()
     user = User.get_by_email(email)
@@ -66,7 +65,18 @@ def get_user_classes():
     else:
         courses = []
 
-    return jsonify([{"id": c.id, "name": c.name} for c in courses]), 200
+    payload = []
+    for course in courses:
+        if not course:
+            continue
+
+        row = {"id": course.id, "name": course.name}
+        if user.is_student():
+            row["total_grade"] = calculate_student_course_total_grade(user.id, course.id)
+
+        payload.append(row)
+
+    return jsonify(payload), 200
 
 
 @bp.route("/members", methods=["POST"])
@@ -141,121 +151,22 @@ def get_class_members():
 
     return jsonify(member_rows), 200
 
-REQUIRED_HEADERS = {"id", "name", "email"}
-def csv_to_list(csv_text):
-    """Convert CSV text to a list of emails"""
-    rows: List[Dict[str, str]] = []
-    errors: List[str] = []
-    if not csv_text or not csv_text.strip():
-        return rows, ["CSV text empty"]
-    
-    stream = io.StringIO(csv_text.strip())
-    try:
-        reader = csv.DictReader(stream)
-    except Exception as e:
-        return rows, [f"Failed to read CSV: {e}"]
-    
-    headers = {h.strip() for h in reader.fieldnames or []}
-    missing = REQUIRED_HEADERS - headers
-    if missing:
-        errors.append(f"Missing required headers: {', '.join(sorted(missing))}")
-        return rows, errors
-    
-    for line_num, row in enumerate(reader, start=2):
-        if row is None:
-            continue
-        normalized = {k.strip(): (v.strip() if isinstance(v, str) else "") for k, v in row.items()}
-        if not any(normalized.values()):
-            continue
 
-        if any(not normalized[field] for field in REQUIRED_HEADERS):
-            errors.append(f"Line {line_num}: Missing required fields")
-            continue
-
-        rows.append({
-            "id": normalized["id"],
-            "name": normalized["name"],
-            "email": normalized["email"]
-        })
-    return rows, errors
-
-@bp.route("/enroll_students", methods=["POST"])
+@bp.route("/<int:class_id>/progress", methods=["GET"])
 @jwt_teacher_required
-def enroll_students():
-    """
-    Enroll students into a class by class ID and list of student emails from a csv file.
-    -    If a student is already enrolled, skip them.
-    -    If a student email does not exist, create it with a default password and enroll them.
-    -    The list of student emails is passed in the request body as a CSV file.
-    """
-
-    data = request.get_json()
-    class_id = data.get("class_id")
-    student_emails_csv = data.get("students", "")
-
-    if not class_id or not student_emails_csv:
-        return jsonify({"msg": "Class ID and student emails are required"}), 400
-
+def get_class_progress(class_id):
+    """Return comprehensive per-student and per-assignment progress for a class."""
     course = Course.get_by_id(class_id)
     if not course:
         return jsonify({"msg": "Class not found"}), 404
-    
-    # check if the authenticated user is the teacher of the class
+
     email = get_jwt_identity()
-    user = User.get_by_email(email)
-    if course.teacherID != user.id:
-        return jsonify({"msg": "You are not authorized to enroll students in this class"}), 403
+    current_user = User.get_by_email(email)
+    if not current_user:
+        return jsonify({"msg": "User not found"}), 404
 
-    students, parse_errors = csv_to_list(student_emails_csv)
-    if parse_errors:
-        return jsonify({"msg": "Errors in CSV", "errors": parse_errors}), 400
+    if course.teacherID != current_user.id and not current_user.is_admin():
+        return jsonify({"msg": "Insufficient permissions"}), 403
 
-    enrolled_students = []
-    created_accounts = []
-    already_enrolled = []
-    for student_info in students:
-        email = student_info["email"]
-        student_id = student_info["id"]
-        # validate email format with regex
-        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-            return jsonify({"msg": f"Invalid email format: {email}"}), 400
-        
-        name = student_info["name"]
-        student = User.get_by_email(email)
-        if not student:
-            # Create new student with default password
-            # TODO: Create random password and email it to the student
-            # Current implementation sets the password to "password123"
-            student = User(
-                name=name,
-                email=email,
-                hash_pass=generate_password_hash("password123"),
-                role="student",
-                student_id=student_id,
-            )
-            try:
-                User.create_user(student)
-                created_accounts.append(email)
-            except Exception as e:
-                return jsonify({"msg": f"Error creating user {email}: {str(e)}"}), 500
-        elif student.role == "student" and not student.student_id:
-            student.student_id = student_id
-            student.update()
-
-        # Check if already enrolled
-        enrollment = User_Course.get(student.id, class_id)
-        if enrollment:
-            already_enrolled.append(email)
-            continue
-
-        # Enroll student
-        User_Course.add(student.id, class_id)
-        enrolled_students.append(email)
-
-    return jsonify({
-        "msg": f"{len(enrolled_students)} students added to course {course.name}",
-        "added_count": len(enrolled_students),
-        "created_accounts_count": len(created_accounts),
-        "already_enrolled_count": len(already_enrolled),
-        "already_enrolled": already_enrolled,
-    }), 200
+    payload = build_class_progress_payload(course)
+    return jsonify(payload), 200

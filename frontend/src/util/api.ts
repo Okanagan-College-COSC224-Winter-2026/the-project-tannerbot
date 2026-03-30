@@ -1,4 +1,4 @@
-import { didExpire, removeToken } from "./login";
+import { removeToken } from "./login";
 
 export const BASE_URL = 'http://localhost:5000'
 
@@ -8,11 +8,13 @@ export const BASE_URL = 'http://localhost:5000'
 
 
 export const maybeHandleExpire = (response: Response) => {
-  if (didExpire(response)) {
+  if (response.status === 401) {
     // Remove the token
     removeToken();
 
-    window.location.href = '/';
+    setTimeout(() => {
+    window.location.href = '/loginpage';
+    }, 5000);
   }
 }
 
@@ -154,6 +156,24 @@ export const listAssignments = async (classId: string) => {
 
   if (!resp.ok) {
     throw new Error(`Response status: ${resp.status}`);
+  }
+
+  return await resp.json()
+}
+
+export const getAssignmentProgress = async (assignmentId: number) => {
+  const resp = await fetch(`${BASE_URL}/assignment/${assignmentId}/progress`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  })
+
+  maybeHandleExpire(resp)
+
+  if (!resp.ok) {
+    throw new Error(`Response status: ${resp.status}`)
   }
 
   return await resp.json()
@@ -407,11 +427,17 @@ export const deleteCriteria = async (criteriaId: number) => {
   return await response.json();
 }
 
-export const createRubric = async (assignmentID: number, canComment: boolean): Promise<{ id: number }> => {
+export const createRubric = async (
+  assignmentID: number,
+  canComment: boolean,
+  rubricType: 'peer' | 'group' = 'peer',
+): Promise<{ id: number }> => {
   const response = await fetch(`${BASE_URL}/create_rubric`, {
     method: 'POST',
     body: JSON.stringify({
-      assignmentID, canComment
+      assignmentID,
+      canComment,
+      rubricType,
     }),
     headers: {
       'Content-Type': 'application/json',
@@ -442,8 +468,11 @@ export const getRubric = async (rubricID: number) => {
   return await resp.json();
 }
 
-export const getRubricByAssignment = async (assignmentId: number) => {
-  const resp = await fetch(`${BASE_URL}/rubric/assignment/${assignmentId}`, {
+export const getRubricByAssignment = async (
+  assignmentId: number,
+  rubricType: 'peer' | 'group' = 'peer',
+) => {
+  const resp = await fetch(`${BASE_URL}/rubric/assignment/${assignmentId}?rubricType=${rubricType}`, {
     credentials: 'include'
   });
 
@@ -466,6 +495,7 @@ export const createAssignment = async (
   name: string,
   dueDate?: string,
   startDate?: string,
+  assignmentMode?: 'solo' | 'group',
 )=> {
   const response = await fetch(`${BASE_URL}/assignment/create_assignment`, {
     method: 'POST',
@@ -474,6 +504,7 @@ export const createAssignment = async (
       name,
       due_date: dueDate,
       start_date: startDate,
+      assignment_mode: assignmentMode,
     }),
     headers: {
       'Content-Type': 'application/json',
@@ -508,6 +539,7 @@ export const editAssignment = async (
   startDate?: string,
   rubric?: string,
   description?: string,
+  assignmentMode?: 'solo' | 'group',
 ) => {
   const response = await fetch(`${BASE_URL}/assignment/edit_assignment/${assignmentID}`, {
     method: 'PATCH',
@@ -517,6 +549,7 @@ export const editAssignment = async (
       start_date: startDate,
       rubric,
       description,
+      assignment_mode: assignmentMode,
     }),
     headers: {
       'Content-Type': 'application/json',
@@ -746,6 +779,135 @@ export const createGroup = async(assignmentID: number, name: string, id: number)
   return await response.json();
 }
 
+export const getAssignmentGrouping = async (assignmentID: number) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/grouping`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+export const updateAssignmentMode = async (
+  assignmentID: number,
+  assignmentMode: 'solo' | 'group',
+) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/mode`, {
+    method: 'PATCH',
+    body: JSON.stringify({ assignment_mode: assignmentMode }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+export const createAssignmentGroup = async (assignmentID: number, name: string) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/groups`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+export const renameAssignmentGroup = async (
+  assignmentID: number,
+  groupID: number,
+  name: string,
+) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/groups/${groupID}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+export const deleteAssignmentGroup = async (assignmentID: number, groupID: number) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/groups/${groupID}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+export const setAssignmentGroupMembers = async (
+  assignmentID: number,
+  groupID: number,
+  studentIds: number[],
+) => {
+  const response = await fetch(
+    `${BASE_URL}/assignment/${assignmentID}/groups/${groupID}/members`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ student_ids: studentIds }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    },
+  );
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
 // Admin - Create Teacher Account
 export const createTeacherAccount = async (name: string, email: string, password: string) => {
   const response = await fetch(`${BASE_URL}/admin/users/create`, {
@@ -774,14 +936,21 @@ export const createTeacherAccount = async (name: string, email: string, password
 }
 
 // Review - Assign reviewer to peer review
-export const assignReview = async (assignmentID: number, reviewerID: number, revieweeID: number) => {
+export const assignReview = async (
+  assignmentID: number,
+  params:
+    | { reviewerID: number; revieweeID: number }
+    | { reviewType: 'group'; reviewerGroupID: number; revieweeGroupID: number }
+    | { reviewType: 'peer'; reviewerGroupID: number },
+) => {
+  const payload = {
+    assignmentID,
+    ...params,
+  };
+
   const response = await fetch(`${BASE_URL}/review/assign`, {
     method: 'POST',
-    body: JSON.stringify({
-      assignmentID,
-      reviewerID,
-      revieweeID,
-    }),
+    body: JSON.stringify(payload),
     headers: {
       'Content-Type': 'application/json',
     },
@@ -798,8 +967,18 @@ export const assignReview = async (assignmentID: number, reviewerID: number, rev
   return await response.json();
 }
 
+function isSeparatedReviewAssignments(payload: unknown): payload is SeparatedReviewAssignments {
+  return (
+    payload !== null &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload) &&
+    'peer_reviews' in payload &&
+    'group_reviews' in payload
+  );
+}
+
 // Review - List reviews for an assignment
-export const listReviewsForAssignment = async (assignmentID: number) => {
+export const listReviewsForAssignment = async (assignmentID: number): Promise<SeparatedReviewAssignments> => {
   const response = await fetch(`${BASE_URL}/review/assignment/${assignmentID}`, {
     method: 'GET',
     headers: {
@@ -810,12 +989,91 @@ export const listReviewsForAssignment = async (assignmentID: number) => {
 
   maybeHandleExpire(response);
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.msg || `Response status: ${response.status}`);
+  if (response.status === 404) {
+    const legacyPayload = await listMyReviewsForAssignment(assignmentID);
+    const reviews: ReviewAssignment[] = Array.isArray(legacyPayload) ? legacyPayload : [];
+    return {
+      peer_reviews: reviews.filter((review) => review.review_type !== 'group'),
+      group_reviews: reviews.filter((review) => review.review_type === 'group'),
+    };
   }
 
-  return await response.json();
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
+  }
+
+  const payload = await response.json().catch(() => null);
+  if (isSeparatedReviewAssignments(payload)) {
+    return payload;
+  }
+  const reviews: ReviewAssignment[] = Array.isArray(payload) ? payload : [];
+  return {
+    peer_reviews: reviews.filter((review) => review.review_type !== 'group'),
+    group_reviews: reviews.filter((review) => review.review_type === 'group'),
+  };
+}
+
+export const listMyReceivedSeparatedReviewsForAssignment = async (assignmentID: number) => {
+  const response = await fetch(`${BASE_URL}/review/my/received/assignment/${assignmentID}/separated`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(response);
+
+  if (response.status === 404) {
+    return {
+      peer_reviews: [],
+      group_reviews: [],
+    };
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
+  }
+
+  const payload = await response.json().catch(() => null);
+  if (payload && typeof payload === 'object') {
+    return payload;
+  }
+
+  return {
+    peer_reviews: [],
+    group_reviews: [],
+  };
+}
+
+export const listSeparatedReviewsForAssignment = async (assignmentID: number) => {
+  const response = await fetch(`${BASE_URL}/review/assignment/${assignmentID}/separated`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(response);
+
+  if (response.status === 404) {
+    return await listReviewsForAssignment(assignmentID);
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
+  }
+
+  const payload = await response.json().catch(() => null);
+  if (isSeparatedReviewAssignments(payload)) {
+    return payload;
+  }
+
+  return await listReviewsForAssignment(assignmentID);
 }
 
 export const listMyReviewsForAssignment = async (assignmentID: number) => {
@@ -832,6 +1090,44 @@ export const listMyReviewsForAssignment = async (assignmentID: number) => {
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export const listReviewsForClass = async (classID: number) => {
+  const response = await fetch(`${BASE_URL}/review/class/${classID}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export const listMySeparatedReviewsForAssignment = async (assignmentID: number) => {
+  const response = await fetch(`${BASE_URL}/review/my/assignment/${assignmentID}/separated`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
   }
 
   return await response.json();

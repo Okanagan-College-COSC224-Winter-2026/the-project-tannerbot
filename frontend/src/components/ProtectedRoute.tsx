@@ -1,49 +1,28 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-// This component checks if the user is authenticated by making a request to the backend.
-import { hasRole } from "../util/login";
-
-const BASE_URL = "http://localhost:5000";
+import { Navigate } from "react-router-dom";
 
 interface ProtectedRouteProps {
-    children: React.ReactNode;
-    allowedRoles?: string[];
+  children: React.ReactNode;
+  allowedRoles?: string[];
 }
 
-export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-    const navigate = useNavigate();
-    const [isAllowed, setIsAllowed] = useState<boolean | null>(null);
+export default function ProtectedRoute({
+  children,
+  allowedRoles,
+}: ProtectedRouteProps) {
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem("user") || "null");
+  } catch {
+    user = null;
+  }
 
-    useEffect(() => {
-        ;(async () => {
-            try {
-                const response = await fetch(`${BASE_URL}/user`, {
-                    method: "GET",
-                    credentials: "include",
-                });
-                if (!response.ok) {
-                    setIsAllowed(false);
-                    navigate("/");
-                    return;
-                }
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
 
-                if (allowedRoles && allowedRoles.length > 0) {
-                    const roleMatch = hasRole(...allowedRoles);
-                    if (!roleMatch) {
-                        setIsAllowed(false);
-                        navigate("/home");
-                        return;
-                    }
-                }
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/home" replace />;
+  }
 
-                setIsAllowed(true);
-            } catch (error) {
-                console.error("Error checking authentication:", error);
-                setIsAllowed(false);
-                navigate("/");
-            }
-        })();
-    }, [allowedRoles, navigate]);
-
-    return isAllowed ? <>{children}</> : null;
+  return <>{children}</>;
 }
