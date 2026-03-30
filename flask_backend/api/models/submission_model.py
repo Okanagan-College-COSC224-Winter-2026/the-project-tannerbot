@@ -39,6 +39,10 @@ class Submission(db.Model):
         db.session.commit()
         return submission
 
+    @classmethod
+    def get_by_assignment_and_student(cls, assignment_id, student_id):
+        return cls.query.filter_by(assignmentID=assignment_id, studentID=student_id).first()
+
     def update(self):
         """Update submission in the database"""
         db.session.commit()

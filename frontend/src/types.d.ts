@@ -149,7 +149,16 @@ interface AssignmentProgressStudent {
   student_id?: string | null;
   name: string;
   email: string;
+  group?: {
+    id: number;
+    name?: string | null;
+  } | null;
   has_submitted: boolean;
+  submission?: {
+    id: number;
+    original_name: string;
+    download_url: string;
+  } | null;
   review_status: AssignmentStudentReviewStatus;
   peer_review_status?: AssignmentStudentReviewStatus;
 }
@@ -159,6 +168,19 @@ interface AssignmentProgressResponse {
     id: number;
     name: string;
     courseID: number;
+    assignment_mode?: 'solo' | 'group';
   };
   students: AssignmentProgressStudent[];
+}
+
+interface AssignmentSubmissionMetadata {
+  id: number;
+  assignment_id: number;
+  original_name: string;
+  download_url: string;
+}
+
+interface AssignmentSubmissionStatus {
+  has_submitted: boolean;
+  submission: AssignmentSubmissionMetadata | null;
 }

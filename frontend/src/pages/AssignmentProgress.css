@@ -90,6 +90,18 @@
   font-variant-numeric: tabular-nums;
 }
 
+.AssignmentProgressGroupHeaderRow td {
+  padding-top: 0.9rem;
+  padding-bottom: 0.45rem;
+  border-top: 2px solid #d9e2ef;
+  background: #f3f6fb;
+}
+
+.AssignmentProgressGroupHeaderCell {
+  font-weight: 600;
+  color: #31425f;
+}
+
 .AssignmentProgressStudentName {
   overflow-wrap: anywhere;
 }

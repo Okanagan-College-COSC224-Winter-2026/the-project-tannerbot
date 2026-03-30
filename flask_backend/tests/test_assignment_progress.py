@@ -2,7 +2,16 @@
 
 import json
 
-from api.models import Assignment, CriteriaDescription, Criterion, Review, Rubric, Submission
+from api.models import (
+    Assignment,
+    CourseGroup,
+    CriteriaDescription,
+    Criterion,
+    Group_Members,
+    Review,
+    Rubric,
+    Submission,
+)
 from api.models.db import db as _db
 
 
@@ -154,6 +163,11 @@ def test_teacher_can_view_assignment_progress(test_client, make_admin, enroll_us
 
     student_one = students_by_email[seeded["student_one_email"]]
     assert student_one["has_submitted"] is True
+    assert student_one["submission"] is not None
+    assert student_one["submission"]["original_name"] == "student-one-submission.pdf"
+    assert student_one["submission"]["download_url"] == (
+        f"/assignment/{seeded['assignment_id']}/submission/{student_one['id']}/download"
+    )
     assert student_one["review_status"] == {
         "has_reviewed": True,
         "completed_assigned_reviews": 1,
@@ -171,6 +185,7 @@ def test_teacher_can_view_assignment_progress(test_client, make_admin, enroll_us
 
     student_two = students_by_email[seeded["student_two_email"]]
     assert student_two["has_submitted"] is False
+    assert student_two["submission"] is None
     assert student_two["review_status"] == {
         "has_reviewed": False,
         "completed_assigned_reviews": 0,
@@ -245,3 +260,62 @@ def test_student_cannot_view_assignment_progress(test_client, make_admin):
 
     assert response.status_code == 403
     assert response.json["msg"] == "Insufficient permissions"
+
+
+def test_group_assignment_progress_includes_group_metadata(
+    test_client,
+    make_admin,
+    enroll_user_in_course,
+):
+    seeded = _seed_assignment_progress_data(test_client, make_admin, enroll_user_in_course)
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": seeded["teacher_email"], "password": "Password123!"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    set_group_mode_response = test_client.patch(
+        f"/assignment/{seeded['assignment_id']}/mode",
+        data=json.dumps({"assignment_mode": "group"}),
+        headers={"Content-Type": "application/json"},
+    )
+    assert set_group_mode_response.status_code == 200
+
+    with test_client.application.app_context():
+        assignment = Assignment.get_by_id(seeded["assignment_id"])
+        group = CourseGroup(name="Team Progress", assignmentID=assignment.id)
+        _db.session.add(group)
+        _db.session.commit()
+
+        student_one_id = next(
+            student.id
+            for student in assignment.course.students
+            if student.email == seeded["student_one_email"]
+        )
+        student_two_id = next(
+            student.id
+            for student in assignment.course.students
+            if student.email == seeded["student_two_email"]
+        )
+
+        _db.session.add_all(
+            [
+                Group_Members(userID=student_one_id, groupID=group.id, assignmentID=assignment.id),
+                Group_Members(userID=student_two_id, groupID=group.id, assignmentID=assignment.id),
+            ]
+        )
+        _db.session.commit()
+
+    response = test_client.get(
+        f"/assignment/{seeded['assignment_id']}/progress",
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 200
+
+    payload = response.json
+    assert payload["assignment"]["assignment_mode"] == "group"
+
+    students_by_email = {student["email"]: student for student in payload["students"]}
+    assert students_by_email[seeded["student_one_email"]]["group"]["name"] == "Team Progress"
+    assert students_by_email[seeded["student_two_email"]]["group"]["name"] == "Team Progress"
