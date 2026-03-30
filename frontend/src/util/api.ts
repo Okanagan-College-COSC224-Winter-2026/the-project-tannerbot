@@ -447,8 +447,15 @@ export const getCriteria = async (rubricID: number) => {
   return await resp.json()
 }
 
-export const createCriteria = async (rubricID: number, question: string, scoreMax: number, canComment: boolean, hasScore: boolean = true) => {
-  const response = await fetch(`${BASE_URL}/create_criteria`, {
+export const createCriteria = async (
+  assignmentID: number,
+  rubricID: number,
+  question: string,
+  scoreMax: number,
+  canComment: boolean,
+  hasScore: boolean = true,
+) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/criteria`, {
     method: 'POST',
     body: JSON.stringify({
       rubricID, question, scoreMax, canComment, hasScore
@@ -467,8 +474,14 @@ export const createCriteria = async (rubricID: number, question: string, scoreMa
   }
 }
 
-export const updateCriteria = async (criteriaId: number, question: string, scoreMax: number, hasScore: boolean = true) => {
-  const response = await fetch(`${BASE_URL}/criteria/${criteriaId}`, {
+export const updateCriteria = async (
+  assignmentID: number,
+  criteriaId: number,
+  question: string,
+  scoreMax: number,
+  hasScore: boolean = true,
+) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/criteria/${criteriaId}`, {
     method: 'PATCH',
     body: JSON.stringify({
       question,
@@ -491,8 +504,8 @@ export const updateCriteria = async (criteriaId: number, question: string, score
   return await response.json();
 }
 
-export const deleteCriteria = async (criteriaId: number) => {
-  const response = await fetch(`${BASE_URL}/criteria/${criteriaId}`, {
+export const deleteCriteria = async (assignmentID: number, criteriaId: number) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/criteria/${criteriaId}`, {
     method: 'DELETE',
     credentials: 'include'
   })
