@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import {
@@ -111,7 +111,7 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
     return reviewCourseId === queryClassId;
   };
 
-  const loadAssignedReviews = async () => {
+  const loadAssignedReviews = useCallback(async () => {
     if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
       setError("Invalid assignment ID.");
       setLoading(false);
@@ -175,11 +175,11 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       }
       setLoading(false);
     }
-  };
+  }, [assignmentId, queryClassId]);
 
   useEffect(() => {
     loadAssignedReviews();
-  }, [assignmentId, queryClassIdRaw]);
+  }, [loadAssignedReviews]);
 
   const handleReviewChange = (reviewId: number) => {
     setSelectedReviewId(reviewId);

@@ -987,6 +987,9 @@ def test_student_group_members_auto_receive_peer_reviews_for_teammates(
     _add_group_rubric_with_matching_criteria(db, seeded)
     db.session.commit()
 
+    # Explicitly create peer reviews for group members (simulates write path via API)
+    Review._ensure_group_peer_reviews_for_reviewer(seeded["assignment"], student_a)
+
     _login(test_client, student_a.email, "Password1!")
     list_resp = test_client.get(f"/review/my/assignment/{seeded['assignment'].id}/separated")
 

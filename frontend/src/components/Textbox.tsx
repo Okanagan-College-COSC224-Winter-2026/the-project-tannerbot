@@ -5,11 +5,12 @@ interface Props {
   className?: string
   placeholder?: string
   type?: string
+  maxLength?: number
 }
 
 export default function Textbox(props: Props) {
   return (
-    <input type={props.type || 'text'} className={'Textbox ' + props.className} placeholder={props.placeholder} onInput={(e) => {
+    <input type={props.type || 'text'} className={'Textbox ' + props.className} placeholder={props.placeholder} maxLength={props.maxLength} onInput={(e) => {
       e.preventDefault()
       if (!props?.onInput) {
         return

@@ -1,14 +1,10 @@
 import { Navigate } from "react-router-dom";
 
-interface ProtectedRouteProps {
+interface PublicRouteProps {
   children: React.ReactNode;
-  allowedRoles?: string[];
 }
 
-export default function ProtectedRoute({
-  children,
-  allowedRoles,
-}: ProtectedRouteProps) {
+export default function PublicRoute({ children }: PublicRouteProps) {
   let user = null;
   try {
     user = JSON.parse(localStorage.getItem("user") || "null");
@@ -16,13 +12,11 @@ export default function ProtectedRoute({
     user = null;
   }
 
-  if (!user) {
-    return <Navigate to="/" replace />;
-  }
-
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  // If logged in → block access to login/register pages
+  if (user) {
     return <Navigate to="/home" replace />;
   }
 
+  // If NOT logged in → allow access
   return <>{children}</>;
 }

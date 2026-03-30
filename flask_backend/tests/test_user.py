@@ -90,3 +90,56 @@ def test_change_password_success(test_client):
     )
     assert new_login_response.status_code == 200
     assert new_login_response.json["name"] == "password-user"
+
+
+def test_change_password_rejects_weak_password(test_client):
+    """
+    GIVEN a logged-in user
+    WHEN PATCH /user/password is called with a weak new password
+    THEN the request is rejected with a validation message
+    """
+    email = "weak_password_user@example.com"
+    old_password = "Password123!"
+
+    test_client.post(
+        "/auth/register",
+        data=json.dumps({"name": "weak-password-user", "password": old_password, "email": email}),
+        headers={"Content-Type": "application/json"},
+    )
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": email, "password": old_password}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    response = test_client.patch(
+        "/user/password",
+        data=json.dumps({"current_password": old_password, "new_password": "weakpass"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 400
+    assert "uppercase" in response.json["msg"].lower()
+
+
+def test_admin_cannot_delete_own_account_via_user_endpoint(test_client, make_admin):
+    """
+    GIVEN a logged-in admin user
+    WHEN DELETE /user/<own_id> is called
+    THEN the request is rejected
+    """
+    make_admin(email="selfdelete-admin@example.com", password="Admin123!", name="Self Delete Admin")
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "selfdelete-admin@example.com", "password": "Admin123!"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    current_user_response = test_client.get("/user/")
+    user_id = current_user_response.json["id"]
+
+    response = test_client.delete(f"/user/{user_id}")
+
+    assert response.status_code == 400
+    assert response.json["msg"] == "Cannot delete your own admin account"

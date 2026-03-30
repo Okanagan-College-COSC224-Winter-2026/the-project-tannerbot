@@ -685,11 +685,6 @@ class Review(db.Model):
         if not reviewer:
             return None, {"msg": "User not found", "status": 404}
 
-        cls._ensure_group_peer_reviews_for_reviewer(
-            assignment=assignment,
-            reviewer=reviewer,
-        )
-
         if assignment.assignment_mode != "group":
             query = cls.query.filter_by(assignmentID=assignment_id, reviewerID=reviewer.id)
             if review_type:

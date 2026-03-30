@@ -96,6 +96,20 @@ def make_admin():
     return _make_admin
 
 @pytest.fixture
+def make_teacher():
+    """Fixture to create a teacher user in the database."""
+
+    def _make_teacher(email="teacher@example.com", password="teacher", name="Teacher User"):
+        user = User(
+            name=name, email=email, hash_pass=generate_password_hash(password), role="teacher"
+        )
+        _db.session.add(user)
+        _db.session.commit()
+        return user
+
+    return _make_teacher
+
+@pytest.fixture
 def enroll_user_in_course():
     """Fixture to enroll a user in a course."""
 

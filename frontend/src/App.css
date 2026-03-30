@@ -1,16 +1,27 @@
 .App {
   display: flex;
   flex-direction: row;
+  min-height: 100vh;
 }
 
 .inner {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-
   width: 100%;
+  min-width: 0; /* Prevents overflow when content is too wide */
 }
 
 h2 {
   margin: 4px 0;
+} 
+
+@media (max-width: 768px) {
+  .App {
+    flex-direction: column;
+  }
+
+  .inner {
+    width: 100%;
+  }
 }

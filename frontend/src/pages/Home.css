@@ -1,6 +1,20 @@
 .Home {
   margin: 1rem;
-  width: 100%;
+  width: 100%; 
+  box-sizing: border-box;
+}
+
+.HomeSuccessToast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1300;
+  background: #158a67;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 0.7rem 0.95rem;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+  font-weight: 700;
 }
 
 .Home h1 {
@@ -11,7 +25,6 @@
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-
   gap: 1rem;
 }
 
@@ -21,7 +34,9 @@
   align-items: center;
   justify-content: center;
 
-  width: 360px;
+  /* width: 360px; */
+  width: 100%;
+  max-width: 360px;
   height: 240px;
 
   background: var(--background-secondary);
@@ -30,7 +45,8 @@
   border-radius: 6px;
   border: 1px dashed var(--text-secondary);
 
-  transition: all 0.1s ease-in-out;
+  transition: all 0.1s ease-in-out; 
+  box-sizing: border-box;
 }
 
 .ClassCreateButton:hover {
@@ -39,13 +55,16 @@
 }
 
 .EmptyCoursesState {
-  width: 360px;
+  /* width: 360px; */ 
+  width: 100%;
+  max-width: 360px;
   min-height: 160px;
   border-radius: 6px;
   border: 1px dashed var(--text-secondary);
   background: var(--background-secondary);
   color: var(--text-secondary);
-  padding: 1rem;
+  padding: 1rem; 
+  box-sizing: border-box;
 }
 
 .EmptyCoursesState h2 {
@@ -64,12 +83,14 @@
   margin: 1rem 0 1.5rem 0;
 }
 
-.DashboardWidget {
+.DashboardWidget { 
+  flex: 1 1 200px;
   min-width: 220px;
   padding: 1rem;
   border-radius: 6px;
   border: 1px solid var(--background-secondary);
-  background: var(--background-secondary);
+  background: var(--background-secondary); 
+  box-sizing: border-box;
 }
 
 .DashboardWidget h3 {
@@ -82,4 +103,40 @@
   margin: 0;
   font-size: 1.6rem;
   font-weight: bold;
+}
+
+@media (max-width: 768px) { 
+  .Home { 
+    margin: 0;
+    padding: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .Classes { 
+    flex-direction: column;
+  }
+
+  .ClassCreateButton, 
+  .EmptyCoursesState, 
+  .DashboardWidget {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .ClassCreateButton {
+    min-height: 180px;
+  }
+
+  .DashboardSummary {
+    flex-direction: column;
+  }
+
+  .DashboardWidget p {
+    font-size: 1.3rem;
+  }
+
+  .EmptyCoursesState {
+    margin-top: 0.5rem;
+  }
 }

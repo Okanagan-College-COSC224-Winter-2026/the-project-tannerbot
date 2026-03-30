@@ -1,4 +1,4 @@
-import { didExpire, removeToken } from "./login";
+import { removeToken } from "./login";
 
 export const BASE_URL = 'http://localhost:5000'
 
@@ -8,11 +8,13 @@ export const BASE_URL = 'http://localhost:5000'
 
 
 export const maybeHandleExpire = (response: Response) => {
-  if (didExpire(response)) {
+  if (response.status === 401) {
     // Remove the token
     removeToken();
 
-    window.location.href = '/';
+    setTimeout(() => {
+    window.location.href = '/loginpage';
+    }, 5000);
   }
 }
 
@@ -106,12 +108,91 @@ export const listClasses = async () => {
   return await resp.json()
 }
 
-export const importStudentsForCourse = async (courseID: number, students: string) => {
+export const deleteClass = async (classId: number) => {
+  const response = await fetch(`${BASE_URL}/class/${classId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export type StudentEnrollmentPreviewRow = {
+  id: string
+  name: string
+  email: string
+  account_exists: boolean
+  already_enrolled: boolean
+}
+
+export type StudentEnrollmentPreview = {
+  students: StudentEnrollmentPreviewRow[]
+  total_count: number
+  new_accounts_count: number
+  existing_accounts_count: number
+  already_enrolled_count: number
+}
+
+export const previewStudentsForCourseImport = async (
+  courseID: number,
+  students: string,
+): Promise<StudentEnrollmentPreview> => {
+  const response = await fetch(`${BASE_URL}/class/enroll_students_preview`, {
+    method: 'POST',
+    body: JSON.stringify({
+      students,
+      class_id: courseID,
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  })
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    let errorMessage = `Response status: ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody?.msg) {
+        errorMessage = errorBody.msg;
+        if (Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
+          errorMessage += ` (${errorBody.errors.join('; ')})`;
+        }
+      }
+    } catch {
+      // keep default errorMessage when response body is not JSON
+    }
+    throw new Error(errorMessage);
+  }
+
+  const json = await response.json();
+  return json;
+}
+
+export const importStudentsForCourse = async (
+  courseID: number,
+  students: string,
+  options?: {
+    defaultPassword?: string
+    studentPasswords?: Record<string, string>
+  },
+) => {
   const response = await fetch(`${BASE_URL}/class/enroll_students`, {
     method: 'POST',
     body: JSON.stringify({
       students,
       class_id: courseID,
+      default_password: options?.defaultPassword,
+      student_passwords: options?.studentPasswords,
     }),
     headers: {
       'Content-Type': 'application/json',
@@ -978,8 +1059,18 @@ export const assignReview = async (
   return await response.json();
 }
 
+function isSeparatedReviewAssignments(payload: unknown): payload is SeparatedReviewAssignments {
+  return (
+    payload !== null &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload) &&
+    'peer_reviews' in payload &&
+    'group_reviews' in payload
+  );
+}
+
 // Review - List reviews for an assignment
-export const listReviewsForAssignment = async (assignmentID: number) => {
+export const listReviewsForAssignment = async (assignmentID: number): Promise<SeparatedReviewAssignments> => {
   const response = await fetch(`${BASE_URL}/review/assignment/${assignmentID}`, {
     method: 'GET',
     headers: {
@@ -1001,16 +1092,14 @@ export const listReviewsForAssignment = async (assignmentID: number) => {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
-    throw new Error(errorData.msg || `Response status: ${response.status}`);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
   }
 
   const payload = await response.json().catch(() => null);
-  if (payload && typeof payload === 'object') {
+  if (isSeparatedReviewAssignments(payload)) {
     return payload;
   }
-
-  const legacyPayload = await listMyReviewsForAssignment(assignmentID);
-  const reviews: ReviewAssignment[] = Array.isArray(legacyPayload) ? legacyPayload : [];
+  const reviews: ReviewAssignment[] = Array.isArray(payload) ? payload : [];
   return {
     peer_reviews: reviews.filter((review) => review.review_type !== 'group'),
     group_reviews: reviews.filter((review) => review.review_type === 'group'),
@@ -1063,12 +1152,7 @@ export const listSeparatedReviewsForAssignment = async (assignmentID: number) =>
   maybeHandleExpire(response);
 
   if (response.status === 404) {
-    const legacyPayload = await listReviewsForAssignment(assignmentID);
-    const reviews: ReviewAssignment[] = Array.isArray(legacyPayload) ? legacyPayload : [];
-    return {
-      peer_reviews: reviews.filter((review) => review.review_type !== 'group'),
-      group_reviews: reviews.filter((review) => review.review_type === 'group'),
-    };
+    return await listReviewsForAssignment(assignmentID);
   }
 
   if (!response.ok) {
@@ -1077,16 +1161,11 @@ export const listSeparatedReviewsForAssignment = async (assignmentID: number) =>
   }
 
   const payload = await response.json().catch(() => null);
-  if (payload && typeof payload === 'object') {
+  if (isSeparatedReviewAssignments(payload)) {
     return payload;
   }
 
-  const legacyPayload = await listReviewsForAssignment(assignmentID);
-  const reviews: ReviewAssignment[] = Array.isArray(legacyPayload) ? legacyPayload : [];
-  return {
-    peer_reviews: reviews.filter((review) => review.review_type !== 'group'),
-    group_reviews: reviews.filter((review) => review.review_type === 'group'),
-  };
+  return await listReviewsForAssignment(assignmentID);
 }
 
 export const listMyReviewsForAssignment = async (assignmentID: number) => {
@@ -1139,8 +1218,8 @@ export const listMySeparatedReviewsForAssignment = async (assignmentID: number) 
   maybeHandleExpire(response);
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.msg || `Response status: ${response.status}`);
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
   }
 
   return await response.json();
@@ -1258,6 +1337,13 @@ export const deleteUser = async (userId: number) => {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
+    if (errorData?.msg && errorData?.blockers && typeof errorData.blockers === 'object') {
+      const blockerSummary = Object.entries(errorData.blockers)
+        .filter(([, count]) => Number(count) > 0)
+        .map(([key, count]) => `${key}: ${count}`)
+        .join(', ');
+      throw new Error(blockerSummary ? `${errorData.msg}. ${blockerSummary}` : errorData.msg);
+    }
     throw new Error(errorData?.msg || `Response status: ${response.status}`);
   }
 

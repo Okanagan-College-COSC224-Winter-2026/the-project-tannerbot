@@ -4,6 +4,10 @@ Tests for classes endpoints
 
 import json
 
+from werkzeug.security import check_password_hash
+
+from api.models import User
+
 
 def test_create_classes(test_client, make_admin):
     """
@@ -495,15 +499,15 @@ def test_enroll_in_class_not_found(test_client, make_admin):
     assert response.status_code == 404
     assert response.json["msg"] == "Class not found"
 
-def test_enroll_in_class_unauthorized(test_client, make_admin):
+def test_enroll_in_class_unauthorized(test_client, make_teacher):
     """
     GIVEN a logged-in teacher user who is not the teacher of the class
     WHEN POST /class/enroll_students is called
     THEN the request should return a 403 error
     """
-    # Set the admin user by default into the database
-    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
-    make_admin(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
+    # Create two teacher users (not admins, so unauthorized access returns 403)
+    make_teacher(email="teacher@example.com", password="teacher", name="teacheruser")
+    make_teacher(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
     # Login as teacher/admin
     test_client.post(
         "/auth/login",
@@ -704,3 +708,90 @@ def test_enroll_in_class_invalid_email_format(test_client, make_admin):
     )
     assert response.status_code == 400
     assert response.json["msg"] == "Invalid email format: johndoeatexample.com"
+
+
+def test_enroll_students_preview_includes_account_status(test_client, make_admin):
+    """
+    GIVEN a logged-in teacher user and a mix of existing/new students
+    WHEN POST /class/enroll_students_preview is called
+    THEN the response includes account_exists and enrollment status per row
+    """
+    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
+    make_admin(email="existing@example.com", password="secret", name="Existing Student")
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "Science 101"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+
+    csv_text = (
+        "id,name,email\n"
+        "300325853,Existing Student,existing@example.com\n"
+        "300325854,Brand New,newstudent@example.com\n"
+    )
+    response = test_client.post(
+        "/class/enroll_students_preview",
+        data=json.dumps({"class_id": class_id, "students": csv_text}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 200
+    assert response.json["total_count"] == 2
+    assert response.json["existing_accounts_count"] == 1
+    assert response.json["new_accounts_count"] == 1
+
+    rows = {row["email"]: row for row in response.json["students"]}
+    assert rows["existing@example.com"]["account_exists"] is True
+    assert rows["existing@example.com"]["already_enrolled"] is False
+    assert rows["newstudent@example.com"]["account_exists"] is False
+    assert rows["newstudent@example.com"]["already_enrolled"] is False
+
+
+def test_enroll_students_uses_custom_default_password(test_client, make_admin):
+    """
+    GIVEN a logged-in teacher user and a custom default password
+    WHEN POST /class/enroll_students is called
+    THEN newly created student accounts use the custom default password
+    """
+    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "Science 101"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+
+    csv_text = "id,name,email\n300325855,New Student,new-pass@example.com\n"
+    custom_password = "teacher-set-pass"
+    response = test_client.post(
+        "/class/enroll_students",
+        data=json.dumps(
+            {
+                "class_id": class_id,
+                "students": csv_text,
+                "default_password": custom_password,
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 200
+
+    created_user = User.get_by_email("new-pass@example.com")
+    assert created_user is not None
+    assert check_password_hash(created_user.hash_pass, custom_password)

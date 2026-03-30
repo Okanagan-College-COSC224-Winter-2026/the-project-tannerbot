@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { assignReview, getAssignmentGrouping, listSeparatedReviewsForAssignment } from '../util/api';
 
@@ -69,7 +69,7 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
   const canAssignSelectedGroupMode =
     groupReviewType === 'group' ? canAssignGroupToGroup : canAssignIntraGroupPeer;
 
-  const loadGrouping = async () => {
+  const loadGrouping = useCallback(async () => {
     try {
       const payload: AssignmentGroupingResponse = await getAssignmentGrouping(assignmentId);
       setAssignmentMode(payload.assignment.assignment_mode === 'group' ? 'group' : 'solo');
@@ -79,9 +79,9 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
       setAssignmentMode('solo');
       setGroups([]);
     }
-  };
+  }, [assignmentId]);
 
-  const loadReviews = async () => {
+  const loadReviews = useCallback(async () => {
     try {
       setError('');
       const payload: SeparatedReviewAssignments = await listSeparatedReviewsForAssignment(assignmentId);
@@ -95,12 +95,12 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
       setError(message);
       setReviews([]);
     }
-  };
+  }, [assignmentId]);
 
   useEffect(() => {
     loadGrouping();
     loadReviews();
-  }, [assignmentId]);
+  }, [loadGrouping, loadReviews]);
 
   const handleAssign = async () => {
     try {

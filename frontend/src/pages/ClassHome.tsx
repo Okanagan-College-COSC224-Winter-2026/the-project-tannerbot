@@ -2,7 +2,7 @@ import AssignmentCard from "../components/AssignmentCard";
 import Button from "../components/Button";
 import AssignmentModal from "../components/AssignmentModal";
 import "./ClassHome.css";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
   listAssignments,
@@ -12,30 +12,54 @@ import {
   deleteAssignment,
 } from "../util/api";
 import TabNavigation from "../components/TabNavigation";
-import { importCSV } from "../util/csv";
 import StatusMessage from "../components/StatusMessage";
 import { isAdmin, isTeacher } from "../util/login";
+import StudentImportButton from "../components/StudentImportButton";
 
 export default function ClassHome() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const idNew = Number(id)
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [className, setClassName] = useState<string | null>(null);
+  const [classNotFound, setClassNotFound] = useState(false);
+  const [loadingClass, setLoadingClass] = useState(true);
   const [statusMessage, setStatusMessage] = useState('');
   const [statusType, setStatusType] = useState<'error' | 'success'>('error');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<Assignment | undefined>(undefined);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
 
-  useEffect(() => { 
-    if (!id) return;
+  useEffect(() => {
+    if (!id) {
+      setLoadingClass(false);
+      return;
+    }
 
     (async () => {
-      const resp = await listAssignments(String(id));
-      const classes = await listClasses();
-      const currentClass = classes.find((c: { id: number }) => c.id === Number(id));
-      setAssignments(resp);
-      setClassName(currentClass?.name || null);
+      setLoadingClass(true);
+      try {
+        const classes = await listClasses();
+        const currentClass = classes.find((c: { id: number }) => c.id === Number(id));
+
+        if (!currentClass) {
+          setClassNotFound(true);
+          setClassName(null);
+          setAssignments([]);
+          return;
+        }
+
+        const resp = await listAssignments(String(id));
+        setClassNotFound(false);
+        setAssignments(resp);
+        setClassName(currentClass.name || null);
+      } catch (error) {
+        console.error('Error loading class:', error);
+        setStatusType('error');
+        setStatusMessage('Unable to load class details.');
+      } finally {
+        setLoadingClass(false);
+      }
     })();
   }, [id]);
     
@@ -136,6 +160,20 @@ export default function ClassHome() {
     }
   };
     
+  if (classNotFound) {
+    return (
+      <div className="ClassHomePage container-fluid py-4 px-3 px-md-4">
+        <div className="Class card border-0 shadow-sm p-3 p-md-4">
+          <h2 className="h4 fw-bold mb-2">Class not found</h2>
+          <p className="mb-3">This class does not exist or you do not have access to it.</p>
+          <div>
+            <Button onClick={() => navigate('/home')}>Back to Home</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
     return (
       <div className="ClassHomePage container-fluid py-4 px-3 px-md-4">
         <div className="ClassHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
@@ -145,9 +183,7 @@ export default function ClassHome() {
 
           <div className="ClassHeaderRight">
             {isTeacher() ? (
-              <Button onClick={() => importCSV(id as string)}>
-                Add Students via CSV
-              </Button>
+              <StudentImportButton classId={id} />
             ) : null}
           </div>
         </div>
@@ -179,7 +215,11 @@ export default function ClassHome() {
 
         <div className="Class card border-0 shadow-sm p-3 p-md-4">
           <div className="Assignments">
-            {assignments.length === 0 ? (
+            {loadingClass ? (
+              <div className="EmptyAssignmentsState" role="status">
+                <p className="mb-0">Loading class...</p>
+              </div>
+            ) : assignments.length === 0 ? (
               <div className="EmptyAssignmentsState" role="status">
                 <p className="mb-0">No assignments yet.</p>
               </div>

@@ -1,5 +1,5 @@
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import RubricCreator from "../components/RubricCreator";
 import Button from "../components/Button";
 import ManageAssignment from "../components/ManageAssignment";
@@ -49,13 +49,13 @@ export default function CriteriaCreation() {
     0
   );
 
-  const fetchRubric = async () => {
+  const fetchRubric = useCallback(async () => {
     if (!id) return;
     const data = await getRubricByAssignment(Number(id), rubricType);
     setRubric(data);
-  };
+  }, [id, rubricType]);
 
-  const fetchAssignmentMode = async () => {
+  const fetchAssignmentMode = useCallback(async () => {
     if (!id) return;
     try {
       const groupingPayload: AssignmentGroupingResponse = await getAssignmentGrouping(Number(id));
@@ -68,15 +68,15 @@ export default function CriteriaCreation() {
       setAssignmentMode("solo");
       setRubricType("peer");
     }
-  };
-
-  useEffect(() => {
-    fetchAssignmentMode();
   }, [id]);
 
   useEffect(() => {
+    fetchAssignmentMode();
+  }, [fetchAssignmentMode]);
+
+  useEffect(() => {
     fetchRubric();
-  }, [id, rubricType]);
+  }, [fetchRubric]);
 
   const beginEdit = (criteria: CriteriaDescription) => {
     setEditingCriteriaId(criteria.id);

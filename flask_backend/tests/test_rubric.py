@@ -361,6 +361,43 @@ class TestAddMultipleCriteria:
         assert resp.status_code == 404
         assert "not found for this assignment" in resp.get_json()["msg"].lower()
 
+    def test_get_criteria_with_non_integer_rubric_id_returns_400(self, test_client):
+        """
+        GIVEN an invalid rubricID query parameter
+        WHEN GET /criteria is called
+        THEN the API returns a 400 instead of crashing
+        """
+        resp = test_client.get("/criteria?rubricID=abc")
+        assert resp.status_code == 400
+        assert resp.get_json()["msg"] == "rubricID must be an integer"
+
+    def test_get_rubric_with_non_integer_rubric_id_returns_400(self, test_client):
+        """
+        GIVEN an invalid rubricID query parameter
+        WHEN GET /rubric is called
+        THEN the API returns a 400 instead of crashing
+        """
+        resp = test_client.get("/rubric?rubricID=xyz")
+        assert resp.status_code == 400
+        assert resp.get_json()["msg"] == "rubricID must be an integer"
+
+    def test_create_criteria_without_json_returns_400(self, test_client, make_admin):
+        """
+        GIVEN a teacher sending a non-JSON request
+        WHEN POST /create_criteria is called
+        THEN the API returns 400 with a clear message
+        """
+        make_admin(email="teacher@example.com", password="pass", name="Teacher")
+        _login(test_client, "teacher@example.com", "pass")
+
+        resp = test_client.post(
+            "/create_criteria",
+            data="rubricID=1&question=Q&scoreMax=10",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        assert resp.status_code == 400
+        assert resp.get_json()["msg"] == "Missing JSON in request"
+
 
 # ---------------------------------------------------------------------------
 # Tests: instructor sets scale / score for each criterion
