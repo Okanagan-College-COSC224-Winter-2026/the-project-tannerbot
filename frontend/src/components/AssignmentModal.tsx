@@ -67,6 +67,7 @@ export default function AssignmentModal({ isOpen, onClose, onSave, assignment, m
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="text-input"
+              maxLength={100}
             />
           </div>
 

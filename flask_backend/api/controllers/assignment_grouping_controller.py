@@ -51,6 +51,9 @@ def create_assignment_group(assignment_id):
     if not name:
         return jsonify({"msg": "Group name is required"}), 400
 
+    if len(name) > 255:
+        return jsonify({"msg": "Group name must not exceed 255 characters"}), 400
+
     group = CourseGroup(name=name, assignmentID=assignment.id)
     db.session.add(group)
     try:
@@ -78,6 +81,9 @@ def rename_assignment_group(assignment_id, group_id):
     name = (data.get("name") or "").strip()
     if not name:
         return jsonify({"msg": "Group name is required"}), 400
+
+    if len(name) > 255:
+        return jsonify({"msg": "Group name must not exceed 255 characters"}), 400
 
     group.name = name
     try:

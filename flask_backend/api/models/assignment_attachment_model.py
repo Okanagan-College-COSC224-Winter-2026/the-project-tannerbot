@@ -2,7 +2,7 @@
 Assignment attachment model for database-backed file storage.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from .db import db
 
@@ -19,7 +19,12 @@ class AssignmentAttachment(db.Model):
     mime_type = db.Column(db.String(255), nullable=True)
     size_bytes = db.Column(db.Integer, nullable=False)
     content = db.Column(db.LargeBinary, nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    # Store UTC timestamps without relying on deprecated datetime.utcnow().
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+    )
 
     __table_args__ = (
         db.UniqueConstraint(

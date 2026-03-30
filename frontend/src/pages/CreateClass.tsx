@@ -36,7 +36,7 @@ export default function CreateClass() {
       <StatusMessage message={statusMessage} type={statusType} />
 
       <h2>Class Name</h2>
-      <Textbox onInput={setName} />
+      <Textbox onInput={setName} maxLength={100} />
       
       <Button onClick={() => {
         // Send API req

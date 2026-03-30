@@ -85,7 +85,12 @@ def get_criteria():
     if not rubric_id:
         return jsonify({"msg": "rubricID query parameter is required"}), 400
 
-    rubric = Rubric.get_by_id(int(rubric_id))
+    try:
+        rubric_id = int(rubric_id)
+    except (TypeError, ValueError):
+        return jsonify({"msg": "rubricID must be an integer"}), 400
+
+    rubric = Rubric.get_by_id(rubric_id)
     if not rubric:
         return jsonify({"msg": "Rubric not found"}), 404
 
@@ -137,7 +142,10 @@ def create_rubric():
 @jwt_teacher_required
 def create_criteria():
     """Create a new criteria description for a rubric"""
-    data = request.get_json()
+    if not request.is_json:
+        return jsonify({"msg": "Missing JSON in request"}), 400
+
+    data = request.get_json(silent=True) or {}
     rubric_id = data.get("rubricID")
     question = str(data.get("question", "")).strip()
     score_max = _safe_int(data.get("scoreMax", 0), 0)
@@ -148,6 +156,9 @@ def create_criteria():
 
     if not question:
         return jsonify({"msg": "question is required"}), 400
+
+    if len(question) > 255:
+        return jsonify({"msg": "Question must not exceed 255 characters"}), 400
 
     rubric = Rubric.get_by_id(rubric_id)
     if not rubric:
@@ -190,6 +201,8 @@ def edit_criteria(criteria_id):
         criteria.question = str(data.get("question", "")).strip()
         if not criteria.question:
             return jsonify({"msg": "question is required"}), 400
+        if len(criteria.question) > 255:
+            return jsonify({"msg": "Question must not exceed 255 characters"}), 400
 
     if "hasScore" in data:
         criteria.hasScore = _safe_bool(data.get("hasScore"), criteria.hasScore)
@@ -237,7 +250,12 @@ def get_rubric():
     if not rubric_id:
         return jsonify({"msg": "rubricID query parameter is required"}), 400
 
-    rubric = Rubric.get_by_id(int(rubric_id))
+    try:
+        rubric_id = int(rubric_id)
+    except (TypeError, ValueError):
+        return jsonify({"msg": "rubricID must be an integer"}), 400
+
+    rubric = Rubric.get_by_id(rubric_id)
     if not rubric:
         return jsonify({"msg": "Rubric not found"}), 404
 

@@ -12,10 +12,13 @@ bp = Blueprint("class", __name__, url_prefix="/class")
 @jwt_teacher_required
 def create_class():
     """Create a new class where the authenticated user is the teacher"""
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     class_name = data.get("name")
     if not class_name:
         return jsonify({"msg": "Class name is required"}), 400
+    
+    if len(class_name) > 100:
+        return jsonify({"msg": "Class name must not exceed 100 characters"}), 400
 
     email = get_jwt_identity()
     user = User.get_by_email(email)
