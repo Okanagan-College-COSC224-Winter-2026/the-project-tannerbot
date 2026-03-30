@@ -68,11 +68,13 @@
   flex-wrap: wrap;
   gap: 1rem;
   margin: 1rem 0 1.5rem 0;
+  max-width: 600px;
 }
 
 .DashboardWidget { 
   flex: 1 1 200px;
-  min-width: 220px;
+  min-width: 200px;
+  max-width: 280px;
   padding: 1rem;
   border-radius: 6px;
   border: 1px solid var(--background-secondary);

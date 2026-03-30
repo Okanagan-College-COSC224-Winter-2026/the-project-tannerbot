@@ -71,62 +71,81 @@ export default function ChangePassword() {
 };
 
   return (
-    <div className="LoginPage">
-      <div className="LoginBlock">
-        <h1>Change Password</h1>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-          You must change your temporary password before continuing.
-        </p>
+    <div className="ChangePasswordPage d-flex align-items-center justify-content-center min-vh-100 py-5">
+      <div className="container">
+        <div className="row justify-content-center">
+          <div className="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5">
+            <div className="card border-0 shadow-sm ChangePasswordCard">
+              <div className="card-body p-4 p-md-5">
+                <h1 className="h3 fw-bold mb-1">Change Password</h1>
+                <p className="text-secondary mb-4">Update your password to continue</p>
 
-        <StatusMessage message={error} type="error" />
-        {success && (
-          <StatusMessage 
-            message="Password changed successfully! Redirecting..." 
-            type="success" 
-          />
-        )}
+                {error && <StatusMessage message={error} type="error" className="ChangePasswordError mb-3" />}
+                {success && (
+                  <StatusMessage 
+                    message="Password changed successfully! Redirecting..." 
+                    type="success" 
+                    className="mb-3"
+                  />
+                )}
 
-        <div className="LoginInner">
-          <div className="LoginInputs">
-            <div className="LoginInputChunk">
-              <span>Current Password</span>
-              <Textbox
-                type='password'
-                placeholder='Current password...'
-                onInput={setCurrentPassword}
-                className='LoginInput'
-              />
-            </div>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleChangePassword();
+                  }}
+                >
+                  <div className="mb-3">
+                    <label htmlFor="current-password" className="form-label fw-semibold">Current Password</label>
+                    <input
+                      id="current-password"
+                      type="password"
+                      className="form-control form-control-lg"
+                      placeholder="Enter your current password"
+                      value={currentPassword}
+                      onChange={(event) => setCurrentPassword(event.target.value)}
+                      autoComplete="current-password"
+                      required
+                    />
+                  </div>
 
-            <div className="LoginInputChunk">
-              <span>New Password</span>
-              <Textbox
-                type='password'
-                placeholder='New password...'
-                onInput={setNewPassword}
-                className='LoginInput'
-              />
-            </div>
+                  <div className="mb-3">
+                    <label htmlFor="new-password" className="form-label fw-semibold">New Password</label>
+                    <input
+                      id="new-password"
+                      type="password"
+                      className="form-control form-control-lg"
+                      placeholder="Enter your new password"
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                      autoComplete="new-password"
+                      required
+                    />
+                  </div>
 
-            <div className="LoginInputChunk">
-              <span>Confirm New Password</span>
-              <Textbox
-                type='password'
-                placeholder='Confirm new password...'
-                onInput={setConfirmPassword}
-                className='LoginInput'
-              />
+                  <div className="mb-3">
+                    <label htmlFor="confirm-password" className="form-label fw-semibold">Confirm New Password</label>
+                    <input
+                      id="confirm-password"
+                      type="password"
+                      className="form-control form-control-lg"
+                      placeholder="Confirm your new password"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      autoComplete="new-password"
+                      required
+                    />
+                  </div>
+
+                  <div className="d-grid gap-2 mt-4">
+                    <button type="submit" className="btn btn-primary btn-lg" disabled={success}>
+                      Change Password
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div>
-          <Button
-            onClick={handleChangePassword}
-            disabled={success}
-          >
-            Change Password
-          </Button>
         </div>
       </div>
     </div>

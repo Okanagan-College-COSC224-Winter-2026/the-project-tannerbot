@@ -103,11 +103,14 @@
 .action-button {
   background: none;
   border: none;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 6px 8px;
   border-radius: 4px;
   transition: background-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .action-button:hover {
@@ -115,7 +118,7 @@
 }
 
 .edit-button {
-  color: #3b82f6;
+  color: var(--bs-secondary);
 }
 
 .delete-button {
@@ -123,8 +126,10 @@
 }
 
 .locked-indicator {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   opacity: 0.6;
+  display: inline-flex;
+  align-items: center;
 }
 
 /*TODO: add disabled functionality */

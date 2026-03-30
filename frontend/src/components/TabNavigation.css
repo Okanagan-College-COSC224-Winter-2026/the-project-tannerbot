@@ -1,29 +1,52 @@
 .TabNav {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   justify-content: flex-start;
   align-items: center;
+  gap: 0.6rem;
 
   width: 100%;
-  padding: 12px;
+  padding: 0.25rem 0;
 }
 
 .TabNav .Tab {
   display: flex;
-  flex-direction: row;
   justify-content: center;
   align-items: center;
-
-  padding: 20px 6px;
-  margin: 0px 20px;
-
-  border-bottom: 2px solid transparent;
+  min-height: 44px;
+  padding: 0.6rem 1rem;
+  margin: 0;
+  border: 1px solid #dde4ee;
+  border-radius: 0.95rem;
+  background: linear-gradient(180deg, #ffffff 0%, #fdf8fb 100%);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(18, 32, 54, 0.06);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.TabNav .Tab:hover {
+.TabNav .Tab:not(.active):hover {
   cursor: pointer;
+  border-color: #ccd7e6;
+  box-shadow: 0 6px 16px rgba(var(--bs-primary-rgb), 0.2);
+  transform: translateY(-1px);
 }
 
 .TabNav .Tab.active {
-  border-bottom: 2px solid black;
+  border-color: #dde4ee;
+  color: var(--text-primary);
+  background: linear-gradient(180deg, #ffffff 0%, #f7f8fb 100%);
+  box-shadow: 0 2px 10px rgba(18, 32, 54, 0.06);
+}
+
+@media (max-width: 640px) {
+  .TabNav {
+    gap: 0.5rem;
+  }
+
+  .TabNav .Tab {
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 120px;
+  }
 }
