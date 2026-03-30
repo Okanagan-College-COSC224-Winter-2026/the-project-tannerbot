@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   listMyReceivedSeparatedReviewsForAssignment,
@@ -87,7 +87,7 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
 
   const selectedReviewWindowMessage = selectedReview ? getReviewWindowMessage(selectedReview) : null;
 
-  const loadAssignedReviews = async () => {
+  const loadAssignedReviews = useCallback(async () => {
     if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
       setError("Invalid assignment ID.");
       setLoading(false);
@@ -137,11 +137,11 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [assignmentId]);
 
   useEffect(() => {
     loadAssignedReviews();
-  }, [assignmentId]);
+  }, [loadAssignedReviews]);
 
   const handleReviewChange = (reviewId: number) => {
     setSelectedReviewId(reviewId);

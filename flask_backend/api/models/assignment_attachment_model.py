@@ -2,7 +2,7 @@
 Assignment attachment model for database-backed file storage.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from .db import db
 
@@ -23,7 +23,7 @@ class AssignmentAttachment(db.Model):
     created_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
     )
 
     __table_args__ = (

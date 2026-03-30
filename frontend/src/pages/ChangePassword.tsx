@@ -61,7 +61,7 @@ export default function ChangePassword() {
       navigate('/home');
     }, 2000);
 
-  } catch (err: unknown) {
+  } catch {
   setError('User password is incorrect. Your password will not be changed. Logging Out.');
 
   setTimeout(() => {
