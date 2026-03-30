@@ -11,6 +11,8 @@ from ..services import (
 from .auth_controller import jwt_teacher_required
 from .helpers import get_teacher_managed_assignment
 
+bp = Blueprint("assignment_grouping", __name__, url_prefix="/assignment")
+
 
 @bp.route("/<int:assignment_id>/grouping", methods=["GET"])
 @jwt_teacher_required
