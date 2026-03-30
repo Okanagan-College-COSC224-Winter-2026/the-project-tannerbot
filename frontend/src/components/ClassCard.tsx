@@ -8,11 +8,26 @@ interface Props {
   gradeLabel?: string
   gradeUnavailable?: boolean
   onclick?: () => void
+  canDelete?: boolean
+  onDelete?: () => void
 }
 
 export default function ClassCard(props: Props) {
   return (
     <div className="ClassCard" onClick={props.onclick}>
+      {props.canDelete && props.onDelete ? (
+        <button
+          className="ClassCardDeleteButton"
+          onClick={(event) => {
+            event.stopPropagation()
+            props.onDelete?.()
+          }}
+          aria-label={`Delete class ${props.name}`}
+          title="Delete class"
+        >
+          Delete
+        </button>
+      ) : null}
       {props.gradeLabel ? (
         <CourseGradeBadge label={props.gradeLabel} unavailable={props.gradeUnavailable} />
       ) : null}

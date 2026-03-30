@@ -108,12 +108,91 @@ export const listClasses = async () => {
   return await resp.json()
 }
 
-export const importStudentsForCourse = async (courseID: number, students: string) => {
+export const deleteClass = async (classId: number) => {
+  const response = await fetch(`${BASE_URL}/class/${classId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export type StudentEnrollmentPreviewRow = {
+  id: string
+  name: string
+  email: string
+  account_exists: boolean
+  already_enrolled: boolean
+}
+
+export type StudentEnrollmentPreview = {
+  students: StudentEnrollmentPreviewRow[]
+  total_count: number
+  new_accounts_count: number
+  existing_accounts_count: number
+  already_enrolled_count: number
+}
+
+export const previewStudentsForCourseImport = async (
+  courseID: number,
+  students: string,
+): Promise<StudentEnrollmentPreview> => {
+  const response = await fetch(`${BASE_URL}/class/enroll_students_preview`, {
+    method: 'POST',
+    body: JSON.stringify({
+      students,
+      class_id: courseID,
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  })
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    let errorMessage = `Response status: ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody?.msg) {
+        errorMessage = errorBody.msg;
+        if (Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
+          errorMessage += ` (${errorBody.errors.join('; ')})`;
+        }
+      }
+    } catch {
+      // keep default errorMessage when response body is not JSON
+    }
+    throw new Error(errorMessage);
+  }
+
+  const json = await response.json();
+  return json;
+}
+
+export const importStudentsForCourse = async (
+  courseID: number,
+  students: string,
+  options?: {
+    defaultPassword?: string
+    studentPasswords?: Record<string, string>
+  },
+) => {
   const response = await fetch(`${BASE_URL}/class/enroll_students`, {
     method: 'POST',
     body: JSON.stringify({
       students,
       class_id: courseID,
+      default_password: options?.defaultPassword,
+      student_passwords: options?.studentPasswords,
     }),
     headers: {
       'Content-Type': 'application/json',
