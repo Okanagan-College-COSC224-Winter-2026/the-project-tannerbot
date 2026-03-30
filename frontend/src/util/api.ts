@@ -1,4 +1,4 @@
-import { didExpire, removeToken } from "./login";
+import { removeToken } from "./login";
 
 export const BASE_URL = 'http://localhost:5000'
 
@@ -8,11 +8,13 @@ export const BASE_URL = 'http://localhost:5000'
 
 
 export const maybeHandleExpire = (response: Response) => {
-  if (didExpire(response)) {
+  if (response.status === 401) {
     // Remove the token
     removeToken();
 
-    window.location.href = '/';
+    setTimeout(() => {
+    window.location.href = '/loginpage';
+    }, 5000);
   }
 }
 

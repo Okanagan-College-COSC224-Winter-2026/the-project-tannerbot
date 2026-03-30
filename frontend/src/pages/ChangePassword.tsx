@@ -62,12 +62,12 @@ export default function ChangePassword() {
     }, 2000);
 
   } catch (err: unknown) {
-    if (err instanceof Error) {
-      setError(err.message || 'Failed to change password');
-    } else {
-      setError('Failed to change password');
-    }
-  }
+  setError('User password is incorrect. Your password will not be changed. Logging Out.');
+
+  setTimeout(() => {
+    setError('');
+  }, 10000);
+}
 };
 
   return (
