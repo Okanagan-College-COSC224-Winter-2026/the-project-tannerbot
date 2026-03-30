@@ -5,6 +5,7 @@ Only admin users can access these endpoints
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
 
 from ..models import User, UserSchema
@@ -140,6 +141,30 @@ def delete_user(user_id):
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
-    user.delete()
+    blockers = user.get_delete_blockers()
+    blocking_references = {key: value for key, value in blockers.items() if value > 0}
+    if blocking_references:
+        return (
+            jsonify(
+                {
+                    "msg": "Cannot delete user because they are still referenced by existing records",
+                    "blockers": blocking_references,
+                }
+            ),
+            409,
+        )
+
+    try:
+        user.delete()
+    except IntegrityError:
+        return (
+            jsonify(
+                {
+                    "msg": "Cannot delete user because they are still referenced by existing records",
+                    "blockers": user.get_delete_blockers(),
+                }
+            ),
+            409,
+        )
 
     return jsonify({"msg": "User deleted successfully"}), 200

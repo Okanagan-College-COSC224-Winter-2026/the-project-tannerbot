@@ -1245,6 +1245,13 @@ export const deleteUser = async (userId: number) => {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
+    if (errorData?.msg && errorData?.blockers && typeof errorData.blockers === 'object') {
+      const blockerSummary = Object.entries(errorData.blockers)
+        .filter(([, count]) => Number(count) > 0)
+        .map(([key, count]) => `${key}: ${count}`)
+        .join(', ');
+      throw new Error(blockerSummary ? `${errorData.msg}. ${blockerSummary}` : errorData.msg);
+    }
     throw new Error(errorData?.msg || `Response status: ${response.status}`);
   }
 
