@@ -70,7 +70,7 @@ def get_user_classes():
         if not course:
             continue
 
-        row = {"id": course.id, "name": course.name}
+        row = {"id": course.id, "teacherID": course.teacherID, "name": course.name}
         if user.is_student():
             row["total_grade"] = calculate_student_course_total_grade(user.id, course.id)
 
@@ -170,3 +170,28 @@ def get_class_progress(class_id):
 
     payload = build_class_progress_payload(course)
     return jsonify(payload), 200
+
+
+@bp.route("/<int:class_id>", methods=["DELETE"])
+@jwt_teacher_required
+def delete_class(class_id):
+    """Delete an existing class.
+
+    Access allowed for:
+    - class teacher
+    - admins
+    """
+    course = Course.get_by_id(class_id)
+    if not course:
+        return jsonify({"msg": "Class not found"}), 404
+
+    email = get_jwt_identity()
+    current_user = User.get_by_email(email)
+    if not current_user:
+        return jsonify({"msg": "User not found"}), 404
+
+    if course.teacherID != current_user.id and not current_user.is_admin():
+        return jsonify({"msg": "Unauthorized: You are not the teacher of this class"}), 403
+
+    course.delete()
+    return jsonify({"msg": "Class deleted"}), 200

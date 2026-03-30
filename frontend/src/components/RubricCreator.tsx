@@ -67,8 +67,8 @@ export default function RubricCreator({
 
             const rubricResponse = await createRubric(id, false, rubricType);
             const newRubricID = rubricResponse.id;
-            await Promise.all(newCriteria.map(({ question, scoreMax }) => 
-                createCriteria(newRubricID, question, Math.max(0, Math.min(scoreMax, 100)), false, true)
+            await Promise.all(newCriteria.map(({ question, scoreMax, hasScore }) => 
+                createCriteria(id, newRubricID, question, Math.max(0, Math.min(scoreMax, 100)), false, hasScore)
             ));
             setStatusType('success');
             setStatusMessage('Rubric created successfully!');

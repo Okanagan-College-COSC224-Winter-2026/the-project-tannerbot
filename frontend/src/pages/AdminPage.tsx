@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
-import { listUsers, deleteUser } from "../util/api";
+import { listUsers, deleteUser, deleteUserCascade, DeleteUserConflictError } from "../util/api";
+import DeleteUserModal from "../components/DeleteUserModal";
 import "./AdminPage.css";
 export default function AdminPage() {
+  type UserAssociations = Record<string, { count: number; items: Array<Record<string, unknown>> }>;
+
   const [users, setUsers] = useState<User[]>([]);
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [statusType, setStatusType] = useState<"error" | "success">("error");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteModalUser, setDeleteModalUser] = useState<User | null>(null);
+  const [deleteModalAssociations, setDeleteModalAssociations] = useState<UserAssociations>({});
   const currentUser = JSON.parse(localStorage.getItem("user") || "null");
 
   async function handleDelete(userId: number) {
@@ -22,6 +28,34 @@ export default function AdminPage() {
       setUsers((prev) => prev.filter((u) => u.id !== userId));
       setStatusType("success");
       setStatusMessage("User deleted successfully.");
+    } catch (err) {
+      if (err instanceof DeleteUserConflictError) {
+        // Show the modal with associations
+        const userToDelete = users.find((u) => u.id === userId);
+        if (userToDelete) {
+          setDeleteModalUser(userToDelete);
+          setDeleteModalAssociations(err.associations);
+          setShowDeleteModal(true);
+        }
+      } else {
+        const message = err instanceof Error ? err.message : "Failed to delete user.";
+        setStatusType("error");
+        setStatusMessage(message);
+        console.error("Failed to delete user:", err);
+      }
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteModalUser) return;
+
+    try {
+      await deleteUserCascade(deleteModalUser.id);
+      setUsers((prev) => prev.filter((u) => u.id !== deleteModalUser.id));
+      setShowDeleteModal(false);
+      setDeleteModalUser(null);
+      setStatusType("success");
+      setStatusMessage(`User ${deleteModalUser.name} has been deleted successfully.`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to delete user.";
       setStatusType("error");
@@ -86,6 +120,17 @@ export default function AdminPage() {
         </tbody>
       </table>
     </div>
+
+    <DeleteUserModal
+      isOpen={showDeleteModal}
+      userName={deleteModalUser?.name || ""}
+      associations={deleteModalAssociations}
+      onClose={() => {
+        setShowDeleteModal(false);
+        setDeleteModalUser(null);
+      }}
+      onConfirm={handleConfirmDelete}
+    />
   </div>
 )
 }

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import {
   listMyReceivedSeparatedReviewsForAssignment,
@@ -61,6 +62,8 @@ interface Props {
 }
 
 export default function StudentAssignedReviews({ assignmentId }: Props) {
+  const location = useLocation();
+  const latestLoadId = useRef(0);
   const [reviews, setReviews] = useState<ReviewAssignment[]>([]);
   const [receivedReviews, setReceivedReviews] = useState<ReviewAssignment[]>([]);
   const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
@@ -86,6 +89,27 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
   );
 
   const selectedReviewWindowMessage = selectedReview ? getReviewWindowMessage(selectedReview) : null;
+  const selectedReviewCanMark = selectedReview ? selectedReview.can_mark !== false : false;
+
+  const queryClassIdRaw = new URLSearchParams(location.search).get("classId");
+  const queryClassId = queryClassIdRaw ? Number(queryClassIdRaw) : null;
+  const shouldKeepReview = (review: ReviewAssignment) => {
+    const sameAssignment = Number(review.assignmentID) === assignmentId;
+    if (!sameAssignment) {
+      return false;
+    }
+
+    if (!Number.isFinite(queryClassId ?? NaN)) {
+      return true;
+    }
+
+    const reviewCourseId = review.assignment?.courseID;
+    if (typeof reviewCourseId !== "number") {
+      return true;
+    }
+
+    return reviewCourseId === queryClassId;
+  };
 
   const loadAssignedReviews = useCallback(async () => {
     if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
@@ -94,7 +118,9 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       return;
     }
 
+    let loadId = 0;
     try {
+      loadId = ++latestLoadId.current;
       setLoading(true);
       setError("");
       setSuccess("");
@@ -102,7 +128,10 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       const assignedReviews: ReviewAssignment[] = [
         ...(Array.isArray(payload.group_reviews) ? payload.group_reviews : []),
         ...(Array.isArray(payload.peer_reviews) ? payload.peer_reviews : []),
-      ];
+      ].filter(shouldKeepReview);
+      if (loadId !== latestLoadId.current) {
+        return;
+      }
       setReviews(assignedReviews);
 
       const receivedPayload: SeparatedReviewAssignments =
@@ -110,7 +139,10 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       const allReceivedReviews: ReviewAssignment[] = [
         ...(Array.isArray(receivedPayload.group_reviews) ? receivedPayload.group_reviews : []),
         ...(Array.isArray(receivedPayload.peer_reviews) ? receivedPayload.peer_reviews : []),
-      ];
+      ].filter(shouldKeepReview);
+      if (loadId !== latestLoadId.current) {
+        return;
+      }
       setReceivedReviews(allReceivedReviews);
 
       const firstReview = assignedReviews[0] ?? null;
@@ -128,6 +160,9 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
         setDraft({});
       }
     } catch (err) {
+      if (loadId !== latestLoadId.current) {
+        return;
+      }
       const message = err instanceof Error ? err.message : "Failed to load assigned reviews";
       setError(message);
       setReviews([]);
@@ -135,9 +170,12 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       setSelectedReviewId(null);
       setDraft({});
     } finally {
+      if (loadId !== latestLoadId.current) {
+        return;
+      }
       setLoading(false);
     }
-  }, [assignmentId]);
+  }, [assignmentId, queryClassId]);
 
   useEffect(() => {
     loadAssignedReviews();
@@ -181,6 +219,11 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
   const handleSubmit = async () => {
     if (!selectedReview) {
       setError("Select a review to submit.");
+      return;
+    }
+
+    if (!selectedReviewCanMark) {
+      setError("This group review has already been completed by a teammate.");
       return;
     }
 
@@ -281,7 +324,7 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
                 <optgroup label="Group Reviews">
                   {groupReviews.map((review) => (
                     <option key={review.id} value={review.id}>
-                      {review.reviewee?.name ?? `student ${review.reviewee?.id}`} ({isReviewComplete(review) ? "Complete" : "Pending"})
+                      {review.reviewee_group_name ?? "Ungrouped"} ({isReviewComplete(review) ? "Complete" : "Pending"})
                     </option>
                   ))}
                 </optgroup>
@@ -303,7 +346,9 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
             <div className="ReviewCriterionCard mb-3 p-3">
               <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
                 <h4 className="h6 mb-0">
-                  Reviewing: {selectedReview.reviewee?.name ?? `student ${selectedReview.reviewee?.id}`}
+                  Reviewing: {selectedReview.review_type === "group"
+                    ? selectedReview.reviewee_group_name ?? "Ungrouped"
+                    : selectedReview.reviewee?.name ?? `student ${selectedReview.reviewee?.id}`}
                 </h4>
                 <div className="d-flex gap-2">
                   <span className="badge text-bg-light text-uppercase">
@@ -331,6 +376,11 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
           ) : null}
 
           {selectedReviewWindowMessage ? <p className="text-warning mt-2">{selectedReviewWindowMessage}</p> : null}
+          {selectedReview && selectedReview.can_mark === false ? (
+            <p className="text-warning mt-2 mb-0">
+              This group review has already been completed by a teammate and is now locked.
+            </p>
+          ) : null}
 
           {selectedReview?.criteria?.map((criterion) => {
             const criterionRow = criterion.criterion_row;
@@ -375,7 +425,7 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={saving || selectedReview?.review_window_open === false}
+            disabled={saving || selectedReview?.review_window_open === false || !selectedReviewCanMark}
           >
             {saving ? "Submitting..." : "Submit Review"}
           </button>

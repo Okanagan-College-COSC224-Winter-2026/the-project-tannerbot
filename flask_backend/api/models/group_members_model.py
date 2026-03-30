@@ -47,12 +47,28 @@ class Group_Members(db.Model):
     @classmethod
     def get_for_assignment(cls, assignment_id):
         """Get all group members for an assignment."""
-        return cls.query.filter_by(assignmentID=int(assignment_id)).all()
+        assignment_id = int(assignment_id)
+        return (
+            cls.query.filter(
+                (cls.assignmentID == assignment_id)
+                | ((cls.assignmentID.is_(None)) & cls.group.has(assignmentID=assignment_id))
+            )
+            .all()
+        )
 
     @classmethod
     def get_for_assignment_and_user(cls, assignment_id, user_id):
         """Get the current group membership for a user on an assignment."""
-        return cls.query.filter_by(assignmentID=int(assignment_id), userID=int(user_id)).first()
+        assignment_id = int(assignment_id)
+        user_id = int(user_id)
+        return (
+            cls.query.filter_by(userID=user_id)
+            .filter(
+                (cls.assignmentID == assignment_id)
+                | ((cls.assignmentID.is_(None)) & cls.group.has(assignmentID=assignment_id))
+            )
+            .first()
+        )
 
     def delete(self):
         """Delete group member from the database"""
