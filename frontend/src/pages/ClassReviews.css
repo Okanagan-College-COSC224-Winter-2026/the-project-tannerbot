@@ -1,0 +1,107 @@
+@ -0,0 +1,106 @@
+.ClassReviewsTable th,
+.ClassReviewsTable td {
+  vertical-align: middle;
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+
+/* Match progress-page table behavior and avoid inherited generic .table overrides. */
+.ClassReviewsTable tr {
+  display: table-row;
+  width: auto;
+}
+
+.ClassReviewsTable th,
+.ClassReviewsTable td {
+  display: table-cell;
+}
+
+/* Strong override for legacy Assignment.css `.table` flex rules. */
+.ClassReviewsTable.table tr {
+  display: table-row !important;
+  width: auto !important;
+}
+
+.ClassReviewsTable.table th,
+.ClassReviewsTable.table td {
+  display: table-cell !important;
+}
+
+.ClassReviewsTable th {
+  width: auto;
+  height: auto;
+  align-items: initial;
+  justify-content: initial;
+  flex-direction: initial;
+  text-align: left;
+}
+
+.ClassReviewsTable {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.ClassReviewsTable.table {
+  display: table;
+  width: 100% !important;
+  margin: 0;
+}
+
+.ClassReviewsTable thead {
+  display: table-header-group;
+}
+
+.ClassReviewsTable tbody {
+  display: table-row-group;
+}
+
+.ClassReviewsTable thead th {
+  white-space: nowrap;
+  text-align: left !important;
+}
+
+.ClassReviewsTable th:nth-child(1),
+.ClassReviewsTable td:nth-child(1) {
+  width: 14%;
+  white-space: nowrap;
+  text-align: left !important;
+}
+
+.ClassReviewsTable th:nth-child(2),
+.ClassReviewsTable td:nth-child(2),
+.ClassReviewsTable th:nth-child(3),
+.ClassReviewsTable td:nth-child(3) {
+  width: 32%;
+  text-align: left !important;
+}
+
+.ClassReviewsTable th:nth-child(4),
+.ClassReviewsTable td:nth-child(4) {
+  width: 22%;
+  white-space: nowrap;
+  text-align: left !important;
+}
+
+.ClassReviewsTable .badge {
+  font-size: 0.8rem;
+  padding: 0.45rem 0.65rem;
+  white-space: nowrap;
+  display: inline-flex;
+  justify-content: center;
+  min-width: 6.75rem;
+}
+
+.ClassReviewsClickableRow {
+  cursor: pointer;
+}
+
+.ClassReviewsTableWrap {
+  overflow-x: visible;
+}
+
+@media (max-width: 900px) {
+  .ClassReviewsTableWrap {
+    overflow-x: auto;
+  }
+}

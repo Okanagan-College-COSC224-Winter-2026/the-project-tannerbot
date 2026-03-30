@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import Button from "../components/Button";
 import TabNavigation from "../components/TabNavigation";
 import { listReviewsForClass } from "../util/api";
+import "./ClassReviews.css";
 
 export default function ClassReviews() {
   const { id } = useParams();
-  const navigate = useNavigate();
 
   const classId = Number(id);
   const [reviews, setReviews] = useState<ReviewAssignment[]>([]);
@@ -53,9 +53,6 @@ export default function ClassReviews() {
     <div className="ClassHomePage container-fluid py-4 px-3 px-md-4">
       <div className="ClassHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
         <h2 className="h3 fw-bold mb-0">Class Reviews</h2>
-        <Button type="secondary" onClick={() => navigate(`/classes/${classId}/home`)}>
-          Back to Class
-        </Button>
       </div>
 
       <TabNavigation
@@ -96,8 +93,8 @@ export default function ClassReviews() {
               </h3>
               <p className="text-muted small mb-3">Total reviews: {assignmentReviews.length}</p>
 
-              <div className="table-responsive">
-                <table className="table align-middle mb-0">
+              <div className="table-responsive ClassReviewsTableWrap">
+                <table className="table align-middle ClassReviewsTable mb-0">
                   <thead>
                     <tr>
                       <th>Type</th>
@@ -114,8 +111,7 @@ export default function ClassReviews() {
                         key={review.id}
                         role={isComplete ? "button" : undefined}
                         tabIndex={isComplete ? 0 : undefined}
-                        className={isComplete ? "cursor-pointer" : undefined}
-                        style={isComplete ? { cursor: "pointer" } : undefined}
+                        className={isComplete ? "ClassReviewsClickableRow" : undefined}
                         onClick={isComplete ? () => setSelectedCompletedReview(review) : undefined}
                         onKeyDown={
                           isComplete

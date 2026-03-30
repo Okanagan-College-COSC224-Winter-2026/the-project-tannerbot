@@ -7,7 +7,7 @@ import { listCourseMembers, listClasses } from "../util/api";
 import { getProfilePictureSrc } from "../util/profile";
 
 import './ClassMembers.css'
-import { isTeacher } from "../util/login";
+import { isAdmin, isTeacher } from "../util/login";
 
 export default function ClassMembers() {
   const { id } = useParams()
@@ -66,6 +66,14 @@ export default function ClassMembers() {
             label: "Members",
             path: `/classes/${id}/members`,
           },
+          ...(isTeacher() || isAdmin()
+            ? [
+                {
+                  label: "Reviews",
+                  path: `/classes/${id}/reviews`,
+                },
+              ]
+            : []),
         ]}
       />
 
