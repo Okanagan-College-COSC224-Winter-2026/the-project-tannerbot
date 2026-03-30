@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import Button from "../components/Button";
 import TabNavigation from "../components/TabNavigation";
-import { getAssignmentProgress } from "../util/api";
+import { downloadStudentAssignmentSubmission, getAssignmentProgress } from "../util/api";
 import { isAdmin, isTeacher } from "../util/login";
 
 import "./AssignmentProgress.css";
@@ -22,6 +22,24 @@ export default function AssignmentProgress() {
   const [progress, setProgress] = useState<AssignmentProgressResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+
+  const handleDownloadSubmission = async (student: AssignmentProgressStudent) => {
+    if (!student.submission?.original_name) {
+      return;
+    }
+
+    try {
+      setError("");
+      await downloadStudentAssignmentSubmission(
+        assignmentId,
+        student.id,
+        student.submission.original_name,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to download submission";
+      setError(message);
+    }
+  };
 
   useEffect(() => {
     ;(async () => {
@@ -45,6 +63,35 @@ export default function AssignmentProgress() {
       }
     })();
   }, [assignmentId]);
+
+  const sortedStudents = useMemo(() => {
+    if (!progress) {
+      return [] as AssignmentProgressStudent[];
+    }
+
+    const students = [...progress.students];
+    if (progress.assignment.assignment_mode !== "group") {
+      return students;
+    }
+
+    return students.sort((left, right) => {
+      const leftGroupName = left.group?.name?.trim() || "";
+      const rightGroupName = right.group?.name?.trim() || "";
+
+      if (leftGroupName && rightGroupName) {
+        const byGroupName = leftGroupName.localeCompare(rightGroupName, undefined, {
+          sensitivity: "base",
+        });
+        if (byGroupName !== 0) {
+          return byGroupName;
+        }
+      } else if (leftGroupName || rightGroupName) {
+        return leftGroupName ? -1 : 1;
+      }
+
+      return left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
+    });
+  }, [progress]);
 
   return (
     <div className="AssignmentPage container-fluid py-4 px-3 px-md-4">
@@ -115,35 +162,61 @@ export default function AssignmentProgress() {
                 </tr>
               </thead>
               <tbody>
-                {progress.students.map((student) => {
+                {sortedStudents.map((student, index) => {
                   const reviewStatus = student.peer_review_status || student.review_status;
+                  const isGroupAssignment = progress.assignment.assignment_mode === "group";
+                  const groupLabel = student.group?.name?.trim() || "Ungrouped";
+                  const previousStudent = index > 0 ? sortedStudents[index - 1] : null;
+                  const previousGroupLabel = previousStudent?.group?.name?.trim() || "Ungrouped";
+                  const showGroupHeader = isGroupAssignment && (index === 0 || groupLabel !== previousGroupLabel);
+
                   return (
-                    <tr key={student.id}>
-                      <td>
-                        <div className="fw-semibold AssignmentProgressStudentName">{student.name}</div>
-                        <div className="text-muted small AssignmentProgressStudentMeta">
-                          {student.student_id || student.email}
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`badge ${student.has_submitted ? "text-bg-success" : "text-bg-secondary"}`}>
-                          {student.has_submitted ? "Submitted" : "Not submitted"}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`badge ${reviewStatus.has_reviewed ? "text-bg-success" : "text-bg-secondary"}`}>
-                          {reviewStatus.has_reviewed ? "Completed" : "Not completed"}
-                        </span>
-                      </td>
-                      <td>
-                        <span>
-                          {reviewStatus.completed_assigned_reviews}/{reviewStatus.total_assigned_reviews}
-                        </span>
-                        <span className="text-muted small ms-2">
-                          ({reviewStatus.pending_assigned_reviews} pending)
-                        </span>
-                      </td>
-                    </tr>
+                    <Fragment key={`student-row-${student.id}`}>
+                      {showGroupHeader ? (
+                        <tr key={`group-${groupLabel}`} className="AssignmentProgressGroupHeaderRow">
+                          <td colSpan={4} className="AssignmentProgressGroupHeaderCell">
+                            Group: {groupLabel}
+                          </td>
+                        </tr>
+                      ) : null}
+                      <tr key={student.id}>
+                        <td>
+                          <div className="fw-semibold AssignmentProgressStudentName">{student.name}</div>
+                          <div className="text-muted small AssignmentProgressStudentMeta">
+                            {student.student_id || student.email}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex flex-column align-items-start gap-2">
+                            <span className={`badge ${student.has_submitted ? "text-bg-success" : "text-bg-secondary"}`}>
+                              {student.has_submitted ? "Submitted" : "Not submitted"}
+                            </span>
+                            {student.has_submitted && student.submission?.original_name ? (
+                              <button
+                                type="button"
+                                className="btn btn-outline-secondary btn-sm"
+                                onClick={() => handleDownloadSubmission(student)}
+                              >
+                                Download Submission
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`badge ${reviewStatus.has_reviewed ? "text-bg-success" : "text-bg-secondary"}`}>
+                            {reviewStatus.has_reviewed ? "Completed" : "Not completed"}
+                          </span>
+                        </td>
+                        <td>
+                          <span>
+                            {reviewStatus.completed_assigned_reviews}/{reviewStatus.total_assigned_reviews}
+                          </span>
+                          <span className="text-muted small ms-2">
+                            ({reviewStatus.pending_assigned_reviews} pending)
+                          </span>
+                        </td>
+                      </tr>
+                    </Fragment>
                   );
                 })}
               </tbody>

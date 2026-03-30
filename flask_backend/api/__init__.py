@@ -21,6 +21,7 @@ from .controllers import (
     profile_picture_controller,
     review_controller,
     rubric_controller,
+    submission_controller,
     user_controller,
 )
 from .models.db import db, ma
@@ -139,6 +140,7 @@ def create_app(test_config=None):
     app.register_blueprint(review_controller.bp)
     app.register_blueprint(rubric_controller.bp)
     app.register_blueprint(assignment_attachment_controller.bp)
+    app.register_blueprint(submission_controller.bp)
     app.register_blueprint(fake_api_controller.fake)
     app.register_blueprint(practice_tanner_controller.practice)
 

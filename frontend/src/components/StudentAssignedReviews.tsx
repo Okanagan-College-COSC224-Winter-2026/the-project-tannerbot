@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import {
+  downloadMyAssignmentSubmission,
+  getMyAssignmentSubmission,
   listMyReceivedSeparatedReviewsForAssignment,
   listMySeparatedReviewsForAssignment,
   markReview,
+  uploadAssignmentSubmission,
 } from "../util/api";
 import { formatDateTime } from "../util/dateUtils";
 
@@ -64,8 +67,18 @@ interface Props {
 export default function StudentAssignedReviews({ assignmentId }: Props) {
   const location = useLocation();
   const latestLoadId = useRef(0);
+  const submissionFileInputRef = useRef<HTMLInputElement | null>(null);
   const [reviews, setReviews] = useState<ReviewAssignment[]>([]);
   const [receivedReviews, setReceivedReviews] = useState<ReviewAssignment[]>([]);
+  const [selectedSubmissionFile, setSelectedSubmissionFile] = useState<File | null>(null);
+  const [submissionStatus, setSubmissionStatus] = useState<AssignmentSubmissionStatus>({
+    has_submitted: false,
+    submission: null,
+  });
+  const [submissionLoading, setSubmissionLoading] = useState(false);
+  const [submissionSaving, setSubmissionSaving] = useState(false);
+  const [submissionError, setSubmissionError] = useState("");
+  const [submissionSuccess, setSubmissionSuccess] = useState("");
   const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
   const [draft, setDraft] = useState<DraftValues>({});
   const [loading, setLoading] = useState(true);
@@ -76,6 +89,11 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
   const selectedReview = useMemo(
     () => reviews.find((review) => review.id === selectedReviewId) ?? null,
     [reviews, selectedReviewId],
+  );
+
+  const isGroupAssignment = useMemo(
+    () => reviews.some((review) => review.assignment?.assignment_mode === "group"),
+    [reviews],
   );
 
   const groupReviews = useMemo(
@@ -180,6 +198,29 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
   useEffect(() => {
     loadAssignedReviews();
   }, [loadAssignedReviews]);
+
+  const loadSubmissionStatus = useCallback(async () => {
+    if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
+      return;
+    }
+
+    try {
+      setSubmissionLoading(true);
+      setSubmissionError("");
+      const payload = (await getMyAssignmentSubmission(assignmentId)) as AssignmentSubmissionStatus;
+      setSubmissionStatus(payload);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load submission status";
+      setSubmissionError(message);
+      setSubmissionStatus({ has_submitted: false, submission: null });
+    } finally {
+      setSubmissionLoading(false);
+    }
+  }, [assignmentId]);
+
+  useEffect(() => {
+    loadSubmissionStatus();
+  }, [loadSubmissionStatus]);
 
   const handleReviewChange = (reviewId: number) => {
     setSelectedReviewId(reviewId);
@@ -295,8 +336,108 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
     }
   };
 
+  const handleSubmissionFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setSelectedSubmissionFile(file);
+    setSubmissionError("");
+    setSubmissionSuccess("");
+  };
+
+  const handleSubmissionUpload = async () => {
+    if (!selectedSubmissionFile) {
+      setSubmissionError("Choose a file to submit.");
+      return;
+    }
+
+    try {
+      setSubmissionSaving(true);
+      setSubmissionError("");
+      setSubmissionSuccess("");
+      const payload = (await uploadAssignmentSubmission(
+        assignmentId,
+        selectedSubmissionFile,
+      )) as AssignmentSubmissionStatus;
+      setSubmissionStatus(payload);
+      setSelectedSubmissionFile(null);
+      if (submissionFileInputRef.current) {
+        submissionFileInputRef.current.value = "";
+      }
+      setSubmissionSuccess("Submission uploaded successfully.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to upload submission";
+      if (
+        isGroupAssignment
+        && message.toLowerCase().includes("already submitted")
+      ) {
+        setSubmissionError(
+          "Group submission already received from your team. Download the current group submission below.",
+        );
+        await loadSubmissionStatus();
+      } else {
+        setSubmissionError(message);
+      }
+    } finally {
+      setSubmissionSaving(false);
+    }
+  };
+
+  const handleSubmissionDownload = async () => {
+    if (!submissionStatus.submission?.original_name) {
+      return;
+    }
+
+    try {
+      setSubmissionError("");
+      await downloadMyAssignmentSubmission(assignmentId, submissionStatus.submission.original_name);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to download submission";
+      setSubmissionError(message);
+    }
+  };
+
   return (
     <div className="card border-0 shadow-sm p-3 p-md-4 mt-3">
+      <h3 className="h5 mb-3">Assignment Submission</h3>
+      <p className="text-muted mb-2">Upload your assignment file. Any file type is accepted.</p>
+
+      {submissionLoading ? <p className="mb-2">Loading submission status...</p> : null}
+
+      {!submissionLoading && submissionStatus.has_submitted && submissionStatus.submission ? (
+        <div className="ReviewCriterionCard mb-3 p-3">
+          {isGroupAssignment ? (
+            <p className="mb-2 text-muted">
+              Group submission already received from your team.
+            </p>
+          ) : null}
+          <p className="mb-2">
+            Current submission: <strong>{submissionStatus.submission.original_name}</strong>
+          </p>
+          <button className="btn btn-outline-secondary btn-sm" onClick={handleSubmissionDownload}>
+            Download Current Submission
+          </button>
+        </div>
+      ) : null}
+
+      <div className="mb-2">
+        <input
+          ref={submissionFileInputRef}
+          className="form-control"
+          type="file"
+          onChange={handleSubmissionFileChange}
+        />
+      </div>
+      <button
+        className="btn btn-primary"
+        onClick={handleSubmissionUpload}
+        disabled={submissionSaving || !selectedSubmissionFile}
+      >
+        {submissionSaving ? "Uploading..." : "Submit Assignment File"}
+      </button>
+
+      {submissionError ? <p className="text-danger mt-3 mb-0">{submissionError}</p> : null}
+      {submissionSuccess ? <p className="text-success mt-3 mb-0">{submissionSuccess}</p> : null}
+
+      <hr className="my-4" />
       <h3 className="h5 mb-3">Your Assigned Peer Reviews</h3>
 
       {!loading ? (
