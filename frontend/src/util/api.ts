@@ -1000,6 +1000,25 @@ export const setAssignmentGroupMembers = async (
   return await response.json();
 };
 
+export const autoAssignAssignmentGroups = async (assignmentID: number) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/groups/auto-assign`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.msg || `Response status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
 // Admin - Create Teacher Account
 export const createTeacherAccount = async (name: string, email: string, password: string) => {
   const response = await fetch(`${BASE_URL}/admin/users/create`, {
