@@ -179,6 +179,129 @@ export const getAssignmentProgress = async (assignmentId: number) => {
   return await resp.json()
 }
 
+export const downloadStudentAssignmentSubmission = async (
+  assignmentID: number,
+  studentID: number,
+  fileName: string,
+) => {
+  const response = await fetch(
+    `${BASE_URL}/assignment/${assignmentID}/submission/${studentID}/download`,
+    {
+      method: 'GET',
+      credentials: 'include',
+    },
+  );
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    let errorMsg = `Response status: ${response.status}`;
+    try {
+      const error = await response.json();
+      if (error?.msg) {
+        errorMsg = error.msg;
+      }
+    } catch {
+      // Keep status fallback when body is not JSON.
+    }
+    throw new Error(errorMsg);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  window.URL.revokeObjectURL(objectUrl);
+}
+
+export const getMyAssignmentSubmission = async (assignmentID: number) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/submission`, {
+    method: 'GET',
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    let errorMsg = `Response status: ${response.status}`;
+    try {
+      const error = await response.json();
+      if (error?.msg) {
+        errorMsg = error.msg;
+      }
+    } catch {
+      // Keep status fallback when body is not JSON.
+    }
+    throw new Error(errorMsg);
+  }
+
+  return await response.json();
+}
+
+export const uploadAssignmentSubmission = async (assignmentID: number, file: File) => {
+  const formData = new FormData();
+  formData.append('submission', file);
+
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/submission`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    let errorMsg = `Response status: ${response.status}`;
+    try {
+      const error = await response.json();
+      if (error?.msg) {
+        errorMsg = error.msg;
+      }
+    } catch {
+      // Keep status fallback when body is not JSON.
+    }
+    throw new Error(errorMsg);
+  }
+
+  return await response.json();
+}
+
+export const downloadMyAssignmentSubmission = async (assignmentID: number, fileName: string) => {
+  const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/submission/download`, {
+    method: 'GET',
+    credentials: 'include',
+  });
+
+  maybeHandleExpire(response);
+
+  if (!response.ok) {
+    let errorMsg = `Response status: ${response.status}`;
+    try {
+      const error = await response.json();
+      if (error?.msg) {
+        errorMsg = error.msg;
+      }
+    } catch {
+      // Keep status fallback when body is not JSON.
+    }
+    throw new Error(errorMsg);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  window.URL.revokeObjectURL(objectUrl);
+}
+
 export const listStuGroup = async (assignmentId : number, studentId : number) => {
   const resp = await fetch(`${BASE_URL}/list_stu_groups/`+ assignmentId + "/" + studentId, {
     method: 'GET',
