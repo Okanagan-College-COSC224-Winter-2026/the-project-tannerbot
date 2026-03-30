@@ -176,8 +176,10 @@ def edit_assignment(assignment_id):
             return jsonify({"msg": str(exc)}), 400
 
     if "assignment_mode" in data:
+        if data["assignment_mode"] is None:
+            return jsonify({"msg": "assignment_mode cannot be null"}), 400
         try:
-            new_mode = _parse_assignment_mode(data.get("assignment_mode"))
+            new_mode = _parse_assignment_mode(data["assignment_mode"])
         except ValueError as exc:
             return jsonify({"msg": str(exc)}), 400
         assignment.assignment_mode = new_mode
