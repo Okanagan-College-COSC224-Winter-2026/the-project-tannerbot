@@ -56,26 +56,9 @@ def csv_to_list(csv_text):
 
 
 def enroll_students_in_course(students, class_id):
-    return enroll_students_in_course_with_passwords(
-        students,
-        class_id,
-        default_password="password123",
-        student_passwords={},
-    )
-
-
-def enroll_students_in_course_with_passwords(
-    students,
-    class_id,
-    default_password="password123",
-    student_passwords=None,
-):
     enrolled_students = []
     created_accounts = []
     already_enrolled = []
-
-    default_password = (default_password or "password123").strip() or "password123"
-    student_passwords = student_passwords if isinstance(student_passwords, dict) else {}
 
     for student_info in students:
         email = student_info["email"]
@@ -86,14 +69,10 @@ def enroll_students_in_course_with_passwords(
         name = student_info["name"]
         student = User.get_by_email(email)
         if not student:
-            raw_password = student_passwords.get(email, default_password)
-            password_to_use = (
-                raw_password.strip() if isinstance(raw_password, str) else default_password
-            ) or default_password
             student = User(
                 name=name,
                 email=email,
-                hash_pass=generate_password_hash(password_to_use),
+                hash_pass=generate_password_hash("password123"),
                 role="student",
                 student_id=student_id,
             )
@@ -118,46 +97,4 @@ def enroll_students_in_course_with_passwords(
         "enrolled_students": enrolled_students,
         "created_accounts": created_accounts,
         "already_enrolled": already_enrolled,
-    }, None
-
-
-def build_enrollment_preview(students, class_id):
-    rows = []
-    new_accounts_count = 0
-    existing_accounts_count = 0
-    already_enrolled_count = 0
-
-    for student_info in students:
-        email = student_info["email"]
-        if not re.match(EMAIL_PATTERN, email):
-            return None, f"Invalid email format: {email}"
-
-        student = User.get_by_email(email)
-        enrollment_exists = bool(student and User_Course.get(student.id, class_id))
-        account_exists = student is not None
-
-        if account_exists:
-            existing_accounts_count += 1
-        else:
-            new_accounts_count += 1
-
-        if enrollment_exists:
-            already_enrolled_count += 1
-
-        rows.append(
-            {
-                "id": student_info["id"],
-                "name": student_info["name"],
-                "email": email,
-                "account_exists": account_exists,
-                "already_enrolled": enrollment_exists,
-            }
-        )
-
-    return {
-        "students": rows,
-        "new_accounts_count": new_accounts_count,
-        "existing_accounts_count": existing_accounts_count,
-        "already_enrolled_count": already_enrolled_count,
-        "total_count": len(rows),
     }, None

@@ -1,19 +1,14 @@
 import { useEffect, useState } from "react";
 import ClassCard from "../components/ClassCard";
-import DeleteClassModal from "../components/DeleteClassModal";
 
 import './Home.css'
-import { deleteClass, listClasses, listAssignments } from "../util/api";
-import { getCurrentUserId, hasRole, isTeacher, isStudent } from "../util/login";
+import { listClasses, listAssignments } from "../util/api";
+import { isTeacher, isStudent } from "../util/login";
 
 export default function Home() {
   const [courses, setCourses] = useState<CourseWithAssignments[]>([]);
   const [loading, setLoading] = useState(true);
-  const [classToDelete, setClassToDelete] = useState<CourseWithAssignments | null>(null);
-  const [successToast, setSuccessToast] = useState<string | null>(null);
   const studentView = isStudent();
-  const currentUserId = getCurrentUserId();
-  const isAdminUser = hasRole("admin");
 
   useEffect(() => {
     ;(async () => {
@@ -50,43 +45,10 @@ export default function Home() {
     })();
   }, []);
 
-  useEffect(() => {
-    if (!successToast) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setSuccessToast(null);
-    }, 3000);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [successToast]);
-
   const totalAssignments = courses.reduce( 
     (sum, course) => sum + (course.assignmentCount || 0), 
     0
   );
-
-  const openDeleteModal = (course: CourseWithAssignments) => {
-    setClassToDelete(course);
-  };
-
-  const closeDeleteModal = () => {
-    setClassToDelete(null);
-  };
-
-  const handleDeleteClass = async () => {
-    if (!classToDelete) {
-      return;
-    }
-
-    const deletedClassName = classToDelete.name;
-    await deleteClass(classToDelete.id);
-    setCourses((prev) => prev.filter((course) => course.id !== classToDelete.id));
-    setSuccessToast(`Deleted class "${deletedClassName}"`);
-  };
 
   if (loading) {
     return (
@@ -98,9 +60,7 @@ export default function Home() {
   }
 
   return (
-    <>
     <div className="Home">
-      {successToast ? <div className="HomeSuccessToast">{successToast}</div> : null}
       <h1>{isTeacher() ? "Teacher Dashboard" : "Peer Review Dashboard"}</h1>
 
         {isTeacher() && (
@@ -127,16 +87,6 @@ export default function Home() {
               : "Grade unavailable";
 
             return (
-              // Show delete action for admins and for teachers who own the class.
-              // Ownership check keeps the control visible even if role metadata drifts.
-              (() => {
-                const canDeleteCourse =
-                  isAdminUser ||
-                  (typeof course.teacherID === "number" && currentUserId !== null
-                    ? course.teacherID === currentUserId
-                    : false);
-
-                return (
               <ClassCard
                 key={course.id}
                 image="https://crc.losrios.edu//shared/img/social-1200-630/programs/general-science-social.jpg"
@@ -144,14 +94,10 @@ export default function Home() {
                 subtitle={assignmentText}
                 gradeLabel={studentView ? formattedGrade : undefined}
                 gradeUnavailable={studentView && !hasTotalGrade}
-                canDelete={canDeleteCourse}
-                onDelete={() => openDeleteModal(course)}
                 onclick={() => {
                   window.location.href = `/classes/${course.id}/home`
                 }}
               />
-                );
-              })()
             )
           })
         ) : (
@@ -178,13 +124,5 @@ export default function Home() {
         )}
       </div>
     </div>
-
-    <DeleteClassModal
-      isOpen={Boolean(classToDelete)}
-      className={classToDelete?.name || ""}
-      onClose={closeDeleteModal}
-      onConfirm={handleDeleteClass}
-    />
-    </>
   )
 }

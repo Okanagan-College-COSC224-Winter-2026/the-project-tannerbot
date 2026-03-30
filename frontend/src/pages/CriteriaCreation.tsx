@@ -92,10 +92,9 @@ export default function CriteriaCreation() {
   };
 
   const saveEdit = async () => {
-    if (!editingCriteriaId || !id) return;
+    if (!editingCriteriaId) return;
     try {
       await updateCriteria(
-        Number(id),
         editingCriteriaId,
         editQuestion.trim(),
         editHasScore ? Math.max(0, Math.min(100, editScoreMax)) : 0,
@@ -111,10 +110,9 @@ export default function CriteriaCreation() {
   };
 
   const removeCriteria = async (criteriaId: number) => {
-    if (!id) return;
     if (!window.confirm("Delete this criterion?")) return;
     try {
-      await deleteCriteria(Number(id), criteriaId);
+      await deleteCriteria(criteriaId);
       setActionMessage("Criterion deleted.");
       if (editingCriteriaId === criteriaId) {
         setEditingCriteriaId(null);

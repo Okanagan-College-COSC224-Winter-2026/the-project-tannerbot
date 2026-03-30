@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..models import Review, ReviewSchema, User
+from ..models import Review, ReviewSchema
 from ..services import (
     dump_received_review_anonymized,
     dump_review_with_markable_criteria,
@@ -12,12 +12,6 @@ from .auth_controller import jwt_teacher_required
 bp = Blueprint("review", __name__, url_prefix="/review")
 
 review_list_schema = ReviewSchema(many=True)
-
-
-def _dump_review_for_actor(review, actor):
-    payload = dump_review_with_markable_criteria(review)
-    payload["can_mark"] = Review.can_user_mark_review(review=review, actor=actor)
-    return payload
 
 
 @bp.route("/assign", methods=["POST"])
@@ -141,11 +135,7 @@ def list_my_reviews_for_assignment(assignment_id):
     if error:
         return jsonify({"msg": error["msg"]}), error["status"]
 
-    actor = User.get_by_email(get_jwt_identity())
-    payload = [
-        _dump_review_for_actor(review, actor)
-        for review in reviews
-    ]
+    payload = [dump_review_with_markable_criteria(review) for review in reviews]
     return jsonify(payload), 200
 
 
@@ -160,14 +150,13 @@ def list_my_reviews_for_assignment_separated(assignment_id):
     if error:
         return jsonify({"msg": error["msg"]}), error["status"]
 
-    actor = User.get_by_email(get_jwt_identity())
     payload = {
         "peer_reviews": [
-            _dump_review_for_actor(review, actor)
+            dump_review_with_markable_criteria(review)
             for review in separated["peer_reviews"]
         ],
         "group_reviews": [
-            _dump_review_for_actor(review, actor)
+            dump_review_with_markable_criteria(review)
             for review in separated["group_reviews"]
         ],
     }

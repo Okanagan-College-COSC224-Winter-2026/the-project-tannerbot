@@ -1,4 +1,4 @@
-from ..models import CourseGroup, CriterionSchema, Group_Members, ReviewSchema
+from ..models import CriterionSchema, ReviewSchema
 
 review_schema = ReviewSchema()
 criterion_schema = CriterionSchema(many=True)
@@ -24,23 +24,6 @@ def dump_review_with_markable_criteria(review):
     payload["criteria"] = criteria_payload
     payload["review_window_open"] = review.is_review_window_open()
     payload["is_complete"] = review.completion_status()
-
-    if review.review_type == "group":
-        reviewer_membership = Group_Members.get_for_assignment_and_user(
-            review.assignmentID,
-            review.reviewerID,
-        )
-        reviewee_membership = Group_Members.get_for_assignment_and_user(
-            review.assignmentID,
-            review.revieweeID,
-        )
-
-        reviewer_group = CourseGroup.get_by_id(reviewer_membership.groupID) if reviewer_membership else None
-        reviewee_group = CourseGroup.get_by_id(reviewee_membership.groupID) if reviewee_membership else None
-
-        payload["reviewer_group_name"] = reviewer_group.name if reviewer_group else None
-        payload["reviewee_group_name"] = reviewee_group.name if reviewee_group else None
-
     return payload
 
 

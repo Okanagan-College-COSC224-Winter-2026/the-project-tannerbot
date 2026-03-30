@@ -12,9 +12,9 @@ import {
   deleteAssignment,
 } from "../util/api";
 import TabNavigation from "../components/TabNavigation";
+import { importCSV } from "../util/csv";
 import StatusMessage from "../components/StatusMessage";
 import { isAdmin, isTeacher } from "../util/login";
-import StudentImportButton from "../components/StudentImportButton";
 
 export default function ClassHome() {
   const { id } = useParams();
@@ -183,7 +183,9 @@ export default function ClassHome() {
 
           <div className="ClassHeaderRight">
             {isTeacher() ? (
-              <StudentImportButton classId={id} />
+              <Button onClick={() => importCSV(id as string)}>
+                Add Students via CSV
+              </Button>
             ) : null}
           </div>
         </div>

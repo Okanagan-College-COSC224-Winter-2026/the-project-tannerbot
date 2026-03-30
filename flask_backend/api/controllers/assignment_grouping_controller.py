@@ -5,7 +5,6 @@ from ..models import AssignmentSchema, CourseGroup, User, db
 from ..models.group_members_model import Group_Members
 from ..models.review_model import Review
 from ..services import (
-    auto_assign_students_to_groups,
     build_grouping_student_payload,
     get_course_students,
     replace_group_members,
@@ -170,39 +169,3 @@ def replace_assignment_group_members(assignment_id, group_id):
             Review._ensure_group_peer_reviews_for_reviewer(assignment, member_user)
 
     return jsonify({"msg": "Group members updated", "group": {"id": group.id, "name": group.name, "assignmentID": group.assignmentID, "members": members_payload}}), 200
-
-
-@bp.route("/<int:assignment_id>/groups/auto-assign", methods=["POST"])
-@jwt_teacher_required
-def auto_assign_assignment_groups(assignment_id):
-    """Auto-assign enrolled students to groups as evenly as possible."""
-    assignment, course, _, error = get_teacher_managed_assignment(assignment_id)
-    if error:
-        return error
-
-    if assignment.assignment_mode != "group":
-        return jsonify({"msg": "Assignment must be in group mode"}), 400
-
-    groups = CourseGroup.get_by_assignment_id(assignment.id)
-    if not groups:
-        return jsonify({"msg": "Create at least one group before auto-assigning students"}), 400
-
-    students = get_course_students(course.id)
-    assignments_by_group = auto_assign_students_to_groups(assignment, groups, students)
-
-    if students:
-        assigned_student_ids = {
-            student_id
-            for student_ids in assignments_by_group.values()
-            for student_id in student_ids
-        }
-        if assigned_student_ids:
-            member_users = User.query.filter(User.id.in_(assigned_student_ids)).all()
-            for member_user in member_users:
-                Review._ensure_group_peer_reviews_for_reviewer(assignment, member_user)
-
-    return jsonify({
-        "msg": "Students auto-assigned to groups",
-        "groups": serialize_assignment_groups(assignment, course),
-        "students": build_grouping_student_payload(assignment.id, students),
-    }), 200

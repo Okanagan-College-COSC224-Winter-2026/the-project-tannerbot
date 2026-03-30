@@ -1,6 +1,5 @@
 import functools
 import os
-from datetime import timedelta
 
 from flask import Flask, jsonify
 from flask_cors import CORS
@@ -43,10 +42,6 @@ def create_app(test_config=None):
         or os.environ.get("PRODUCTION", "false").lower() == "true"
     )
 
-    # Use an explicit access-token lifetime to avoid Flask-JWT-Extended's 15-minute
-    # default causing unexpected session expiration during normal app usage.
-    access_token_expires_seconds = int(os.environ.get("JWT_ACCESS_TOKEN_EXPIRES", "3600"))
-
     # Validate required secrets in production
     if is_production:
         required_secrets = ["SECRET_KEY", "JWT_SECRET_KEY", "DATABASE_URL"]
@@ -66,7 +61,6 @@ def create_app(test_config=None):
         ),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         JWT_SECRET_KEY=os.environ.get("JWT_SECRET_KEY", "dev-jwt-secret"),
-        JWT_ACCESS_TOKEN_EXPIRES=timedelta(seconds=access_token_expires_seconds),
         # JWT Cookie settings - secure defaults for production, permissive for development
         JWT_TOKEN_LOCATION=["cookies"],
         JWT_COOKIE_SECURE=is_production,  # True in production (HTTPS required)
