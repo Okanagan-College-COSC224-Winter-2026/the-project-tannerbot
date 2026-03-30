@@ -17,7 +17,10 @@ export const didExpire = (response: Response) => {
 
 export const getUserRole = (): string => {
   const user = JSON.parse(localStorage.getItem("user") || '{ "role": "student" }');
-  return user.role || "student";
+  if (typeof user.role === 'string') {
+    return user.role.trim().toLowerCase();
+  }
+  return "student";
 }
 
 export const getCurrentUserId = (): number | null => {

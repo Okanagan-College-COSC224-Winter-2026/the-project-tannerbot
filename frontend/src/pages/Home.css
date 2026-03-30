@@ -3,6 +3,19 @@
   width: 100%;
 }
 
+.HomeSuccessToast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1300;
+  background: #158a67;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 0.7rem 0.95rem;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+  font-weight: 700;
+}
+
 .Home h1 {
   border-bottom: 1px solid var(--background-secondary);
 }
