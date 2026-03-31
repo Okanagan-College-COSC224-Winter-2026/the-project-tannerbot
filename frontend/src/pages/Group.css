@@ -79,6 +79,9 @@
 
 .GroupActionsRow {
 	margin-top: 0.75rem;
+	display: flex;
+	gap: 0.6rem;
+	flex-wrap: wrap;
 }
 
 .GroupError {

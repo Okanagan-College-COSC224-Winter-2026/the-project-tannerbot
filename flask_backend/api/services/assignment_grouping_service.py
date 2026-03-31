@@ -122,3 +122,36 @@ def build_grouping_student_payload(assignment_id, students):
         }
         for student in students
     ]
+
+
+def auto_assign_students_to_groups(assignment, groups, students):
+    """Auto-assign students to groups, favoring even-sized groups when possible."""
+    ordered_groups = sorted(groups, key=lambda group: group.id)
+    student_ids = [student.id for student in students]
+
+    assignments_by_group = {group.id: [] for group in ordered_groups}
+
+    # Assign in pairs so group sizes stay even where possible.
+    for index in range(0, len(student_ids), 2):
+        pair = student_ids[index : index + 2]
+        target_group_id = min(
+            assignments_by_group,
+            key=lambda group_id: (len(assignments_by_group[group_id]), group_id),
+        )
+        assignments_by_group[target_group_id].extend(pair)
+
+    for membership in Group_Members.get_for_assignment(assignment.id):
+        db.session.delete(membership)
+
+    for group in ordered_groups:
+        for student_id in assignments_by_group[group.id]:
+            db.session.add(
+                Group_Members(
+                    userID=student_id,
+                    groupID=group.id,
+                    assignmentID=assignment.id,
+                )
+            )
+
+    db.session.commit()
+    return assignments_by_group

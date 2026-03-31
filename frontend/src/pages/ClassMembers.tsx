@@ -1,10 +1,9 @@
 import { useParams, useNavigate } from "react-router-dom";
 import TabNavigation from "../components/TabNavigation";
 import { useEffect, useState } from "react";
-import Button from "../components/Button";
-import { importCSV } from "../util/csv";
 import { listCourseMembers, listClasses } from "../util/api";
 import { getProfilePictureSrc } from "../util/profile";
+import StudentImportButton from "../components/StudentImportButton";
 
 import './ClassMembers.css'
 import { isAdmin, isTeacher } from "../util/login";
@@ -16,6 +15,7 @@ export default function ClassMembers() {
   const [className, setClassName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     ;(async () => {
@@ -40,7 +40,7 @@ export default function ClassMembers() {
         setLoading(false)
       }
     })()
-  }, [id])  
+  }, [id, reloadKey])
 
   return (
     <div className="ClassMembersPage container-fluid py-4 px-3 px-md-4">
@@ -51,7 +51,10 @@ export default function ClassMembers() {
 
         <div className="ClassHeaderRight">
           {isTeacher() ? (
-            <Button onClick={() => importCSV(id as string)}>Add Students via CSV</Button>
+            <StudentImportButton
+              classId={id}
+              onImported={() => setReloadKey((currentValue) => currentValue + 1)}
+            />
           ) : null}
         </div>
       </div>

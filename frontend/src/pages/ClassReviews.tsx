@@ -1,30 +1,71 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import Button from "../components/Button";
+import StudentImportButton from "../components/StudentImportButton";
 import TabNavigation from "../components/TabNavigation";
 import { listReviewsForClass } from "../util/api";
 import "./ClassReviews.css";
+import { isTeacher } from "../util/login";
 
 export default function ClassReviews() {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const classId = Number(id);
   const [reviews, setReviews] = useState<ReviewAssignment[]>([]);
   const [selectedCompletedReview, setSelectedCompletedReview] = useState<ReviewAssignment | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+  const [reviewSearch, setReviewSearch] = useState<string>("");
+
+  const displayReviewer = (review: ReviewAssignment): string => {
+    if (review.review_type === "group") {
+      return review.reviewer_group_name || "Ungrouped";
+    }
+    return review.reviewer?.name || `Student ${review.reviewer?.id ?? ""}`;
+  };
+
+  const displayReviewee = (review: ReviewAssignment): string => {
+    if (review.review_type === "group") {
+      return review.reviewee_group_name || "Ungrouped";
+    }
+    return review.reviewee?.name || `Student ${review.reviewee?.id ?? ""}`;
+  };
+
+  const reviewMatchesSearch = (review: ReviewAssignment, searchTerm: string): boolean => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    if (!normalizedSearch) {
+      return true;
+    }
+
+    const reviewerName = review.reviewer?.name?.toLowerCase() || "";
+    const revieweeName = review.reviewee?.name?.toLowerCase() || "";
+    const reviewerGroupName = review.reviewer_group_name?.toLowerCase() || "";
+    const revieweeGroupName = review.reviewee_group_name?.toLowerCase() || "";
+
+    return (
+      reviewerName.includes(normalizedSearch)
+      || revieweeName.includes(normalizedSearch)
+      || reviewerGroupName.includes(normalizedSearch)
+      || revieweeGroupName.includes(normalizedSearch)
+    );
+  };
 
   const reviewsByAssignment = useMemo(() => {
+    const filteredReviews = reviews.filter((review) =>
+      reviewMatchesSearch(review, reviewSearch),
+    );
+
     const grouped = new Map<number, ReviewAssignment[]>();
-    for (const review of reviews) {
+    for (const review of filteredReviews) {
       const assignmentId = Number(review.assignmentID);
       const existing = grouped.get(assignmentId) || [];
       existing.push(review);
       grouped.set(assignmentId, existing);
     }
     return Array.from(grouped.entries()).sort((a, b) => a[0] - b[0]);
-  }, [reviews]);
+  }, [reviews, reviewSearch]);
 
   useEffect(() => {
     if (!Number.isFinite(classId) || classId <= 0) {
@@ -52,7 +93,16 @@ export default function ClassReviews() {
   return (
     <div className="ClassHomePage container-fluid py-4 px-3 px-md-4">
       <div className="ClassHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
-        <h2 className="h3 fw-bold mb-0">Class Reviews</h2>
+        <div className="ClassHeaderLeft">
+          <h2 className="h3 fw-bold mb-0">Class Reviews</h2>
+        </div>
+
+        <div className="ClassHeaderRight">
+          {isTeacher() ? <StudentImportButton classId={id} /> : null}
+          <Button type="secondary" onClick={() => navigate(`/classes/${classId}/home`)}>
+            Back to Class
+          </Button>
+        </div>
       </div>
 
       <TabNavigation
@@ -71,6 +121,20 @@ export default function ClassReviews() {
           },
         ]}
       />
+
+      <div className="card border-0 shadow-sm p-3 p-md-4 mt-3">
+        <label htmlFor="review-search" className="form-label fw-semibold mb-2">
+          Search Reviews By Student Or Group Name
+        </label>
+        <input
+          id="review-search"
+          type="text"
+          className="form-control"
+          placeholder="Enter student or group name"
+          value={reviewSearch}
+          onChange={(event) => setReviewSearch(event.target.value)}
+        />
+      </div>
 
       {error ? (
         <div className="card border-0 shadow-sm p-3 p-md-4 mt-3" role="alert">
@@ -126,8 +190,8 @@ export default function ClassReviews() {
                         title={isComplete ? "View completed review" : undefined}
                       >
                         <td>{review.review_type === "group" ? "Group" : "Peer"}</td>
-                        <td>{review.reviewer?.name || `Student ${review.reviewer?.id ?? ""}`}</td>
-                        <td>{review.reviewee?.name || `Student ${review.reviewee?.id ?? ""}`}</td>
+                        <td>{displayReviewer(review)}</td>
+                        <td>{displayReviewee(review)}</td>
                         <td>
                           {isComplete ? (
                             <span className="badge text-bg-success">Complete</span>
@@ -164,11 +228,11 @@ export default function ClassReviews() {
             </div>
             <div className="col-12 col-md-4">
               <div className="text-muted small">Reviewer</div>
-              <div className="fw-semibold">{selectedCompletedReview.reviewer?.name || "Unknown"}</div>
+              <div className="fw-semibold">{displayReviewer(selectedCompletedReview)}</div>
             </div>
             <div className="col-12 col-md-4">
               <div className="text-muted small">Reviewee</div>
-              <div className="fw-semibold">{selectedCompletedReview.reviewee?.name || "Unknown"}</div>
+              <div className="fw-semibold">{displayReviewee(selectedCompletedReview)}</div>
             </div>
           </div>
 
