@@ -44,6 +44,43 @@
   padding: 16px;
 }
 
+.CriteriaNavRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.CriteriaTabsWrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.CriteriaTabsWrap .TabNav {
+  padding: 0;
+}
+
+.RubricTypeContainer {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.RubricTypeSelect {
+  width: 240px;
+}
+
+@media (max-width: 900px) {
+  .CriteriaNavRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .RubricTypeSelect {
+    width: 100%;
+    max-width: 360px;
+  }
+}
+
 .ExistingCriteria {
   margin-bottom: 32px;
   padding: 16px;
@@ -126,22 +163,23 @@
   font-size: 0.85rem;
 }
 
+.CriteriaEditInput:focus {
+  border-color: #f06a9f;
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(225, 0, 84, 0.2);
+}
+
+.CriteriaEditInput:focus {
+  border-color: #f06a9f;
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(225, 0, 84, 0.2);
+}
+
 .CriteriaEditNumber {
   width: 80px;
 }
 
-.CriteriaEditScoreWrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 
-.CriteriaEditCheckbox {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.8rem;
-}
 
 .CriteriaCommentHint {
   display: block;
