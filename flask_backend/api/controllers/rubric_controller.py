@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request # type: ignore
-from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..models import (
     Assignment,
@@ -8,6 +8,7 @@ from ..models import (
     CriteriaDescriptionSchema,
     Rubric,
     RubricSchema,
+    User_Course,
     User,
 )
 from .auth_controller import jwt_teacher_required
@@ -59,6 +60,22 @@ def _can_manage_assignment(assignment):
     return user.is_admin() or course.teacherID == user.id
 
 
+def _can_view_assignment(assignment):
+    user = User.get_by_email(get_jwt_identity())
+    if not user:
+        return False
+
+    course = Course.get_by_id(assignment.courseID)
+    if not course:
+        return False
+
+    return (
+        user.is_admin()
+        or course.teacherID == user.id
+        or User_Course.get(user.id, course.id) is not None
+    )
+
+
 def _validate_assignment_scope_for_rubric(assignment_id, rubric):
     if rubric.assignmentID != int(assignment_id):
         return jsonify({"msg": "Rubric does not belong to the specified assignment"}), 400
@@ -73,8 +90,15 @@ def _validate_assignment_scope_for_criteria(assignment_id, criteria):
 
 
 @bp.route("/rubric/assignment/<int:assignment_id>", methods=["GET"])
+@jwt_required()
 def get_rubric_by_assignment(assignment_id):
     """Get the rubric for a given assignment ID"""
+    assignment = Assignment.get_by_id(assignment_id)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+    if not _can_view_assignment(assignment):
+        return jsonify({"msg": "Insufficient permissions"}), 403
+
     rubric_type = request.args.get("rubricType") or request.args.get("rubric_type")
     normalized_rubric_type = Rubric.normalize_rubric_type(rubric_type)
     if rubric_type is not None and normalized_rubric_type is None:
@@ -92,8 +116,15 @@ def get_rubric_by_assignment(assignment_id):
 
 
 @bp.route("/rubric/assignment/<int:assignment_id>/separated", methods=["GET"])
+@jwt_required()
 def get_rubrics_by_assignment_separated(assignment_id):
     """Get peer and group rubrics separately for an assignment."""
+    assignment = Assignment.get_by_id(assignment_id)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+    if not _can_view_assignment(assignment):
+        return jsonify({"msg": "Insufficient permissions"}), 403
+
     peer_rubric = Rubric.get_for_assignment(assignment_id, "peer")
     group_rubric = Rubric.get_for_assignment(assignment_id, "group")
 
@@ -113,6 +144,7 @@ def get_rubrics_by_assignment_separated(assignment_id):
 
 
 @bp.route("/criteria", methods=["GET"])
+@jwt_required()
 def get_criteria():
     """Get all criteria descriptions for a rubric"""
     rubric_id = request.args.get("rubricID")
@@ -127,6 +159,12 @@ def get_criteria():
     rubric = Rubric.get_by_id(rubric_id)
     if not rubric:
         return jsonify({"msg": "Rubric not found"}), 404
+
+    assignment = Assignment.get_by_id(rubric.assignmentID)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+    if not _can_view_assignment(assignment):
+        return jsonify({"msg": "Insufficient permissions"}), 403
 
     criteria = rubric.criteria_descriptions.all()
     return jsonify(CriteriaDescriptionSchema(many=True).dump(criteria)), 200
@@ -374,6 +412,7 @@ def delete_criteria_for_assignment(assignment_id, criteria_id):
 
 
 @bp.route("/rubric", methods=["GET"])
+@jwt_required()
 def get_rubric():
     """Get a rubric and its criteria descriptions by rubric ID"""
     rubric_id = request.args.get("rubricID")
@@ -388,6 +427,12 @@ def get_rubric():
     rubric = Rubric.get_by_id(rubric_id)
     if not rubric:
         return jsonify({"msg": "Rubric not found"}), 404
+
+    assignment = Assignment.get_by_id(rubric.assignmentID)
+    if not assignment:
+        return jsonify({"msg": "Assignment not found"}), 404
+    if not _can_view_assignment(assignment):
+        return jsonify({"msg": "Insufficient permissions"}), 403
 
     rubric_data = RubricSchema().dump(rubric)
     rubric_data["criteria_descriptions"] = CriteriaDescriptionSchema(many=True).dump(

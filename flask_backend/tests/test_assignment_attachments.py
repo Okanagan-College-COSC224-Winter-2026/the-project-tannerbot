@@ -125,6 +125,43 @@ def test_teacher_can_add_attachment_after_assignment_creation(test_client, make_
     assert len(add_response.json["added_attachments"]) == 1
     assert add_response.json["added_attachments"][0]["original_name"] == "added-later.txt"
 
+
+def test_teacher_cannot_upload_oversized_attachment(test_client, make_admin):
+    make_admin(email="teacher-size@example.com", password="teacher", name="teacher-size")
+    test_client.application.config["MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES"] = 8
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher-size@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "CompSci Size"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+
+    create_response = test_client.post(
+        "/assignment/create_assignment",
+        data=json.dumps({
+            "courseID": str(class_id),
+            "name": "Oversized Attachment Assignment",
+        }),
+        headers={"Content-Type": "application/json"},
+    )
+    assignment_id = create_response.json["assignment"]["id"]
+
+    add_response = test_client.post(
+        f"/assignment/{assignment_id}/attachment",
+        data={"attachments": (io.BytesIO(b"0123456789"), "too-large.txt")},
+        content_type="multipart/form-data",
+    )
+
+    assert add_response.status_code == 413
+    assert "exceeds maximum size" in add_response.json["msg"]
+
 # This test verifies that a teacher can delete an attachment after the assignment has been created.
 def test_teacher_can_delete_attachment_after_assignment_creation(test_client, make_admin):
     make_admin(email="teacher6@example.com", password="teacher", name="teacheruser6")

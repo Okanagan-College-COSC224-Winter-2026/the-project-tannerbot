@@ -77,6 +77,20 @@ def create_app(test_config=None):
         ),  # Strict in production for maximum security
         JWT_ACCESS_COOKIE_PATH="/",
         JWT_COOKIE_DOMAIN=os.environ.get("JWT_COOKIE_DOMAIN", None),
+        MAX_SUBMISSION_FILE_SIZE_BYTES=int(
+            os.environ.get("MAX_SUBMISSION_FILE_SIZE_BYTES", str(10 * 1024 * 1024))
+        ),
+        MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES=int(
+            os.environ.get("MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES", str(10 * 1024 * 1024))
+        ),
+        RATE_LIMIT_TRUST_PROXY_HEADERS=(
+            os.environ.get("RATE_LIMIT_TRUST_PROXY_HEADERS", "false").lower() == "true"
+        ),
+        LOGIN_ATTEMPT_WINDOW_SECONDS=int(os.environ.get("LOGIN_ATTEMPT_WINDOW_SECONDS", "300")),
+        LOGIN_ATTEMPT_MAX_FAILURES=int(os.environ.get("LOGIN_ATTEMPT_MAX_FAILURES", "10")),
+        LOGIN_LOCKOUT_SECONDS=int(os.environ.get("LOGIN_LOCKOUT_SECONDS", "120")),
+        REGISTER_ATTEMPT_WINDOW_SECONDS=int(os.environ.get("REGISTER_ATTEMPT_WINDOW_SECONDS", "300")),
+        REGISTER_ATTEMPT_MAX_ATTEMPTS=int(os.environ.get("REGISTER_ATTEMPT_MAX_ATTEMPTS", "10")),
     )
 
     if test_config is None:

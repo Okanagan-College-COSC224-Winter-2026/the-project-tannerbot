@@ -6,6 +6,7 @@ import pytest
 from werkzeug.security import generate_password_hash
 
 from api import create_app
+from api.controllers import auth_controller
 from api.models import User, Course, User_Course
 from api.models.db import db as _db
 
@@ -54,6 +55,9 @@ def db(app):
     """Create a fresh database session for each test."""
     with app.app_context():
         _cleanup_assignment_upload_dirs(app)
+        auth_controller._failed_login_attempts.clear()
+        auth_controller._lockout_until.clear()
+        auth_controller._register_attempts.clear()
 
         # Clear all data from tables
         for table in reversed(_db.metadata.sorted_tables):
@@ -64,6 +68,9 @@ def db(app):
 
         # Cleanup after test
         _db.session.rollback()
+        auth_controller._failed_login_attempts.clear()
+        auth_controller._lockout_until.clear()
+        auth_controller._register_attempts.clear()
         _cleanup_assignment_upload_dirs(app)
 
 

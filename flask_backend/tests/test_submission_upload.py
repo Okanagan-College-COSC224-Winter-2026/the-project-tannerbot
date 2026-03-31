@@ -229,6 +229,32 @@ def test_teacher_cannot_upload_student_submission(test_client, make_teacher):
     assert upload_response.json["msg"] == "Insufficient permissions"
 
 
+def test_student_submission_rejects_oversized_file(
+    test_client,
+    make_teacher,
+    enroll_user_in_course,
+):
+    seeded = _seed_assignment_with_student(test_client, make_teacher, enroll_user_in_course)
+    test_client.application.config["MAX_SUBMISSION_FILE_SIZE_BYTES"] = 8
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps(
+            {"email": seeded["student_email"], "password": seeded["student_password"]}
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    upload_response = test_client.post(
+        f"/assignment/{seeded['assignment_id']}/submission",
+        data={"submission": (io.BytesIO(b"0123456789"), "too-large.txt")},
+        content_type="multipart/form-data",
+    )
+
+    assert upload_response.status_code == 413
+    assert "exceeds maximum size" in upload_response.json["msg"]
+
+
 def test_group_assignment_allows_only_one_submission_per_group(
     test_client,
     make_teacher,
