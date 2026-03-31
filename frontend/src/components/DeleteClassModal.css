@@ -1,0 +1,132 @@
+.DeleteClassModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+}
+
+.DeleteClassModal {
+  width: min(92vw, 480px);
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+}
+
+.DeleteClassModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.DeleteClassModalHeader h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 1.1rem;
+}
+
+.DeleteClassModalClose {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 1.2rem;
+  line-height: 1;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+}
+
+.DeleteClassModalClose:hover:not(:disabled) {
+  background: #f3f4f6;
+  color: #111827;
+  cursor: pointer;
+}
+
+.DeleteClassModalText {
+  margin: 0;
+  padding: 1rem 1.2rem 0.6rem;
+  color: #374151;
+  line-height: 1.45;
+}
+
+.DeleteClassNameConfirm {
+  margin: 0 1.2rem 1rem;
+}
+
+.DeleteClassNameConfirm label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #374151;
+  font-size: 0.95rem;
+}
+
+.DeleteClassNameConfirm input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.95rem;
+  color: #111827;
+  background: #ffffff;
+}
+
+.DeleteClassNameConfirm input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.DeleteClassError {
+  margin: 0 1.2rem 1rem;
+  color: #b91c1c;
+  font-size: 0.95rem;
+}
+
+.DeleteClassModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.2rem 1.2rem;
+}
+
+.DeleteClassCancelButton,
+.DeleteClassConfirmButton {
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+  font-weight: 700;
+}
+
+.DeleteClassCancelButton {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+.DeleteClassCancelButton:hover:not(:disabled) {
+  filter: brightness(0.95);
+  cursor: pointer;
+}
+
+.DeleteClassConfirmButton {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.DeleteClassConfirmButton:hover:not(:disabled) {
+  background: #b91c1c;
+  cursor: pointer;
+}
+
+.DeleteClassCancelButton:disabled,
+.DeleteClassConfirmButton:disabled,
+.DeleteClassModalClose:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
