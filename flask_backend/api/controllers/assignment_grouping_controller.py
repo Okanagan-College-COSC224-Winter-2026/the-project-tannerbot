@@ -206,3 +206,9 @@ def auto_assign_assignment_groups(assignment_id):
         "groups": serialize_assignment_groups(assignment, course),
         "students": build_grouping_student_payload(assignment.id, students),
     }), 200
+
+
+@bp.route("/<int:assignment_id>/groups/auto-assign", methods=["OPTIONS"])
+def auto_assign_assignment_groups_options(assignment_id):
+    # Explicitly acknowledge CORS preflight requests for auto-assign.
+    return "", 204

@@ -1126,9 +1126,6 @@ export const setAssignmentGroupMembers = async (
 export const autoAssignAssignmentGroups = async (assignmentID: number) => {
   const response = await fetch(`${BASE_URL}/assignment/${assignmentID}/groups/auto-assign`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
     credentials: 'include',
   });
 

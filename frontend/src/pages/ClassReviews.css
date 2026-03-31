@@ -1,3 +1,30 @@
+.ClassHomePage {
+  width: 100%;
+}
+
+.ClassHeader {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 1.2rem;
+  background: #ffffffd9;
+  backdrop-filter: blur(2px);
+}
+
+.ClassHeaderLeft {
+  display: flex;
+  align-items: center;
+}
+
+.ClassHeaderRight {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .ClassReviewsTable th,
 .ClassReviewsTable td {
   vertical-align: middle;
@@ -100,6 +127,17 @@
 }
 
 @media (max-width: 900px) {
+  .ClassHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .ClassHeaderLeft,
+  .ClassHeaderRight {
+    width: 100%;
+  }
+
   .ClassReviewsTableWrap {
     overflow-x: auto;
   }

@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import Button from "../components/Button";
 import StudentImportButton from "../components/StudentImportButton";
 import TabNavigation from "../components/TabNavigation";
-import { listReviewsForClass } from "../util/api";
+import { listClasses, listReviewsForClass } from "../util/api";
 import "./ClassReviews.css";
-import { isTeacher } from "../util/login";
+import { isAdmin, isTeacher } from "../util/login";
 
 export default function ClassReviews() {
   const { id } = useParams();
-  const navigate = useNavigate();
 
   const classId = Number(id);
+  const [className, setClassName] = useState<string | null>(null);
   const [reviews, setReviews] = useState<ReviewAssignment[]>([]);
   const [selectedCompletedReview, setSelectedCompletedReview] = useState<ReviewAssignment | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -69,6 +69,23 @@ export default function ClassReviews() {
 
   useEffect(() => {
     if (!Number.isFinite(classId) || classId <= 0) {
+      setClassName(null);
+      return;
+    }
+
+    (async () => {
+      try {
+        const classes = await listClasses();
+        const currentClass = classes.find((course: { id: number; name?: string }) => course.id === classId);
+        setClassName(currentClass?.name || null);
+      } catch {
+        setClassName(null);
+      }
+    })();
+  }, [classId]);
+
+  useEffect(() => {
+    if (!Number.isFinite(classId) || classId <= 0) {
       setError("Invalid class ID");
       return;
     }
@@ -94,14 +111,11 @@ export default function ClassReviews() {
     <div className="ClassHomePage container-fluid py-4 px-3 px-md-4">
       <div className="ClassHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
         <div className="ClassHeaderLeft">
-          <h2 className="h3 fw-bold mb-0">Class Reviews</h2>
+          <h2 className="h3 fw-bold mb-0">{className || "Class"}</h2>
         </div>
 
         <div className="ClassHeaderRight">
           {isTeacher() ? <StudentImportButton classId={id} /> : null}
-          <Button type="secondary" onClick={() => navigate(`/classes/${classId}/home`)}>
-            Back to Class
-          </Button>
         </div>
       </div>
 
@@ -115,10 +129,14 @@ export default function ClassReviews() {
             label: "Members",
             path: `/classes/${id}/members`,
           },
-          {
-            label: "Reviews",
-            path: `/classes/${id}/reviews`,
-          },
+          ...(isTeacher() || isAdmin()
+            ? [
+                {
+                  label: "Reviews",
+                  path: `/classes/${id}/reviews`,
+                },
+              ]
+            : []),
         ]}
       />
 
