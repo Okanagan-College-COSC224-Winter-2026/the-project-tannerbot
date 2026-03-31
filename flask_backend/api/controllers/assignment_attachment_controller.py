@@ -4,19 +4,12 @@ import uuid
 from flask import Blueprint, current_app, jsonify, request, send_file
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..models import Assignment, AssignmentAttachment, Course, User, User_Course
+from ..models import Assignment, AssignmentAttachment, Course, User
 from .auth_controller import jwt_teacher_required
+from .helpers import can_access_course
 
 bp = Blueprint("assignment_attachment", __name__, url_prefix="/assignment")
 DEFAULT_MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024
-
-
-def _can_access_course(user, course):
-    if user.is_admin():
-        return True
-    if course.teacherID == user.id:
-        return True
-    return User_Course.get(user.id, course.id) is not None
 
 
 def _normalize_original_name(filename):
@@ -39,12 +32,17 @@ def _serialize_attachment_metadata(assignment_id, attachment):
 
 
 def _read_attachment_with_limit(uploaded_file):
-    max_file_size = int(
-        current_app.config.get(
-            "MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES",
-            DEFAULT_MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES,
-        )
+    raw_max_file_size = current_app.config.get(
+        "MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES",
+        DEFAULT_MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES,
     )
+    try:
+        max_file_size = int(raw_max_file_size)
+        if max_file_size <= 0:
+            raise ValueError("MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES must be positive")
+    except (TypeError, ValueError):
+        max_file_size = DEFAULT_MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES
+
     content = uploaded_file.read(max_file_size + 1)
     if len(content) > max_file_size:
         raise ValueError(
@@ -208,7 +206,7 @@ def download_assignment_attachment(assignment_id, stored_name):
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
-    if not _can_access_course(user, course):
+    if not can_access_course(user, course):
         return jsonify({"msg": "Unauthorized to access this attachment"}), 403
 
     attachment = AssignmentAttachment.get_by_assignment_and_stored_name(assignment_id, stored_name)

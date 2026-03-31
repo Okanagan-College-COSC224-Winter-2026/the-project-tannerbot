@@ -8,10 +8,10 @@ from ..models import (
     CriteriaDescriptionSchema,
     Rubric,
     RubricSchema,
-    User_Course,
     User,
 )
 from .auth_controller import jwt_teacher_required
+from .helpers import can_access_course
 
 bp = Blueprint("rubric", __name__)
 MAX_ASSIGNMENT_SCORE = 100
@@ -69,11 +69,7 @@ def _can_view_assignment(assignment):
     if not course:
         return False
 
-    return (
-        user.is_admin()
-        or course.teacherID == user.id
-        or User_Course.get(user.id, course.id) is not None
-    )
+    return can_access_course(user, course)
 
 
 def _validate_assignment_scope_for_rubric(assignment_id, rubric):

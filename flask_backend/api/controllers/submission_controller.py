@@ -64,12 +64,17 @@ def _extract_uploaded_submission_file():
 
 
 def _read_submission_file_with_limit(uploaded_file):
-    max_file_size = int(
-        current_app.config.get(
-            "MAX_SUBMISSION_FILE_SIZE_BYTES",
-            DEFAULT_MAX_SUBMISSION_FILE_SIZE_BYTES,
-        )
+    raw_max_file_size = current_app.config.get(
+        "MAX_SUBMISSION_FILE_SIZE_BYTES",
+        DEFAULT_MAX_SUBMISSION_FILE_SIZE_BYTES,
     )
+    try:
+        max_file_size = int(raw_max_file_size)
+        if max_file_size <= 0:
+            raise ValueError("MAX_SUBMISSION_FILE_SIZE_BYTES must be positive")
+    except (TypeError, ValueError):
+        max_file_size = DEFAULT_MAX_SUBMISSION_FILE_SIZE_BYTES
+
     content = uploaded_file.read(max_file_size + 1)
     if not content:
         return None, (jsonify({"msg": "Uploaded submission file is empty"}), 400)

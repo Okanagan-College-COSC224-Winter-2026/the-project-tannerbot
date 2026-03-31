@@ -33,6 +33,22 @@ from .startup_migrations import (
 )
 
 
+def _env_int(name, default_value, minimum=1):
+    raw_value = os.environ.get(name)
+    if raw_value is None:
+        return default_value
+
+    try:
+        parsed_value = int(raw_value)
+    except (TypeError, ValueError):
+        return default_value
+
+    if minimum is not None and parsed_value < minimum:
+        return default_value
+
+    return parsed_value
+
+
 def create_app(test_config=None):
     """Create and configure the Flask application"""
     # create and configure the app
@@ -46,7 +62,7 @@ def create_app(test_config=None):
 
     # Use an explicit access-token lifetime to avoid Flask-JWT-Extended's 15-minute
     # default causing unexpected session expiration during normal app usage.
-    access_token_expires_seconds = int(os.environ.get("JWT_ACCESS_TOKEN_EXPIRES", "3600"))
+    access_token_expires_seconds = _env_int("JWT_ACCESS_TOKEN_EXPIRES", 3600, minimum=1)
 
     # Validate required secrets in production
     if is_production:
@@ -77,20 +93,18 @@ def create_app(test_config=None):
         ),  # Strict in production for maximum security
         JWT_ACCESS_COOKIE_PATH="/",
         JWT_COOKIE_DOMAIN=os.environ.get("JWT_COOKIE_DOMAIN", None),
-        MAX_SUBMISSION_FILE_SIZE_BYTES=int(
-            os.environ.get("MAX_SUBMISSION_FILE_SIZE_BYTES", str(10 * 1024 * 1024))
-        ),
-        MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES=int(
-            os.environ.get("MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES", str(10 * 1024 * 1024))
+        MAX_SUBMISSION_FILE_SIZE_BYTES=_env_int("MAX_SUBMISSION_FILE_SIZE_BYTES", 10 * 1024 * 1024),
+        MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES=_env_int(
+            "MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES", 10 * 1024 * 1024
         ),
         RATE_LIMIT_TRUST_PROXY_HEADERS=(
             os.environ.get("RATE_LIMIT_TRUST_PROXY_HEADERS", "false").lower() == "true"
         ),
-        LOGIN_ATTEMPT_WINDOW_SECONDS=int(os.environ.get("LOGIN_ATTEMPT_WINDOW_SECONDS", "300")),
-        LOGIN_ATTEMPT_MAX_FAILURES=int(os.environ.get("LOGIN_ATTEMPT_MAX_FAILURES", "10")),
-        LOGIN_LOCKOUT_SECONDS=int(os.environ.get("LOGIN_LOCKOUT_SECONDS", "120")),
-        REGISTER_ATTEMPT_WINDOW_SECONDS=int(os.environ.get("REGISTER_ATTEMPT_WINDOW_SECONDS", "300")),
-        REGISTER_ATTEMPT_MAX_ATTEMPTS=int(os.environ.get("REGISTER_ATTEMPT_MAX_ATTEMPTS", "10")),
+        LOGIN_ATTEMPT_WINDOW_SECONDS=_env_int("LOGIN_ATTEMPT_WINDOW_SECONDS", 300),
+        LOGIN_ATTEMPT_MAX_FAILURES=_env_int("LOGIN_ATTEMPT_MAX_FAILURES", 5),
+        LOGIN_LOCKOUT_SECONDS=_env_int("LOGIN_LOCKOUT_SECONDS", 600),
+        REGISTER_ATTEMPT_WINDOW_SECONDS=_env_int("REGISTER_ATTEMPT_WINDOW_SECONDS", 300),
+        REGISTER_ATTEMPT_MAX_ATTEMPTS=_env_int("REGISTER_ATTEMPT_MAX_ATTEMPTS", 10),
     )
 
     if test_config is None:

@@ -39,8 +39,14 @@ export const tryLogin = async (email: string, password: string) => {
         throw new Error(lockoutMessage);
       }
 
-      // Keep generic invalid-credential behavior for non-lockout failures.
-      return false;
+      if (response.status === 401) {
+        // Invalid credentials: caller maps this to a friendly message.
+        return false;
+      }
+
+      const json = await response.json().catch(() => null);
+      const apiMessage = typeof json?.msg === 'string' ? json.msg : null;
+      throw new Error(apiMessage || `Login failed with status: ${response.status}`);
     }
 
     const json = await response.json();

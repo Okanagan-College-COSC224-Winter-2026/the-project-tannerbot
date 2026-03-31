@@ -1,4 +1,5 @@
 import functools
+import math
 import threading
 import time
 
@@ -34,12 +35,17 @@ login_schema = UserLoginSchema()
 user_schema = UserSchema()
 
 
-def _get_config_int(name, default_value):
+def _get_config_int(name, default_value, minimum=None):
     value = current_app.config.get(name, default_value)
     try:
-        return int(value)
+        parsed_value = int(value)
     except (TypeError, ValueError):
+        parsed_value = int(default_value)
+
+    if minimum is not None and parsed_value < minimum:
         return int(default_value)
+
+    return parsed_value
 
 
 def _get_rate_limit_client_ip():
@@ -71,18 +77,20 @@ def _get_lockout_remaining_seconds(key, now):
     if not locked_until:
         return 0
 
-    remaining = int(locked_until - now)
+    remaining = locked_until - now
     if remaining > 0:
-        return remaining
+        return max(1, math.ceil(remaining))
 
     _lockout_until.pop(key, None)
     return 0
 
 
 def _record_failed_login_attempt(key, now):
-    window_seconds = _get_config_int("LOGIN_ATTEMPT_WINDOW_SECONDS", LOGIN_ATTEMPT_WINDOW_SECONDS)
-    max_failures = _get_config_int("LOGIN_ATTEMPT_MAX_FAILURES", LOGIN_ATTEMPT_MAX_FAILURES)
-    lockout_seconds = _get_config_int("LOGIN_LOCKOUT_SECONDS", LOGIN_LOCKOUT_SECONDS)
+    window_seconds = _get_config_int(
+        "LOGIN_ATTEMPT_WINDOW_SECONDS", LOGIN_ATTEMPT_WINDOW_SECONDS, minimum=1
+    )
+    max_failures = _get_config_int("LOGIN_ATTEMPT_MAX_FAILURES", LOGIN_ATTEMPT_MAX_FAILURES, minimum=1)
+    lockout_seconds = _get_config_int("LOGIN_LOCKOUT_SECONDS", LOGIN_LOCKOUT_SECONDS, minimum=1)
 
     attempts = _prune_attempts(_failed_login_attempts.get(key, []), now, window_seconds)
     attempts.append(now)
@@ -102,8 +110,12 @@ def _clear_login_failures(key):
 
 
 def _register_rate_limit_retry_after_seconds(key, now):
-    window_seconds = _get_config_int("REGISTER_ATTEMPT_WINDOW_SECONDS", REGISTER_ATTEMPT_WINDOW_SECONDS)
-    max_attempts = _get_config_int("REGISTER_ATTEMPT_MAX_ATTEMPTS", REGISTER_ATTEMPT_MAX_ATTEMPTS)
+    window_seconds = _get_config_int(
+        "REGISTER_ATTEMPT_WINDOW_SECONDS", REGISTER_ATTEMPT_WINDOW_SECONDS, minimum=1
+    )
+    max_attempts = _get_config_int(
+        "REGISTER_ATTEMPT_MAX_ATTEMPTS", REGISTER_ATTEMPT_MAX_ATTEMPTS, minimum=1
+    )
 
     attempts = _prune_attempts(_register_attempts.get(key, []), now, window_seconds)
     if len(attempts) >= max_attempts:

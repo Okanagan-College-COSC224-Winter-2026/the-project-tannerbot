@@ -8,7 +8,6 @@ from ..models import (
     AssignmentSchema,
     Course,
     User,
-    User_Course,
 )
 from ..services import build_assignment_progress_payload, clear_assignment_groups
 from .auth_controller import jwt_teacher_required
@@ -16,18 +15,10 @@ from .assignment_attachment_controller import (
     list_assignment_attachments,
     save_assignment_attachments,
 )
-from .helpers import get_teacher_managed_assignment
+from .helpers import can_access_course, get_teacher_managed_assignment
 
 bp = Blueprint("assignment", __name__, url_prefix="/assignment")
 VALID_ASSIGNMENT_MODES = {"solo", "group"}
-
-
-def _can_access_course(user, course):
-    if user.is_admin():
-        return True
-    if course.teacherID == user.id:
-        return True
-    return User_Course.get(user.id, course.id) is not None
 
 
 def _parse_request_data():
@@ -243,7 +234,7 @@ def get_assignments(class_id):
     current_user = User.get_by_email(email)
     if not current_user:
         return jsonify({"msg": "User not found"}), 404
-    if not _can_access_course(current_user, course):
+    if not can_access_course(current_user, course):
         return jsonify({"msg": "Insufficient permissions"}), 403
 
     assignments = Assignment.get_by_class_id(class_id)
