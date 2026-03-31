@@ -35,7 +35,11 @@ export default function LoginPage() {
     } else {
       setError('Invalid email or password');
     }
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.message.toLowerCase().includes('too many')) {
+      setError(err.message);
+      return;
+    }
     setError('Invalid email or password');
   }
 };

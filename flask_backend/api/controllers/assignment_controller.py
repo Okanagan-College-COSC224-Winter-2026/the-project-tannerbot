@@ -8,6 +8,7 @@ from ..models import (
     AssignmentSchema,
     Course,
     User,
+    User_Course,
 )
 from ..services import build_assignment_progress_payload, clear_assignment_groups
 from .auth_controller import jwt_teacher_required
@@ -19,6 +20,14 @@ from .helpers import get_teacher_managed_assignment
 
 bp = Blueprint("assignment", __name__, url_prefix="/assignment")
 VALID_ASSIGNMENT_MODES = {"solo", "group"}
+
+
+def _can_access_course(user, course):
+    if user.is_admin():
+        return True
+    if course.teacherID == user.id:
+        return True
+    return User_Course.get(user.id, course.id) is not None
 
 
 def _parse_request_data():
@@ -113,7 +122,10 @@ def create_assignment():
         description=description,
     )
     Assignment.create(new_assignment)
-    saved_files = save_assignment_attachments(new_assignment.id)
+    try:
+        saved_files = save_assignment_attachments(new_assignment.id)
+    except ValueError as exc:
+        return jsonify({"msg": str(exc)}), 413
 
     return (
         jsonify(
@@ -226,6 +238,13 @@ def get_assignments(class_id):
     course = Course.get_by_id(class_id)
     if not course:
         return jsonify({"msg": "Class not found"}), 404
+
+    email = get_jwt_identity()
+    current_user = User.get_by_email(email)
+    if not current_user:
+        return jsonify({"msg": "User not found"}), 404
+    if not _can_access_course(current_user, course):
+        return jsonify({"msg": "Insufficient permissions"}), 403
 
     assignments = Assignment.get_by_class_id(class_id)
     assignments_data = AssignmentSchema(many=True).dump(assignments)

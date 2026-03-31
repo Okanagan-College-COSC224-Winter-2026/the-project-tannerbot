@@ -639,6 +639,47 @@ def test_unauthenticated_user_cannot_get_assignments(test_client):
     assignments = test_client.get(f"/assignment/1")
     assert assignments.status_code == 401
 
+
+def test_non_member_cannot_get_assignments_for_other_class(test_client, make_teacher):
+    """Ensure assignment lists are not exposed across classes to unrelated users."""
+    make_teacher(email="teacher1@example.com", password="teacher1", name="Teacher One")
+    make_teacher(email="teacher2@example.com", password="teacher2", name="Teacher Two")
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher1@example.com", "password": "teacher1"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "Private Class"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+    test_client.post(
+        "/assignment/create_assignment",
+        data=json.dumps(
+            {
+                "courseID": class_id,
+                "name": "Private Assignment",
+                "rubric": "Confidential",
+                "due_date": (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=10)).isoformat(),
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    test_client.post("/auth/logout")
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher2@example.com", "password": "teacher2"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    response = test_client.get(f"/assignment/{class_id}")
+    assert response.status_code == 403
+    assert response.json["msg"] == "Insufficient permissions"
+
 # Test cases for assignments with start_date
 # pretty much just took one of the above test cases and added a start date line to it to check if it is stored correctly
 def test_teacher_can_create_assignment_with_start_date(test_client, make_admin):

@@ -30,8 +30,17 @@ export const tryLogin = async (email: string, password: string) => {
     });
     
     if (!response.ok) { 
-      // Throw if login fails for any reason
-      throw new Error(`Response status: ${response.status}`);
+      if (response.status === 429) {
+        const json = await response.json().catch(() => null);
+        const lockoutMessage =
+          typeof json?.msg === 'string'
+            ? json.msg
+            : 'Too many failed login attempts. Please try again later.';
+        throw new Error(lockoutMessage);
+      }
+
+      // Keep generic invalid-credential behavior for non-lockout failures.
+      return false;
     }
 
     const json = await response.json();
@@ -42,12 +51,9 @@ export const tryLogin = async (email: string, password: string) => {
 
     return json;
   } catch (error) {
-    // Login is wrong
     console.error(error);
-    // window.location.href = '/';
+    throw error;
   }
-
-  return false
 }
 
 export const tryRegister = async (name: string, email: string, password: string) => {

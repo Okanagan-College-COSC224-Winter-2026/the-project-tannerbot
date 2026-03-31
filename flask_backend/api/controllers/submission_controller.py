@@ -13,6 +13,7 @@ from .auth_controller import jwt_role_required, jwt_teacher_required
 from .helpers import get_authenticated_user
 
 bp = Blueprint("submission", __name__, url_prefix="/assignment")
+DEFAULT_MAX_SUBMISSION_FILE_SIZE_BYTES = 10 * 1024 * 1024
 
 
 def _normalize_original_name(filename):
@@ -60,6 +61,33 @@ def _extract_uploaded_submission_file():
             return uploaded_file
 
     return None
+
+
+def _read_submission_file_with_limit(uploaded_file):
+    max_file_size = int(
+        current_app.config.get(
+            "MAX_SUBMISSION_FILE_SIZE_BYTES",
+            DEFAULT_MAX_SUBMISSION_FILE_SIZE_BYTES,
+        )
+    )
+    content = uploaded_file.read(max_file_size + 1)
+    if not content:
+        return None, (jsonify({"msg": "Uploaded submission file is empty"}), 400)
+    if len(content) > max_file_size:
+        return (
+            None,
+            (
+                jsonify(
+                    {
+                        "msg": "Uploaded submission file exceeds maximum size",
+                        "max_size_bytes": max_file_size,
+                    }
+                ),
+                413,
+            ),
+        )
+
+    return content, None
 
 
 def _get_submission_storage_root():
@@ -201,9 +229,9 @@ def upload_submission(assignment_id):
     if not original_name:
         return jsonify({"msg": "Invalid file name"}), 400
 
-    content = uploaded_file.read()
-    if not content:
-        return jsonify({"msg": "Uploaded submission file is empty"}), 400
+    content, content_error = _read_submission_file_with_limit(uploaded_file)
+    if content_error:
+        return content_error
 
     stored_name = f"{uuid.uuid4().hex}__{original_name}"
     file_path = _get_submission_file_path(assignment.id, student.id, stored_name)
