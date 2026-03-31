@@ -42,7 +42,6 @@ export default function CriteriaCreation() {
   const [editingCriteriaId, setEditingCriteriaId] = useState<number | null>(null);
   const [editQuestion, setEditQuestion] = useState("");
   const [editScoreMax, setEditScoreMax] = useState(0);
-  const [editHasScore, setEditHasScore] = useState(true);
   const [actionMessage, setActionMessage] = useState("");
   const existingScoredTotal = (rubric?.criteria_descriptions || []).reduce(
     (sum, row) => sum + (row.hasScore ? Math.max(0, row.scoreMax) : 0),
@@ -81,8 +80,7 @@ export default function CriteriaCreation() {
   const beginEdit = (criteria: CriteriaDescription) => {
     setEditingCriteriaId(criteria.id);
     setEditQuestion(criteria.question || "");
-    setEditHasScore(criteria.hasScore);
-    setEditScoreMax(criteria.hasScore ? criteria.scoreMax : 0);
+    setEditScoreMax(criteria.scoreMax);
     setActionMessage("");
   };
 
@@ -97,8 +95,8 @@ export default function CriteriaCreation() {
       await updateCriteria(
         editingCriteriaId,
         editQuestion.trim(),
-        editHasScore ? Math.max(0, Math.min(100, editScoreMax)) : 0,
-        editHasScore
+        Math.max(0, Math.min(100, editScoreMax)),
+        true
       );
       setEditingCriteriaId(null);
       setActionMessage("Criterion updated.");
@@ -149,37 +147,39 @@ export default function CriteriaCreation() {
         </div>
       </div>
 
-      <TabNavigation
-        tabs={[
-          {
-            label: "Group",
-            path: `/assignments/${id}/group${classQuery}`,
-          },
-          {
-            label: "Criteria",
-            path: `/assignment/${id}/criteria${classQuery}`,
-          },
-          ...(canManageAssignment
-            ? [
-                {
-                  label: "Reviews",
-                  path: `/assignments/${id}/reviews${classQuery}`,
-                },
-                {
-                  label: "Progress",
-                  path: `/assignments/${id}/progress${classQuery}`,
-                },
-              ]
-            : []),
-        ]}
-      />
+      <div className="CriteriaNavRow mb-3">
+        <div className="CriteriaTabsWrap">
+          <TabNavigation
+            tabs={[
+              {
+                label: "Group",
+                path: `/assignments/${id}/group${classQuery}`,
+              },
+              {
+                label: "Criteria",
+                path: `/assignment/${id}/criteria${classQuery}`,
+              },
+              ...(canManageAssignment
+                ? [
+                    {
+                      label: "Reviews",
+                      path: `/assignments/${id}/reviews${classQuery}`,
+                    },
+                    {
+                      label: "Progress",
+                      path: `/assignments/${id}/progress${classQuery}`,
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        </div>
 
-      <div className="CriteriaCreationBody">
         {assignmentMode === "group" ? (
-          <div className="card border-0 shadow-sm p-3 mb-3">
-            <label className="form-label mb-1">Rubric Type</label>
+          <div className="RubricTypeContainer">
             <select
-              className="form-select"
+              id="rubric-type-select"
+              className="form-select RubricTypeSelect"
               value={rubricType}
               onChange={(event) => setRubricType(event.target.value === "group" ? "group" : "peer")}
             >
@@ -188,6 +188,9 @@ export default function CriteriaCreation() {
             </select>
           </div>
         ) : null}
+      </div>
+
+      <div className="CriteriaCreationBody">
 
         {rubric && rubric.criteria_descriptions.length > 0 && (
           <div className="ExistingCriteria">
@@ -221,35 +224,19 @@ export default function CriteriaCreation() {
                     </td>
                     <td>
                       {editingCriteriaId === c.id ? (
-                        <div className="CriteriaEditScoreWrap">
-                          <label className="CriteriaEditCheckbox">
-                            <input
-                              type="checkbox"
-                              checked={editHasScore}
-                              onChange={(e) => setEditHasScore(e.target.checked)}
-                            />
-                            Has score
-                          </label>
-                          {editHasScore ? (
-                            <input
-                              className="CriteriaEditInput CriteriaEditNumber"
-                              type="number"
-                              min={0}
-                              max={100}
-                              value={editScoreMax === 0 ? "" : editScoreMax}
-                              onChange={(e) =>
-                                setEditScoreMax(Math.max(0, Math.min(100, Number(e.target.value || 0))))
-                              }
-                              placeholder="Max Score"
-                            />
-                          ) : (
-                            <span>—</span>
-                          )}
-                        </div>
-                      ) : c.hasScore ? (
-                        c.scoreMax
+                        <input
+                          className="CriteriaEditInput CriteriaEditNumber"
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={editScoreMax === 0 ? "" : editScoreMax}
+                          onChange={(e) =>
+                            setEditScoreMax(Math.max(0, Math.min(100, Number(e.target.value || 0))))
+                          }
+                          placeholder="Max Score"
+                        />
                       ) : (
-                        "—"
+                        c.scoreMax
                       )}
                     </td>
                     <td>
