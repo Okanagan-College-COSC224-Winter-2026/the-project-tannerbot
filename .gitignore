@@ -64,6 +64,7 @@ flask_backend/instance/*.sqlite
 flask_backend/instance/*.sqlite3
 flask_backend/instance/*.pyc
 flask_backend/instance/.env
+flask_backend/instance/assignment_uploads/
 
 ########################
 # Environment secrets  #
