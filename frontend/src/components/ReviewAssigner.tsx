@@ -69,6 +69,46 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
   const canAssignSelectedGroupMode =
     groupReviewType === 'group' ? canAssignGroupToGroup : canAssignIntraGroupPeer;
 
+  const groupedReviewAssignments = useMemo(() => {
+    const grouped = new Map<
+      string,
+      { reviewerLabel: string; reviewTypeLabel: 'GROUP' | 'PEER'; reviewees: string[] }
+    >();
+
+    reviews.forEach((review) => {
+      const reviewerName =
+        review.reviewer?.name
+        || studentNameById.get(Number(review.reviewer?.id))
+        || `Student ${review.reviewer?.id ?? ''}`;
+      const revieweeName =
+        review.reviewee?.name
+        || studentNameById.get(Number(review.reviewee?.id))
+        || `Student ${review.reviewee?.id ?? ''}`;
+      const reviewerGroupLabel = studentGroupNameByUserId.get(Number(review.reviewer?.id)) || 'Ungrouped';
+      const revieweeGroupLabel = studentGroupNameByUserId.get(Number(review.reviewee?.id)) || 'Ungrouped';
+
+      const isGroupToGroup = assignmentMode === 'group' && review.review_type === 'group';
+      const reviewerLabel = isGroupToGroup ? reviewerGroupLabel : reviewerName;
+      const revieweeLabel = isGroupToGroup ? revieweeGroupLabel : revieweeName;
+      const reviewTypeLabel: 'GROUP' | 'PEER' = isGroupToGroup ? 'GROUP' : 'PEER';
+
+      const key = `${reviewTypeLabel}:${reviewerLabel}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          reviewerLabel,
+          reviewTypeLabel,
+          reviewees: [],
+        });
+      }
+
+      grouped.get(key)?.reviewees.push(revieweeLabel);
+    });
+
+    return Array.from(grouped.values()).sort((left, right) =>
+      left.reviewerLabel.localeCompare(right.reviewerLabel, undefined, { sensitivity: 'base' }),
+    );
+  }, [assignmentMode, reviews, studentGroupNameByUserId, studentNameById]);
+
   const loadGrouping = useCallback(async () => {
     try {
       const payload: AssignmentGroupingResponse = await getAssignmentGrouping(assignmentId);
@@ -165,8 +205,7 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
   };
 
   return (
-    <div className="ReviewAssigner mt-3">
-      <h4 className="ReviewAssignerTitle">Assign Peer Review</h4>
+    <div className="ReviewAssigner">
 
       {assignmentMode === 'group' ? (
         <>
@@ -182,8 +221,8 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
             </p>
           ) : null}
 
-          <div className="row g-2 mb-2">
-            <div className="col-12 col-md-5">
+          <div className="ReviewAssignerTopGrid mb-2">
+            <div className="ReviewAssignerPanel">
               <label className="form-label">Review Type</label>
               <select
                 className="form-select"
@@ -194,10 +233,8 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
                 <option value="peer">Peer Review (review your own group members)</option>
               </select>
             </div>
-          </div>
 
-          <div className="ReviewAssignerForm row g-2 align-items-end">
-            <div className="col-12 col-md-5">
+            <div className="ReviewAssignerPanel">
               <label className="form-label">Reviewer Group</label>
               <select
                 className="form-select"
@@ -214,40 +251,27 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
               </select>
             </div>
 
-            <div className="col-12 col-md-5">
+            <div className="ReviewAssignerPanel">
+              <label className="form-label">Reviewee Group</label>
               {groupReviewType === 'group' ? (
-                <>
-                  <label className="form-label">Reviewee Group</label>
-                  <select
-                    className="form-select"
-                    value={revieweeGroupId}
-                    onChange={(event) => setRevieweeGroupId(event.target.value ? Number(event.target.value) : '')}
-                    disabled={!canAssignGroupToGroup}
-                  >
-                    <option value="">Select group</option>
-                    {groupOptions.map((group) => (
-                      <option key={group.id} value={group.id}>
-                        {group.name}
-                      </option>
-                    ))}
-                  </select>
-                </>
+                <select
+                  className="form-select"
+                  value={revieweeGroupId}
+                  onChange={(event) => setRevieweeGroupId(event.target.value ? Number(event.target.value) : '')}
+                  disabled={!canAssignGroupToGroup}
+                >
+                  <option value="">Select group</option>
+                  {groupOptions.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
               ) : (
                 <p className="mb-0 small text-muted">
                   Peer review mode assigns each member of the selected reviewer group to review every other member of the same group.
                 </p>
               )}
-            </div>
-
-            <div className="col-12 col-md-2">
-              <button
-                type="button"
-                className="btn btn-primary w-100"
-                onClick={handleAssign}
-                disabled={isSubmitting || !canAssignSelectedGroupMode}
-              >
-                {isSubmitting ? 'Assigning...' : groupReviewType === 'group' ? 'Assign Group Reviews' : 'Assign Peer Reviews'}
-              </button>
             </div>
           </div>
 
@@ -261,6 +285,17 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
               ))}
             </div>
           ) : null}
+
+          <div className="ReviewAssignerActionRow mt-2">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleAssign}
+              disabled={isSubmitting || !canAssignSelectedGroupMode}
+            >
+              {isSubmitting ? 'Assigning...' : groupReviewType === 'group' ? 'Assign Group Reviews' : 'Assign Peer Reviews'}
+            </button>
+          </div>
 
           {error ? <p className="ReviewAssignerError mt-2 mb-0">{error}</p> : null}
         </>
@@ -319,42 +354,30 @@ export default function ReviewAssigner({ assignmentId, students, onAssigned }: P
 
       <div className="ReviewAssignerList mt-3">
         <h5 className="mb-2">Current Review Assignments</h5>
-        {reviews.length === 0 ? (
+        {groupedReviewAssignments.length === 0 ? (
           <p className="ReviewAssignerHint mb-0">No review assignments yet.</p>
         ) : (
-          <ul className="mb-0">
-            {reviews.map((review) => {
-              const reviewerName = review.reviewer?.name || studentNameById.get(Number(review.reviewer?.id)) || `Student ${review.reviewer?.id ?? ''}`;
-              const revieweeName = review.reviewee?.name || studentNameById.get(Number(review.reviewee?.id)) || `Student ${review.reviewee?.id ?? ''}`;
-              const reviewerGroupLabel = studentGroupNameByUserId.get(Number(review.reviewer?.id));
-              const revieweeGroupLabel = studentGroupNameByUserId.get(Number(review.reviewee?.id));
-
-              return (
-                <li key={review.id}>
-                  {assignmentMode === 'group' ? (
-                    review.review_type === 'group' ? (
-                      <>
-                        <span className="badge text-bg-light me-2 text-uppercase">GROUP</span>
-                        <span className="fw-semibold">{reviewerGroupLabel || 'Ungrouped'}</span> reviews{' '}
-                        <span className="fw-semibold">{revieweeGroupLabel || 'Ungrouped'}</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="badge text-bg-light me-2 text-uppercase">PEER</span>
-                        <span className="fw-semibold">{reviewerName}</span> reviews{' '}
-                        <span className="fw-semibold">{revieweeName}</span>
-                      </>
-                    )
-                  ) : (
-                    <>
-                      <span className="fw-semibold">{reviewerName}</span> reviews{' '}
-                      <span className="fw-semibold">{revieweeName}</span>
-                    </>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          <div className="ReviewAssignerAccordion">
+            {groupedReviewAssignments.map((groupedAssignment) => (
+              <details className="ReviewAssignerAccordionItem" key={`${groupedAssignment.reviewTypeLabel}:${groupedAssignment.reviewerLabel}`}>
+                <summary className="ReviewAssignerAccordionSummary">
+                  <span className="ReviewAssignerAccordionHeading">
+                    <span className="badge text-bg-light text-uppercase">{groupedAssignment.reviewTypeLabel}</span>
+                    <span className="fw-semibold">{groupedAssignment.reviewerLabel}</span>
+                    <span>reviews</span>
+                  </span>
+                  <span className="text-muted small">{groupedAssignment.reviewees.length}</span>
+                </summary>
+                <ul className="ReviewAssignerAccordionList mb-0">
+                  {groupedAssignment.reviewees.map((revieweeLabel, index) => (
+                    <li key={`${groupedAssignment.reviewerLabel}-${revieweeLabel}-${index}`}>
+                      <span className="fw-semibold">{revieweeLabel}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ))}
+          </div>
         )}
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import Button from "../components/Button";
@@ -93,10 +93,33 @@ export default function AssignmentProgress() {
     });
   }, [progress]);
 
+  const groupedStudentSections = useMemo(() => {
+    if (!progress) {
+      return [] as Array<{ label: string; students: AssignmentProgressStudent[] }>;
+    }
+
+    if (progress.assignment.assignment_mode !== "group") {
+      return [{ label: "Students", students: sortedStudents }];
+    }
+
+    const sections = new Map<string, AssignmentProgressStudent[]>();
+    for (const student of sortedStudents) {
+      const label = student.group?.name?.trim() || "Ungrouped";
+      const current = sections.get(label);
+      if (current) {
+        current.push(student);
+      } else {
+        sections.set(label, [student]);
+      }
+    }
+
+    return Array.from(sections.entries()).map(([label, students]) => ({ label, students }));
+  }, [progress, sortedStudents]);
+
   return (
     <div className="AssignmentPage container-fluid py-4 px-3 px-md-4">
       <div className="AssignmentHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
-        <h2 className="h3 fw-bold mb-0">Assignment {assignmentId}</h2>
+        <h2 className="h3 fw-bold text-primary mb-0">Assignment {assignmentId}</h2>
         {canManageAssignment ? (
           <Button
             type="secondary"
@@ -149,80 +172,89 @@ export default function AssignmentProgress() {
           <p className="mb-0">No progress data found.</p>
         </div>
       ) : (
-        <div className="card border-0 shadow-sm p-3 p-md-4 mt-3">
-          <h3 className="h5 fw-semibold mb-3">{progress.assignment.name}</h3>
-          <div className="table-responsive AssignmentProgressTableWrap">
-            <table className="table align-middle AssignmentProgressTable mb-0">
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>Submission</th>
-                  <th>Peer Reviews Completed</th>
-                  <th>Peer Review Completion</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedStudents.map((student, index) => {
-                  const reviewStatus = student.peer_review_status || student.review_status;
-                  const isGroupAssignment = progress.assignment.assignment_mode === "group";
-                  const groupLabel = student.group?.name?.trim() || "Ungrouped";
-                  const previousStudent = index > 0 ? sortedStudents[index - 1] : null;
-                  const previousGroupLabel = previousStudent?.group?.name?.trim() || "Ungrouped";
-                  const showGroupHeader = isGroupAssignment && (index === 0 || groupLabel !== previousGroupLabel);
-
-                  return (
-                    <Fragment key={`student-row-${student.id}`}>
-                      {showGroupHeader ? (
-                        <tr key={`group-${groupLabel}`} className="AssignmentProgressGroupHeaderRow">
-                          <td colSpan={4} className="AssignmentProgressGroupHeaderCell">
-                            Group: {groupLabel}
-                          </td>
-                        </tr>
-                      ) : null}
-                      <tr key={student.id}>
-                        <td>
-                          <div className="fw-semibold AssignmentProgressStudentName">{student.name}</div>
-                          <div className="text-muted small AssignmentProgressStudentMeta">
-                            {student.student_id || student.email}
-                          </div>
-                        </td>
-                        <td>
-                          <div className="d-flex flex-column align-items-start gap-2">
-                            <span className={`badge ${student.has_submitted ? "text-bg-success" : "text-bg-secondary"}`}>
-                              {student.has_submitted ? "Submitted" : "Not submitted"}
-                            </span>
-                            {student.has_submitted && student.submission?.original_name ? (
-                              <button
-                                type="button"
-                                className="btn btn-outline-secondary btn-sm"
-                                onClick={() => handleDownloadSubmission(student)}
-                              >
-                                Download Submission
-                              </button>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td>
-                          <span className={`badge ${reviewStatus.has_reviewed ? "text-bg-success" : "text-bg-secondary"}`}>
-                            {reviewStatus.has_reviewed ? "Completed" : "Not completed"}
-                          </span>
-                        </td>
-                        <td>
-                          <span>
-                            {reviewStatus.completed_assigned_reviews}/{reviewStatus.total_assigned_reviews}
-                          </span>
-                          <span className="text-muted small ms-2">
-                            ({reviewStatus.pending_assigned_reviews} pending)
-                          </span>
-                        </td>
+        <>
+          <div className="AssignmentProgressGroups">
+            {groupedStudentSections.map((section, sectionIndex) => (
+              <div className="card border-0 shadow-sm p-3 p-md-4 mt-3" key={`${section.label}-${sectionIndex}`}>
+                {progress.assignment.assignment_mode === "group" ? (
+                  <h4 className="h5 fw-semibold mb-3">Group: {section.label}</h4>
+                ) : null}
+                <div className="table-responsive AssignmentProgressTableWrap">
+                  <table className="table align-middle AssignmentProgressTable mb-0">
+                    <thead>
+                      <tr>
+                        <th>Student</th>
+                        <th>Submission</th>
+                        <th>Download</th>
+                        <th>Peer Reviews Completed</th>
+                        <th>Peer Review Completion</th>
                       </tr>
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                      {section.students.map((student) => {
+                        const reviewStatus = student.peer_review_status || student.review_status;
+
+                        return (
+                          <tr key={student.id}>
+                            <td>
+                              <div className="fw-semibold AssignmentProgressStudentName">{student.name}</div>
+                              <div className="text-muted small AssignmentProgressStudentMeta">
+                                {student.student_id || student.email}
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`badge ${student.has_submitted ? "text-bg-success" : "text-bg-secondary"}`}>
+                                {student.has_submitted ? "Submitted" : "Not submitted"}
+                              </span>
+                            </td>
+                            <td>
+                              {student.has_submitted && student.submission?.original_name ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-primary rounded-circle AssignmentProgressDownloadButton"
+                                  onClick={() => handleDownloadSubmission(student)}
+                                  title="Download submission"
+                                  aria-label={`Download submission for ${student.name}`}
+                                >
+                                  <i className="bi bi-check-lg" aria-hidden="true" />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary rounded-circle AssignmentProgressDownloadButton"
+                                  disabled
+                                  title="No file available"
+                                  aria-label={`No file available for ${student.name}`}
+                                >
+                                  <i className="bi bi-x-lg" aria-hidden="true" />
+                                </button>
+                              )}
+                            </td>
+                            <td>
+                              <span className={`badge ${reviewStatus.has_reviewed ? "text-bg-success" : "text-bg-secondary"}`}>
+                                {reviewStatus.has_reviewed ? "Completed" : "Not completed"}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="AssignmentProgressCompletionStat">
+                                <span>
+                                  {reviewStatus.completed_assigned_reviews}/{reviewStatus.total_assigned_reviews}
+                                </span>
+                                <span className="text-muted small">
+                                  ({reviewStatus.pending_assigned_reviews} pending)
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        </>
       )}
     </div>
   );

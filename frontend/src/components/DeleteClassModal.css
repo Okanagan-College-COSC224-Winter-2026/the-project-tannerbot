@@ -115,12 +115,12 @@
 }
 
 .DeleteClassConfirmButton {
-  background: #dc2626;
-  color: #ffffff;
+  background: var(--button-primary);
+  color: var(--background-primary);
 }
 
 .DeleteClassConfirmButton:hover:not(:disabled) {
-  background: #b91c1c;
+  filter: brightness(1.1);
   cursor: pointer;
 }
 
