@@ -102,6 +102,13 @@
   padding: 12px;
 }
 
+.AssignmentHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .groupNameInput{
   width: 15%;
 }

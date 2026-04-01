@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import Button from "../components/Button";
+import StudentSubmissionManager from "../components/StudentSubmissionManager";
 import TabNavigation from "../components/TabNavigation";
 import StudentAssignedReviews from "../components/StudentAssignedReviews";
 import { isAdmin, isTeacher } from "../util/login";
@@ -30,15 +31,18 @@ export default function Assignment() {
   return (
     <div className="AssignmentPage container-fluid py-4 px-3 px-md-4">
       <div className="AssignmentHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
-        <h2 className="h3 fw-bold mb-0">Assignment {assignmentId}</h2>
-        {classId ? (
-          <Button
-            type="secondary"
-            onClick={() => navigate(`/classes/${classId}/home`)}
-          >
-            Back to Class
-          </Button>
-        ) : null}
+        <h2 className="h3 fw-bold mb-0 text-primary">Assignment {assignmentId}</h2>
+        <div className="AssignmentHeaderActions">
+          {classId ? (
+            <Button
+              type="secondary"
+              onClick={() => navigate(`/classes/${classId}/home`)}
+            >
+              Back to Class
+            </Button>
+          ) : null}
+          {!canManageAssignment ? <StudentSubmissionManager assignmentId={assignmentId} /> : null}
+        </div>
       </div>
 
       <TabNavigation

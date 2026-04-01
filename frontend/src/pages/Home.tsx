@@ -91,7 +91,7 @@ export default function Home() {
   if (loading) {
     return (
       <div className="Home">
-        <h1>{isTeacher() ? "Teacher Dashboard" : "Peer Review Dashboard"}</h1>
+        <h1 className="text-primary">{isTeacher() ? "Teacher Dashboard" : "Peer Review Dashboard"}</h1>
         <p>Loading courses...</p>
       </div>
     );
@@ -101,7 +101,7 @@ export default function Home() {
     <>
     <div className="Home">
       {successToast ? <div className="HomeSuccessToast">{successToast}</div> : null}
-      <h1>{isTeacher() ? "Teacher Dashboard" : "Peer Review Dashboard"}</h1>
+      <h1 className="text-primary">{isTeacher() ? "Teacher Dashboard" : "Peer Review Dashboard"}</h1>
 
         {isTeacher() && (
           <div className="DashboardSummary">

@@ -136,7 +136,7 @@ export default function CriteriaCreation() {
     <div className="AssignmentPage CriteriaCreationPage container-fluid py-4 px-3 px-md-4">
       <div className="AssignmentHeader CriteriaCreationHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
         <div className="CriteriaCreationHeaderLeft">
-          <h2 className="h3 fw-bold mb-0">Assignment {id}</h2>
+          <h2 className="h3 fw-bold mb-0 text-primary">Assignment {id}</h2>
         </div>
         <div className="CriteriaCreationHeaderRight">
           <Button onClick={handleBackToClass} type="secondary">
