@@ -1,15 +1,13 @@
-import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import {
-  downloadMyAssignmentSubmission,
-  getMyAssignmentSubmission,
   listMyReceivedSeparatedReviewsForAssignment,
   listMySeparatedReviewsForAssignment,
   markReview,
-  uploadAssignmentSubmission,
 } from "../util/api";
 import { formatDateTime } from "../util/dateUtils";
+import StatusMessage from "./StatusMessage";
 
 import "./StudentAssignedReviews.css";
 
@@ -67,33 +65,21 @@ interface Props {
 export default function StudentAssignedReviews({ assignmentId }: Props) {
   const location = useLocation();
   const latestLoadId = useRef(0);
-  const submissionFileInputRef = useRef<HTMLInputElement | null>(null);
+  const assignedPanelRef = useRef<HTMLDivElement | null>(null);
   const [reviews, setReviews] = useState<ReviewAssignment[]>([]);
   const [receivedReviews, setReceivedReviews] = useState<ReviewAssignment[]>([]);
-  const [selectedSubmissionFile, setSelectedSubmissionFile] = useState<File | null>(null);
-  const [submissionStatus, setSubmissionStatus] = useState<AssignmentSubmissionStatus>({
-    has_submitted: false,
-    submission: null,
-  });
-  const [submissionLoading, setSubmissionLoading] = useState(false);
-  const [submissionSaving, setSubmissionSaving] = useState(false);
-  const [submissionError, setSubmissionError] = useState("");
-  const [submissionSuccess, setSubmissionSuccess] = useState("");
   const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
   const [draft, setDraft] = useState<DraftValues>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [assignedPanelHeight, setAssignedPanelHeight] = useState<number | null>(null);
+  const [isTwoColumnLayout, setIsTwoColumnLayout] = useState(false);
 
   const selectedReview = useMemo(
     () => reviews.find((review) => review.id === selectedReviewId) ?? null,
     [reviews, selectedReviewId],
-  );
-
-  const isGroupAssignment = useMemo(
-    () => reviews.some((review) => review.assignment?.assignment_mode === "group"),
-    [reviews],
   );
 
   const groupReviews = useMemo(
@@ -199,28 +185,44 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
     loadAssignedReviews();
   }, [loadAssignedReviews]);
 
-  const loadSubmissionStatus = useCallback(async () => {
-    if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1101px)");
+    const updateLayoutMode = () => {
+      setIsTwoColumnLayout(mediaQuery.matches);
+    };
+
+    updateLayoutMode();
+    mediaQuery.addEventListener("change", updateLayoutMode);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateLayoutMode);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!assignedPanelRef.current) {
       return;
     }
 
-    try {
-      setSubmissionLoading(true);
-      setSubmissionError("");
-      const payload = (await getMyAssignmentSubmission(assignmentId)) as AssignmentSubmissionStatus;
-      setSubmissionStatus(payload);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load submission status";
-      setSubmissionError(message);
-      setSubmissionStatus({ has_submitted: false, submission: null });
-    } finally {
-      setSubmissionLoading(false);
-    }
-  }, [assignmentId]);
+    const updateHeight = () => {
+      if (!assignedPanelRef.current) {
+        return;
+      }
+      setAssignedPanelHeight(assignedPanelRef.current.getBoundingClientRect().height);
+    };
 
-  useEffect(() => {
-    loadSubmissionStatus();
-  }, [loadSubmissionStatus]);
+    updateHeight();
+
+    const observer = new ResizeObserver(() => {
+      updateHeight();
+    });
+
+    observer.observe(assignedPanelRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [loading, reviews.length, selectedReviewId, error, success, saving]);
 
   const handleReviewChange = (reviewId: number) => {
     setSelectedReviewId(reviewId);
@@ -336,112 +338,13 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
     }
   };
 
-  const handleSubmissionFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    setSelectedSubmissionFile(file);
-    setSubmissionError("");
-    setSubmissionSuccess("");
-  };
-
-  const handleSubmissionUpload = async () => {
-    if (!selectedSubmissionFile) {
-      setSubmissionError("Choose a file to submit.");
-      return;
-    }
-
-    try {
-      setSubmissionSaving(true);
-      setSubmissionError("");
-      setSubmissionSuccess("");
-      const payload = (await uploadAssignmentSubmission(
-        assignmentId,
-        selectedSubmissionFile,
-      )) as AssignmentSubmissionStatus;
-      setSubmissionStatus(payload);
-      setSelectedSubmissionFile(null);
-      if (submissionFileInputRef.current) {
-        submissionFileInputRef.current.value = "";
-      }
-      setSubmissionSuccess("Submission uploaded successfully.");
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to upload submission";
-      if (
-        isGroupAssignment
-        && message.toLowerCase().includes("already submitted")
-      ) {
-        setSubmissionError(
-          "Group submission already received from your team. Download the current group submission below.",
-        );
-        await loadSubmissionStatus();
-      } else {
-        setSubmissionError(message);
-      }
-    } finally {
-      setSubmissionSaving(false);
-    }
-  };
-
-  const handleSubmissionDownload = async () => {
-    if (!submissionStatus.submission?.original_name) {
-      return;
-    }
-
-    try {
-      setSubmissionError("");
-      await downloadMyAssignmentSubmission(assignmentId, submissionStatus.submission.original_name);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to download submission";
-      setSubmissionError(message);
-    }
-  };
-
   return (
-    <div className="card border-0 shadow-sm p-3 p-md-4 mt-3">
-      <h3 className="h5 mb-3">Assignment Submission</h3>
-      <p className="text-muted mb-2">Upload your assignment file. Any file type is accepted.</p>
-
-      {submissionLoading ? <p className="mb-2">Loading submission status...</p> : null}
-
-      {!submissionLoading && submissionStatus.has_submitted && submissionStatus.submission ? (
-        <div className="ReviewCriterionCard mb-3 p-3">
-          {isGroupAssignment ? (
-            <p className="mb-2 text-muted">
-              Group submission already received from your team.
-            </p>
-          ) : null}
-          <p className="mb-2">
-            Current submission: <strong>{submissionStatus.submission.original_name}</strong>
-          </p>
-          <button className="btn btn-outline-secondary btn-sm" onClick={handleSubmissionDownload}>
-            Download Current Submission
-          </button>
-        </div>
-      ) : null}
-
-      <div className="mb-2">
-        <input
-          ref={submissionFileInputRef}
-          className="form-control"
-          type="file"
-          onChange={handleSubmissionFileChange}
-        />
-      </div>
-      <button
-        className="btn btn-primary"
-        onClick={handleSubmissionUpload}
-        disabled={submissionSaving || !selectedSubmissionFile}
-      >
-        {submissionSaving ? "Uploading..." : "Submit Assignment File"}
-      </button>
-
-      {submissionError ? <p className="text-danger mt-3 mb-0">{submissionError}</p> : null}
-      {submissionSuccess ? <p className="text-success mt-3 mb-0">{submissionSuccess}</p> : null}
-
-      <hr className="my-4" />
-      <h3 className="h5 mb-3">Your Assigned Peer Reviews</h3>
+    <div className="StudentReviewsLayout mt-3">
+      <div ref={assignedPanelRef} className="StudentAssignedReviewsPanel card border-0 shadow-sm p-3 p-md-4">
+        <h3 className="h5 mb-3 AssignedReviewsHeading">Your Assigned Peer Reviews</h3>
 
       {!loading ? (
-        <p className="mb-3 text-muted">
+        <p className="mb-3 text-muted AssignedReviewsSummary">
           Assigned reviews: {reviews.length} (Group: {groupReviews.length}, Peer: {peerReviews.length})
         </p>
       ) : null}
@@ -454,10 +357,9 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
 
       {!loading && reviews.length > 0 ? (
         <>
-          <div className="mb-3">
-            <label className="form-label">Choose Review To Grade</label>
+          <div className="mb-3 ReviewPickerWrap">
             <select
-              className="form-select"
+              className="form-select ReviewPickerSelect"
               value={selectedReviewId ?? ""}
               onChange={(event) => handleReviewChange(Number(event.target.value))}
             >
@@ -484,7 +386,7 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
           </div>
 
           {selectedReview ? (
-            <div className="ReviewCriterionCard mb-3 p-3">
+            <div className="ReviewCriterionCard ReviewSummaryCard mb-3 p-3">
               <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
                 <h4 className="h6 mb-0">
                   Reviewing: {selectedReview.review_type === "group"
@@ -516,11 +418,34 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
             </div>
           ) : null}
 
-          {selectedReviewWindowMessage ? <p className="text-warning mt-2">{selectedReviewWindowMessage}</p> : null}
+          {selectedReviewWindowMessage ? (
+            <StatusMessage
+              message={selectedReviewWindowMessage}
+              type="error"
+              className="ReviewAlertBox mt-2"
+            />
+          ) : null}
           {selectedReview && selectedReview.can_mark === false ? (
-            <p className="text-warning mt-2 mb-0">
-              This group review has already been completed by a teammate and is now locked.
-            </p>
+            <StatusMessage
+              message="This group review has already been completed by a teammate and is now locked."
+              type="error"
+              className="ReviewAlertBox mt-2"
+            />
+          ) : null}
+
+          {error ? (
+            <StatusMessage
+              message={error}
+              type="error"
+              className="ReviewAlertBox mt-2"
+            />
+          ) : null}
+          {success ? (
+            <StatusMessage
+              message={success}
+              type="success"
+              className="ReviewAlertBox mt-2"
+            />
           ) : null}
 
           {selectedReview?.criteria?.map((criterion) => {
@@ -529,7 +454,7 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
             const hasScore = criterionRow?.hasScore ?? true;
 
             return (
-              <div key={criterion.id} className="ReviewCriterionCard mb-3 p-3">
+              <div key={criterion.id} className="ReviewCriterionCard ReviewCriteriaCard mb-3 p-3">
                 <div className="d-flex justify-content-between align-items-start gap-3 mb-2">
                   <h4 className="h6 mb-0">{criterionRow?.question ?? "Criterion"}</h4>
                   {hasScore ? <span className="badge text-bg-light">Max {scoreMax}</span> : null}
@@ -564,7 +489,7 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
           })}
 
           <button
-            className="btn btn-primary"
+            className="btn btn-primary ReviewSubmitButton"
             onClick={handleSubmit}
             disabled={saving || selectedReview?.review_window_open === false || !selectedReviewCanMark}
           >
@@ -573,42 +498,45 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
         </>
       ) : null}
 
-      {error ? <p className="text-danger mt-3 mb-0">{error}</p> : null}
-      {success ? <p className="text-success mt-3 mb-0">{success}</p> : null}
+      </div>
 
-      <hr className="my-4" />
-      <h3 className="h5 mb-3">Reviews About You</h3>
-      {receivedReviews.length === 0 ? (
-        <p className="mb-0 text-muted">No completed reviews about you yet.</p>
-      ) : (
-        <div className="d-grid gap-3">
-          {receivedReviews.map((review) => (
-            <div key={review.id} className="ReviewCriterionCard p-3">
-              <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                <h4 className="h6 mb-0">
-                  {review.review_type === "group" ? "Group Review" : "Peer Review"}
-                </h4>
-                <span className="badge text-bg-secondary">Reviewer: Anonymous</span>
-              </div>
+      <div
+        className="StudentReceivedReviewsPanel card border-0 shadow-sm p-3 p-md-4"
+        style={isTwoColumnLayout && assignedPanelHeight ? { maxHeight: `${assignedPanelHeight}px` } : undefined}
+      >
+        <h3 className="h5 mb-3 AssignedReviewsHeading">Reviews About You</h3>
+        {receivedReviews.length === 0 ? (
+          <p className="mb-0 text-muted">No completed reviews about you yet.</p>
+        ) : (
+          <div className="ReviewListStack">
+            {receivedReviews.map((review) => (
+              <div key={review.id} className="ReviewCriterionCard ReviewReceivedCard p-3">
+                <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                  <h4 className="h6 mb-0">
+                    {review.review_type === "group" ? "Group Review" : "Peer Review"}
+                  </h4>
+                  <span className="badge text-bg-secondary">Reviewer: Anonymous</span>
+                </div>
 
-              {review.criteria?.map((criterion) => {
-                const hasScore = criterion.criterion_row?.hasScore ?? true;
-                return (
-                  <div key={criterion.id} className="mb-2">
-                    <div className="fw-semibold">{criterion.criterion_row?.question ?? "Criterion"}</div>
-                    {hasScore ? (
-                      <div className="small">Score: {criterion.grade ?? "Not scored"}</div>
-                    ) : null}
-                    <div className="small text-muted">
-                      Comments: {criterion.comments?.trim() ? criterion.comments : "No comments"}
+                {review.criteria?.map((criterion) => {
+                  const hasScore = criterion.criterion_row?.hasScore ?? true;
+                  return (
+                    <div key={criterion.id} className="mb-2">
+                      <div className="fw-semibold">{criterion.criterion_row?.question ?? "Criterion"}</div>
+                      {hasScore ? (
+                        <div className="small">Score: {criterion.grade ?? "Not scored"}</div>
+                      ) : null}
+                      <div className="small text-muted">
+                        Comments: {criterion.comments?.trim() ? criterion.comments : "No comments"}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      )}
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

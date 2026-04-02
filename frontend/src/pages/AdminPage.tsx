@@ -13,6 +13,17 @@ export default function AdminPage() {
   const [deleteModalAssociations, setDeleteModalAssociations] = useState<UserAssociations>({});
   const currentUser = JSON.parse(localStorage.getItem("user") || "null");
 
+  const getRoleBadgeClass = (role: string) => {
+    const normalizedRole = role.toLowerCase();
+    if (normalizedRole === "admin") {
+      return "text-bg-success";
+    }
+    if (normalizedRole === "teacher") {
+      return "text-bg-primary";
+    }
+    return "text-bg-secondary";
+  };
+
   async function handleDelete(userId: number) {
     setStatusMessage("");
 
@@ -79,7 +90,7 @@ export default function AdminPage() {
   }, []);
   return (
   <div className="AdminPage">
-    <h1>Admin Panel</h1>
+    <h1 className="text-primary">Admin Panel</h1>
 
     {statusMessage ? (
       <div className={`AdminStatusMessage ${statusType === "error" ? "Error" : "Success"}`} role="alert">
@@ -105,14 +116,20 @@ export default function AdminPage() {
               <td>{u.id}</td>
               <td>{u.name}</td>
               <td>{u.email}</td>
-              <td>{u.role}</td>
+              <td>
+                <span className={`badge text-uppercase ${getRoleBadgeClass(u.role)}`}>
+                  {u.role}
+                </span>
+              </td>
               <td>
                 <button
-                  className="AdminDeleteBtn"
+                  className="btn btn-primary rounded-circle AdminDeleteCircleButton"
                   disabled={currentUser?.id === u.id}
                   onClick={() => handleDelete(u.id)}
+                  aria-label={`Delete user ${u.name}`}
+                  title={currentUser?.id === u.id ? "You cannot delete your own account" : "Delete user"}
                 >
-                  Delete
+                  <i className="bi bi-x-lg" aria-hidden="true" />
                 </button>
               </td>
             </tr>

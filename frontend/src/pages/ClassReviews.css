@@ -25,6 +25,20 @@
   flex-wrap: wrap;
 }
 
+.ClassReviewsSearchInput {
+  max-width: 460px;
+}
+
+.ClassReviewsAssignments {
+  display: grid;
+  gap: 1rem;
+}
+
+.ClassReviewsAssignmentSection + .ClassReviewsAssignmentSection {
+  border-top: 1px solid #e5ebf3;
+  padding-top: 1rem;
+}
+
 .ClassReviewsTable th,
 .ClassReviewsTable td {
   vertical-align: middle;
@@ -106,7 +120,7 @@
 .ClassReviewsTable td:nth-child(4) {
   width: 22%;
   white-space: nowrap;
-  text-align: left !important;
+  text-align: center !important;
 }
 
 .ClassReviewsTable .badge {

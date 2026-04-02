@@ -35,10 +35,10 @@
   min-width: 64px;
   height: 32px;
   padding: 0 0.65rem;
-  border: 1px solid #ef4444;
+  border: 1px solid var(--button-primary);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.95);
-  color: #ef4444;
+  color: var(--button-primary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -59,8 +59,8 @@
 }
 
 .ClassCardDeleteButton:hover {
-  background: #ef4444;
-  color: #ffffff;
+  background: var(--button-primary);
+  color: var(--background-primary);
   cursor: pointer;
 }
 

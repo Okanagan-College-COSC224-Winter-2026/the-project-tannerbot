@@ -67,6 +67,8 @@ export default function ClassReviews() {
     return Array.from(grouped.entries()).sort((a, b) => a[0] - b[0]);
   }, [reviews, reviewSearch]);
 
+  const singleAssignment = reviewsByAssignment.length === 1 ? reviewsByAssignment[0] : null;
+
   useEffect(() => {
     if (!Number.isFinite(classId) || classId <= 0) {
       setClassName(null);
@@ -111,7 +113,7 @@ export default function ClassReviews() {
     <div className="ClassHomePage container-fluid py-4 px-3 px-md-4">
       <div className="ClassHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
         <div className="ClassHeaderLeft">
-          <h2 className="h3 fw-bold mb-0">{className || "Class"}</h2>
+          <h2 className="h3 fw-bold text-primary mb-0">{className || "Class"}</h2>
         </div>
 
         <div className="ClassHeaderRight">
@@ -141,92 +143,96 @@ export default function ClassReviews() {
       />
 
       <div className="card border-0 shadow-sm p-3 p-md-4 mt-3">
-        <label htmlFor="review-search" className="form-label fw-semibold mb-2">
-          Search Reviews By Student Or Group Name
-        </label>
+        {singleAssignment ? (
+          <>
+            <h3 className="h5 mb-2">
+              Assignment {singleAssignment[0]}: {singleAssignment[1][0]?.assignment?.name || "Untitled"}
+            </h3>
+            <p className="text-muted small mb-3">Total reviews: {singleAssignment[1].length}</p>
+          </>
+        ) : null}
         <input
           id="review-search"
           type="text"
-          className="form-control"
-          placeholder="Enter student or group name"
+          className="form-control mb-3 ClassReviewsSearchInput"
+          placeholder="search by student or group name"
+          aria-label="Search reviews by student or group name"
           value={reviewSearch}
           onChange={(event) => setReviewSearch(event.target.value)}
         />
-      </div>
 
-      {error ? (
-        <div className="card border-0 shadow-sm p-3 p-md-4 mt-3" role="alert">
-          <p className="mb-0">{error}</p>
-        </div>
-      ) : loading ? (
-        <div className="card border-0 shadow-sm p-3 p-md-4 mt-3" role="status">
-          <p className="mb-0">Loading class reviews...</p>
-        </div>
-      ) : reviewsByAssignment.length === 0 ? (
-        <div className="card border-0 shadow-sm p-3 p-md-4 mt-3">
+        {error ? (
+          <p className="mb-0" role="alert">{error}</p>
+        ) : loading ? (
+          <p className="mb-0" role="status">Loading class reviews...</p>
+        ) : reviewsByAssignment.length === 0 ? (
           <p className="mb-0">No reviews found for this class yet.</p>
-        </div>
-      ) : (
-        <div className="d-grid gap-3 mt-3">
-          {reviewsByAssignment.map(([assignmentId, assignmentReviews]) => (
-            <div key={assignmentId} className="card border-0 shadow-sm p-3 p-md-4">
-              <h3 className="h5 mb-2">
-                Assignment {assignmentId}: {assignmentReviews[0]?.assignment?.name || "Untitled"}
-              </h3>
-              <p className="text-muted small mb-3">Total reviews: {assignmentReviews.length}</p>
+        ) : (
+          <div className="ClassReviewsAssignments">
+            {reviewsByAssignment.map(([assignmentId, assignmentReviews]) => (
+              <div key={assignmentId} className="ClassReviewsAssignmentSection">
+                {reviewsByAssignment.length > 1 ? (
+                  <>
+                    <h3 className="h5 mb-2">
+                      Assignment {assignmentId}: {assignmentReviews[0]?.assignment?.name || "Untitled"}
+                    </h3>
+                    <p className="text-muted small mb-3">Total reviews: {assignmentReviews.length}</p>
+                  </>
+                ) : null}
 
-              <div className="table-responsive ClassReviewsTableWrap">
-                <table className="table align-middle ClassReviewsTable mb-0">
-                  <thead>
-                    <tr>
-                      <th>Type</th>
-                      <th>Reviewer</th>
-                      <th>Reviewee</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {assignmentReviews.map((review) => {
-                      const isComplete = Boolean(review.is_complete);
-                      return (
-                      <tr
-                        key={review.id}
-                        role={isComplete ? "button" : undefined}
-                        tabIndex={isComplete ? 0 : undefined}
-                        className={isComplete ? "ClassReviewsClickableRow" : undefined}
-                        onClick={isComplete ? () => setSelectedCompletedReview(review) : undefined}
-                        onKeyDown={
-                          isComplete
-                            ? (event) => {
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  setSelectedCompletedReview(review);
-                                }
-                              }
-                            : undefined
-                        }
-                        title={isComplete ? "View completed review" : undefined}
-                      >
-                        <td>{review.review_type === "group" ? "Group" : "Peer"}</td>
-                        <td>{displayReviewer(review)}</td>
-                        <td>{displayReviewee(review)}</td>
-                        <td>
-                          {isComplete ? (
-                            <span className="badge text-bg-success">Complete</span>
-                          ) : (
-                            <span className="badge text-bg-secondary">Pending</span>
-                          )}
-                        </td>
+                <div className="table-responsive ClassReviewsTableWrap">
+                  <table className="table align-middle ClassReviewsTable mb-0">
+                    <thead>
+                      <tr>
+                        <th>Type</th>
+                        <th>Reviewer</th>
+                        <th>Reviewee</th>
+                        <th>Status</th>
                       </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {assignmentReviews.map((review) => {
+                        const isComplete = Boolean(review.is_complete);
+                        return (
+                        <tr
+                          key={review.id}
+                          role={isComplete ? "button" : undefined}
+                          tabIndex={isComplete ? 0 : undefined}
+                          className={isComplete ? "ClassReviewsClickableRow" : undefined}
+                          onClick={isComplete ? () => setSelectedCompletedReview(review) : undefined}
+                          onKeyDown={
+                            isComplete
+                              ? (event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    setSelectedCompletedReview(review);
+                                  }
+                                }
+                              : undefined
+                          }
+                          title={isComplete ? "View completed review" : undefined}
+                        >
+                          <td>{review.review_type === "group" ? "Group" : "Peer"}</td>
+                          <td>{displayReviewer(review)}</td>
+                          <td>{displayReviewee(review)}</td>
+                          <td>
+                            {isComplete ? (
+                              <span className="badge text-bg-success">Complete</span>
+                            ) : (
+                              <span className="badge text-bg-secondary">Pending</span>
+                            )}
+                          </td>
+                        </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       {selectedCompletedReview && (
         <div className="card border-0 shadow-sm p-3 p-md-4 mt-3">
