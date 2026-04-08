@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { listUsers, deleteUser, deleteUserCascade, DeleteUserConflictError } from "../util/api";
 import DeleteUserModal from "../components/DeleteUserModal";
 import "./AdminPage.css";
+
 export default function AdminPage() {
   type UserAssociations = Record<string, { count: number; items: Array<Record<string, unknown>> }>;
 
   const [users, setUsers] = useState<User[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>(""); // NEW
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [statusType, setStatusType] = useState<"error" | "success">("error");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -41,7 +43,6 @@ export default function AdminPage() {
       setStatusMessage("User deleted successfully.");
     } catch (err) {
       if (err instanceof DeleteUserConflictError) {
-        // Show the modal with associations
         const userToDelete = users.find((u) => u.id === userId);
         if (userToDelete) {
           setDeleteModalUser(userToDelete);
@@ -75,7 +76,17 @@ export default function AdminPage() {
     }
   }
 
-  // load users
+  // NEW: filtered users
+  const filteredUsers = users.filter((u) => {
+    const term = searchTerm.toLowerCase();
+    return (
+      u.name.toLowerCase().includes(term) ||
+      u.email.toLowerCase().includes(term) ||
+      u.role.toLowerCase().includes(term) ||
+      u.id.toString().includes(term)
+    );
+  });
+
   useEffect(() => {
     async function fetchUsers() {
       try {
@@ -88,66 +99,78 @@ export default function AdminPage() {
 
     fetchUsers();
   }, []);
+
   return (
-  <div className="AdminPage">
-    <h1 className="text-primary">Admin Panel</h1>
+    <div className="AdminPage">
+      <h1 className="text-primary">Admin Panel</h1>
 
-    {statusMessage ? (
-      <div className={`AdminStatusMessage ${statusType === "error" ? "Error" : "Success"}`} role="alert">
-        {statusMessage}
+      {statusMessage ? (
+        <div className={`AdminStatusMessage ${statusType === "error" ? "Error" : "Success"}`} role="alert">
+          {statusMessage}
+        </div>
+      ) : null}
+
+      {/* SEARCH BAR */}
+      <div className="AdminSearchBar">
+        <input
+          type="text"
+          placeholder="Search users..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="form-control"
+        />
       </div>
-    ) : null}
 
-    <div className="AdminTableWrapper">
-      <table className="AdminTable">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {users.map((u) => (
-            <tr key={u.id}>
-              <td>{u.id}</td>
-              <td>{u.name}</td>
-              <td>{u.email}</td>
-              <td>
-                <span className={`badge text-uppercase ${getRoleBadgeClass(u.role)}`}>
-                  {u.role}
-                </span>
-              </td>
-              <td>
-                <button
-                  className="btn btn-primary rounded-circle AdminDeleteCircleButton"
-                  disabled={currentUser?.id === u.id}
-                  onClick={() => handleDelete(u.id)}
-                  aria-label={`Delete user ${u.name}`}
-                  title={currentUser?.id === u.id ? "You cannot delete your own account" : "Delete user"}
-                >
-                  <i className="bi bi-x-lg" aria-hidden="true" />
-                </button>
-              </td>
+      <div className="AdminTableWrapper">
+        <table className="AdminTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
 
-    <DeleteUserModal
-      isOpen={showDeleteModal}
-      userName={deleteModalUser?.name || ""}
-      associations={deleteModalAssociations}
-      onClose={() => {
-        setShowDeleteModal(false);
-        setDeleteModalUser(null);
-      }}
-      onConfirm={handleConfirmDelete}
-    />
-  </div>
-)
+          <tbody>
+            {filteredUsers.map((u) => ( // UPDATED
+              <tr key={u.id}>
+                <td>{u.id}</td>
+                <td>{u.name}</td>
+                <td>{u.email}</td>
+                <td>
+                  <span className={`badge text-uppercase ${getRoleBadgeClass(u.role)}`}>
+                    {u.role}
+                  </span>
+                </td>
+                <td>
+                  <button
+                    className="btn btn-primary rounded-circle AdminDeleteCircleButton"
+                    disabled={currentUser?.id === u.id}
+                    onClick={() => handleDelete(u.id)}
+                    aria-label={`Delete user ${u.name}`}
+                    title={currentUser?.id === u.id ? "You cannot delete your own account" : "Delete user"}
+                  >
+                    <i className="bi bi-x-lg" aria-hidden="true" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <DeleteUserModal
+        isOpen={showDeleteModal}
+        userName={deleteModalUser?.name || ""}
+        associations={deleteModalAssociations}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeleteModalUser(null);
+        }}
+        onConfirm={handleConfirmDelete}
+      />
+    </div>
+  );
 }

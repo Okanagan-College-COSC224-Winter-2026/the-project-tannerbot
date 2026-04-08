@@ -8,6 +8,18 @@
   padding-bottom: 0.5rem;
 }
 
+/* SEARCH BAR (FIXED) */
+.AdminSearchBar {
+  width: 96%;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 1rem;
+}
+
+.AdminSearchBar input {
+  width: 100%;
+}
+
 /* Table wrapper for spacing control */
 .AdminTableWrapper {
   width: 96%;
