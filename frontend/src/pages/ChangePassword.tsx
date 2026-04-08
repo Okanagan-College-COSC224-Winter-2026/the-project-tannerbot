@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Button from '../components/Button';
-import Textbox from '../components/Textbox';
 import StatusMessage from '../components/StatusMessage';
 import { changePassword } from '../util/api';
 import './ChangePassword.css';
