@@ -4,10 +4,10 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Button from "../components/Button";
 import TabNavigation from "../components/TabNavigation";
 import {
+  autoAssignAssignmentGroups,
   createAssignmentGroup,
   deleteAssignmentGroup,
   getAssignmentGrouping,
-  renameAssignmentGroup,
   setAssignmentGroupMembers,
   updateAssignmentMode,
 } from "../util/api";
@@ -35,7 +35,7 @@ export default function Group() {
   const [groups, setGroups] = useState<AssignmentGroupingGroup[]>([]);
   const [students, setStudents] = useState<AssignmentGroupingStudent[]>([]);
   const [newGroupName, setNewGroupName] = useState("");
-  const [groupNameDrafts, setGroupNameDrafts] = useState<Record<number, string>>({});
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [studentAssignments, setStudentAssignments] = useState<Record<number, number | null>>({});
 
   const loadGrouping = async () => {
@@ -54,11 +54,17 @@ export default function Group() {
       setGroups(payload.groups);
       setStudents(payload.students);
 
-      const nameDrafts: Record<number, string> = {};
-      payload.groups.forEach((group) => {
-        nameDrafts[group.id] = group.name;
+      setSelectedGroupId((current) => {
+        if (payload.groups.length === 0) {
+          return null;
+        }
+
+        if (current && payload.groups.some((group) => group.id === current)) {
+          return current;
+        }
+
+        return payload.groups[0].id;
       });
-      setGroupNameDrafts(nameDrafts);
 
       const membershipMap: Record<number, number | null> = {};
       payload.students.forEach((student) => {
@@ -120,28 +126,6 @@ export default function Group() {
     }
   };
 
-  const handleRenameGroup = async (groupId: number) => {
-    const nextName = (groupNameDrafts[groupId] || "").trim();
-    if (!nextName) {
-      setError("Group name cannot be empty.");
-      return;
-    }
-
-    setIsSaving(true);
-    setError("");
-    setSuccess("");
-    try {
-      await renameAssignmentGroup(assignmentId, groupId, nextName);
-      await loadGrouping();
-      setSuccess("Group renamed.");
-    } catch (renameError: unknown) {
-      console.error("Failed to rename group", renameError);
-      setError(renameError instanceof Error ? renameError.message : "Failed to rename group.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleDeleteGroup = async (groupId: number) => {
     setIsSaving(true);
     setError("");
@@ -194,10 +178,53 @@ export default function Group() {
     }
   };
 
+  const handleAutoAssignPlacements = async () => {
+    setIsSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await autoAssignAssignmentGroups(assignmentId);
+      await loadGrouping();
+      setSuccess("Students were auto-assigned to groups.");
+    } catch (autoAssignError: unknown) {
+      console.error("Failed to auto-assign group placements", autoAssignError);
+      setError(
+        autoAssignError instanceof Error
+          ? autoAssignError.message
+          : "Failed to auto-assign student group assignments.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const assignmentTypeSection = (
+    <div className="GroupSection">
+      <label htmlFor="assignment-mode" className="GroupSectionLabel">
+        Assignment Type
+      </label>
+      <div className="GroupRow">
+        <select
+          id="assignment-mode"
+          value={assignmentMode}
+          onChange={(event) => setAssignmentMode(event.target.value as "solo" | "group")}
+          disabled={isSaving}
+        >
+          <option value="solo">Solo</option>
+          <option value="group">Group</option>
+        </select>
+        <Button onClick={saveAssignmentMode} disabled={isSaving}>
+          Save Type
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="AssignmentPage container-fluid py-4 px-3 px-md-4">
       <div className="AssignmentHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
-        <h2 className="h3 fw-bold mb-0">Assignment {id}</h2>
+        <h2 className="h3 fw-bold text-primary mb-0">Assignment {id}</h2>
         {canManageAssignment ? (
           <Button
             type="secondary"
@@ -233,8 +260,7 @@ export default function Group() {
         ]}
       />
 
-      <div className="card border-0 shadow-sm p-3 p-md-4 mt-3">
-        <h3 className="h5 fw-semibold mb-2">Group Management</h3>
+      <div className="card border-0 shadow-sm p-3 p-md-4 mt-3 GroupPageCard">
         {!canManageAssignment ? (
           <p className="mb-0 text-muted">Only teachers can manage assignment grouping.</p>
         ) : isLoading ? (
@@ -244,123 +270,123 @@ export default function Group() {
             {error ? <p className="GroupError">{error}</p> : null}
             {success ? <p className="GroupSuccess">{success}</p> : null}
 
-            <div className="GroupSection">
-              <label htmlFor="assignment-mode" className="GroupSectionLabel">
-                Assignment Type
-              </label>
-              <div className="GroupRow">
-                <select
-                  id="assignment-mode"
-                  value={assignmentMode}
-                  onChange={(event) => setAssignmentMode(event.target.value as "solo" | "group")}
-                  disabled={isSaving}
-                >
-                  <option value="solo">Solo</option>
-                  <option value="group">Group</option>
-                </select>
-                <Button onClick={saveAssignmentMode} disabled={isSaving}>
-                  Save Type
-                </Button>
-              </div>
-            </div>
-
             {assignmentMode === "group" ? (
-              <>
-                <div className="GroupSection">
-                  <label htmlFor="new-group-name" className="GroupSectionLabel">
-                    Create Group
-                  </label>
-                  <div className="GroupRow">
-                    <input
-                      id="new-group-name"
-                      type="text"
-                      value={newGroupName}
-                      onChange={(event) => setNewGroupName(event.target.value)}
-                      placeholder="Enter group name"
-                      disabled={isSaving}
-                    />
-                    <Button onClick={handleCreateGroup} disabled={isSaving || !newGroupName.trim()}>
-                      Add Group
-                    </Button>
+              <div className="GroupModeLayout">
+                <div className="GroupModeTopRow">
+                  {assignmentTypeSection}
+                  <div className="GroupSection">
+                    <label htmlFor="new-group-name" className="GroupSectionLabel">
+                      Create Group
+                    </label>
+                    <div className="GroupRow">
+                      <input
+                        id="new-group-name"
+                        type="text"
+                        value={newGroupName}
+                        onChange={(event) => setNewGroupName(event.target.value)}
+                        placeholder="Enter group name"
+                        disabled={isSaving}
+                      />
+                      <Button onClick={handleCreateGroup} disabled={isSaving || !newGroupName.trim()}>
+                        Add Group
+                      </Button>
+                    </div>
                   </div>
-                </div>
 
-                <div className="GroupSection">
-                  <h4 className="GroupSectionLabel">Existing Groups</h4>
-                  {groups.length === 0 ? (
-                    <p className="text-muted mb-0">No groups created yet.</p>
-                  ) : (
-                    <div className="GroupList">
-                      {groups.map((group) => (
-                        <div key={group.id} className="GroupCard">
+                  <div className="GroupSection">
+                    <h4 className="GroupSectionLabel">Existing Groups</h4>
+                    {groups.length === 0 ? (
+                      <p className="text-muted mb-0">No groups created yet.</p>
+                    ) : (
+                      <div className="GroupList">
+                        <div className="GroupCard">
                           <div className="GroupRow">
-                            <input
-                              type="text"
-                              value={groupNameDrafts[group.id] ?? ""}
+                            <select
+                              id="existing-group-select"
+                              value={selectedGroupId ?? ""}
                               onChange={(event) =>
-                                setGroupNameDrafts((prev) => ({ ...prev, [group.id]: event.target.value }))
+                                setSelectedGroupId(event.target.value ? Number(event.target.value) : null)
                               }
                               disabled={isSaving}
-                            />
-                            <Button onClick={() => handleRenameGroup(group.id)} disabled={isSaving}>
-                              Rename
-                            </Button>
-                            <Button type="secondary" onClick={() => handleDeleteGroup(group.id)} disabled={isSaving}>
+                            >
+                              {groups.map((group) => (
+                                <option key={group.id} value={group.id}>
+                                  {group.name}
+                                </option>
+                              ))}
+                            </select>
+                            <Button
+                              type="secondary"
+                              onClick={() => selectedGroupId && handleDeleteGroup(selectedGroupId)}
+                              disabled={isSaving || !selectedGroupId}
+                            >
                               Delete
                             </Button>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="GroupSection">
-                  <h4 className="GroupSectionLabel">Assign Students To Groups</h4>
-                  {students.length === 0 ? (
-                    <p className="text-muted mb-0">No enrolled students found in this class.</p>
-                  ) : (
-                    <div className="GroupStudentsTable">
-                      <div className="GroupStudentsHeader">
-                        <span>Student</span>
-                        <span>Group</span>
                       </div>
-                      {students.map((student) => (
-                        <div key={student.id} className="GroupStudentsRow">
-                          <span>{student.name}</span>
-                          <select
-                            value={studentAssignments[student.id] ?? ""}
-                            onChange={(event) => {
-                              const value = event.target.value;
-                              setStudentAssignments((prev) => ({
-                                ...prev,
-                                [student.id]: value ? Number(value) : null,
-                              }));
-                            }}
-                            disabled={isSaving}
-                          >
-                            <option value="">Unassigned</option>
-                            {groups.map((group) => (
-                              <option key={group.id} value={group.id}>
-                                {group.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="GroupActionsRow">
-                    <Button onClick={handleSavePlacements} disabled={isSaving || groups.length === 0}>
-                      Save Student Placements
-                    </Button>
+                    )}
                   </div>
                 </div>
-              </>
+
+                <div className="GroupModeBottom">
+                  <div className="GroupSection">
+                    <h4 className="GroupSectionLabel">Assign Students To Groups</h4>
+                    {students.length === 0 ? (
+                      <p className="text-muted mb-0">No enrolled students found in this class.</p>
+                    ) : (
+                      <div className="GroupStudentsTable">
+                        <div className="GroupStudentsHeader">
+                          <span>Student</span>
+                          <span>Group</span>
+                        </div>
+                        {students.map((student) => (
+                          <div key={student.id} className="GroupStudentsRow">
+                            <span>{student.name}</span>
+                            <select
+                              value={studentAssignments[student.id] ?? ""}
+                              onChange={(event) => {
+                                const value = event.target.value;
+                                setStudentAssignments((prev) => ({
+                                  ...prev,
+                                  [student.id]: value ? Number(value) : null,
+                                }));
+                              }}
+                              disabled={isSaving}
+                            >
+                              <option value="">Unassigned</option>
+                              {groups.map((group) => (
+                                <option key={group.id} value={group.id}>
+                                  {group.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="GroupActionsRow">
+                      <Button
+                        type="secondary"
+                        onClick={handleAutoAssignPlacements}
+                        disabled={isSaving || groups.length === 0 || students.length === 0}
+                      >
+                        Auto-Assign
+                      </Button>
+                      <Button onClick={handleSavePlacements} disabled={isSaving || groups.length === 0}>
+                        Save Student Placements
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             ) : (
-              <p className="mb-0 text-muted">
-                Assignment is set to solo mode. Switch to group mode to create groups and assign students.
-              </p>
+              <>
+                {assignmentTypeSection}
+                <p className="mb-0 text-muted">
+                  Assignment is set to solo mode. Switch to group mode to create groups and assign students.
+                </p>
+              </>
             )}
           </div>
         )}

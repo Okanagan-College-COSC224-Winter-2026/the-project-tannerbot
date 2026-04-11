@@ -1,18 +1,37 @@
 .ReviewAssigner {
-  border: 1px solid #e5e9f2;
-  border-radius: 0.8rem;
-  background: #f8fbff;
-  padding: 0.9rem;
-}
-
-.ReviewAssignerTitle {
-  font-size: 1rem;
-  font-weight: 700;
-  margin-bottom: 0.65rem;
+  margin: 0;
 }
 
 .ReviewAssignerHint {
   color: #5f6d83;
+}
+
+.ReviewAssignerTopGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  align-items: stretch;
+}
+
+.ReviewAssignerPanel {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.9rem;
+  background: #ffffff;
+  box-shadow: 0 0.35rem 1rem rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.ReviewAssignerPanel .form-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.ReviewAssignerActionRow {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .ReviewAssignerError {
@@ -20,12 +39,44 @@
   font-weight: 600;
 }
 
-.ReviewAssignerList ul {
-  padding-left: 1.1rem;
+.ReviewAssignerAccordion {
+  display: grid;
+  gap: 0.6rem;
 }
 
-.ReviewAssignerList li {
-  margin-bottom: 0.3rem;
+.ReviewAssignerAccordionItem {
+  border: 1px solid #dfe7f2;
+  border-radius: 0.55rem;
+  background: #ffffff;
+}
+
+.ReviewAssignerAccordionSummary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.ReviewAssignerAccordionSummary::-webkit-details-marker {
+  display: none;
+}
+
+.ReviewAssignerAccordionHeading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ReviewAssignerAccordionList {
+  padding: 0 0.9rem 0.7rem 2rem;
+}
+
+.ReviewAssignerAccordionList li {
+  margin-bottom: 0.25rem;
 }
 
 .ReviewAssignerGroupPreview {
@@ -35,4 +86,18 @@
   padding: 0.55rem 0.65rem;
   color: #41516a;
   font-size: 0.92rem;
+}
+
+@media (max-width: 900px) {
+  .ReviewAssignerTopGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .ReviewAssignerActionRow {
+    justify-content: stretch;
+  }
+
+  .ReviewAssignerActionRow .btn {
+    width: 100%;
+  }
 }

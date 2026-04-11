@@ -1,21 +1,15 @@
 import io
 import uuid
 
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, current_app, jsonify, request, send_file
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..models import Assignment, AssignmentAttachment, Course, User, User_Course
+from ..models import Assignment, AssignmentAttachment, Course, User
 from .auth_controller import jwt_teacher_required
+from .helpers import can_access_course
 
 bp = Blueprint("assignment_attachment", __name__, url_prefix="/assignment")
-
-
-def _can_access_course(user, course):
-    if user.is_admin():
-        return True
-    if course.teacherID == user.id:
-        return True
-    return User_Course.get(user.id, course.id) is not None
+DEFAULT_MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024
 
 
 def _normalize_original_name(filename):
@@ -35,6 +29,26 @@ def _serialize_attachment_metadata(assignment_id, attachment):
         "original_name": attachment.original_name,
         "download_url": f"/assignment/{assignment_id}/attachment/{attachment.stored_name}",
     }
+
+
+def _read_attachment_with_limit(uploaded_file):
+    raw_max_file_size = current_app.config.get(
+        "MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES",
+        DEFAULT_MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES,
+    )
+    try:
+        max_file_size = int(raw_max_file_size)
+        if max_file_size <= 0:
+            raise ValueError("MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES must be positive")
+    except (TypeError, ValueError):
+        max_file_size = DEFAULT_MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES
+
+    content = uploaded_file.read(max_file_size + 1)
+    if len(content) > max_file_size:
+        raise ValueError(
+            f"Attachment exceeds maximum size ({max_file_size} bytes)"
+        )
+    return content
 
 
 def _get_assignment_for_teacher_edit(assignment_id):
@@ -92,7 +106,7 @@ def save_assignment_attachments(assignment_id):
         if not original_name:
             continue
 
-        content = uploaded_file.read()
+        content = _read_attachment_with_limit(uploaded_file)
         stored_name = uuid.uuid4().hex
         attachment = AssignmentAttachment(
             assignmentID=assignment_id,
@@ -128,7 +142,11 @@ def add_assignment_attachments(assignment_id):
     if error:
         return error
 
-    saved_files = save_assignment_attachments(assignment.id)
+    try:
+        saved_files = save_assignment_attachments(assignment.id)
+    except ValueError as exc:
+        return jsonify({"msg": str(exc)}), 413
+
     if not saved_files:
         return jsonify({"msg": "No attachments uploaded"}), 400
 
@@ -188,7 +206,7 @@ def download_assignment_attachment(assignment_id, stored_name):
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
-    if not _can_access_course(user, course):
+    if not can_access_course(user, course):
         return jsonify({"msg": "Unauthorized to access this attachment"}), 403
 
     attachment = AssignmentAttachment.get_by_assignment_and_stored_name(assignment_id, stored_name)

@@ -70,6 +70,14 @@ def _add_criterion(client, rubric_id, question, score_max, has_score=True):
     )
 
 
+def _add_criterion_for_assignment(client, assignment_id, rubric_id, question, score_max, has_score=True):
+    return client.post(
+        f"/assignment/{assignment_id}/criteria",
+        data=json.dumps({"rubricID": rubric_id, "question": question, "scoreMax": score_max, "hasScore": has_score}),
+        headers={"Content-Type": "application/json"},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Tests: instructor saves a rubric and attaches it to an assignment
 # ---------------------------------------------------------------------------
@@ -151,14 +159,36 @@ class TestCreateRubricAndAttachToAssignment:
 
         assert resp.status_code == 403
 
-    def test_get_rubric_for_nonexistent_assignment_returns_404(self, test_client):
+    def test_get_rubric_for_nonexistent_assignment_returns_404(self, test_client, make_admin):
         """
         GIVEN no rubric exists for assignment 9999
         WHEN GET /rubric/assignment/9999 is called
         THEN 404 is returned
         """
+        make_admin(email="teacher@example.com", password="pass", name="Teacher")
+        _login(test_client, "teacher@example.com", "pass")
+
         resp = test_client.get("/rubric/assignment/9999")
         assert resp.status_code == 404
+
+    def test_student_cannot_view_rubric_for_unenrolled_assignment(self, test_client, make_admin):
+        make_admin(email="teacher@example.com", password="pass", name="Teacher")
+        _login(test_client, "teacher@example.com", "pass")
+        course_id = _create_class(test_client, name="Restricted Course")
+        assignment_id = _create_assignment(test_client, course_id, assignment_mode="solo")
+        _create_rubric(test_client, assignment_id, rubric_type="peer")
+
+        test_client.post("/auth/logout")
+        test_client.post(
+            "/auth/register",
+            data=json.dumps({"name": "Student", "email": "student@example.com", "password": "Password1!"}),
+            headers={"Content-Type": "application/json"},
+        )
+        _login(test_client, "student@example.com", "Password1!")
+
+        resp = test_client.get(f"/rubric/assignment/{assignment_id}")
+        assert resp.status_code == 403
+        assert resp.get_json()["msg"] == "Insufficient permissions"
 
     def test_group_assignment_supports_separate_peer_and_group_rubrics(self, test_client, make_admin):
         make_admin(email="teacher@example.com", password="pass", name="Teacher")
@@ -311,22 +341,70 @@ class TestAddMultipleCriteria:
         assert resp.status_code == 400
         assert resp.get_json()["msg"] == "question is required"
 
-    def test_get_criteria_with_non_integer_rubric_id_returns_400(self, test_client):
+    def test_assignment_scoped_create_criteria_rejects_rubric_from_other_assignment(self, test_client, make_admin):
+        make_admin(email="teacher@example.com", password="pass", name="Teacher")
+        _login(test_client, "teacher@example.com", "pass")
+
+        course_id = _create_class(test_client)
+        assignment_one = _create_assignment(test_client, course_id, name="A1", assignment_mode="group")
+        assignment_two = _create_assignment(test_client, course_id, name="A2", assignment_mode="group")
+
+        rubric_two = _create_rubric(test_client, assignment_two, rubric_type="group").get_json()["id"]
+
+        resp = _add_criterion_for_assignment(
+            test_client,
+            assignment_one,
+            rubric_two,
+            "Should fail",
+            10,
+            has_score=True,
+        )
+
+        assert resp.status_code == 400
+        assert "does not belong" in resp.get_json()["msg"].lower()
+
+    def test_assignment_scoped_edit_criteria_rejects_other_assignment_criteria(self, test_client, make_admin):
+        make_admin(email="teacher@example.com", password="pass", name="Teacher")
+        _login(test_client, "teacher@example.com", "pass")
+
+        course_id = _create_class(test_client)
+        assignment_one = _create_assignment(test_client, course_id, name="A1", assignment_mode="group")
+        assignment_two = _create_assignment(test_client, course_id, name="A2", assignment_mode="group")
+
+        rubric_two = _create_rubric(test_client, assignment_two, rubric_type="peer").get_json()["id"]
+        criteria_two = _add_criterion(test_client, rubric_two, "A2 criterion", 20, has_score=True).get_json()["id"]
+
+        resp = test_client.patch(
+            f"/assignment/{assignment_one}/criteria/{criteria_two}",
+            data=json.dumps({"question": "Not allowed"}),
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert resp.status_code == 404
+        assert "not found for this assignment" in resp.get_json()["msg"].lower()
+
+    def test_get_criteria_with_non_integer_rubric_id_returns_400(self, test_client, make_admin):
         """
         GIVEN an invalid rubricID query parameter
         WHEN GET /criteria is called
         THEN the API returns a 400 instead of crashing
         """
+        make_admin(email="teacher@example.com", password="pass", name="Teacher")
+        _login(test_client, "teacher@example.com", "pass")
+
         resp = test_client.get("/criteria?rubricID=abc")
         assert resp.status_code == 400
         assert resp.get_json()["msg"] == "rubricID must be an integer"
 
-    def test_get_rubric_with_non_integer_rubric_id_returns_400(self, test_client):
+    def test_get_rubric_with_non_integer_rubric_id_returns_400(self, test_client, make_admin):
         """
         GIVEN an invalid rubricID query parameter
         WHEN GET /rubric is called
         THEN the API returns a 400 instead of crashing
         """
+        make_admin(email="teacher@example.com", password="pass", name="Teacher")
+        _login(test_client, "teacher@example.com", "pass")
+
         resp = test_client.get("/rubric?rubricID=xyz")
         assert resp.status_code == 400
         assert resp.get_json()["msg"] == "rubricID must be an integer"

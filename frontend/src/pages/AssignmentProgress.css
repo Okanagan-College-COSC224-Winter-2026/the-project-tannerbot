@@ -34,6 +34,31 @@
   min-width: 9.5rem;
 }
 
+.AssignmentProgressDownloadButton {
+  width: 2.1rem;
+  height: 2.1rem;
+  min-width: 2.1rem;
+  min-height: 2.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-width: 0;
+}
+
+.AssignmentProgressDownloadButton i {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.AssignmentProgressDownloadButton:disabled {
+  background-color: var(--button-secondary) !important;
+  border-color: var(--button-secondary) !important;
+  color: var(--background-primary) !important;
+  opacity: 1 !important;
+  cursor: not-allowed;
+}
+
 .AssignmentProgressTable {
   table-layout: fixed;
   width: 100%;
@@ -56,22 +81,29 @@
 
 .AssignmentProgressTable th:nth-child(1),
 .AssignmentProgressTable td:nth-child(1) {
-  width: 40%;
+  width: 35%;
 }
 
 .AssignmentProgressTable th:nth-child(2),
 .AssignmentProgressTable td:nth-child(2),
 .AssignmentProgressTable th:nth-child(3),
 .AssignmentProgressTable td:nth-child(3) {
-  width: 18%;
-  text-align: left;
+  width: 14%;
+  text-align: center;
   white-space: nowrap;
 }
 
 .AssignmentProgressTable th:nth-child(4),
 .AssignmentProgressTable td:nth-child(4) {
-  width: 24%;
-  text-align: left;
+  width: 17%;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.AssignmentProgressTable th:nth-child(5),
+.AssignmentProgressTable td:nth-child(5) {
+  width: 20%;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -82,12 +114,29 @@
 .AssignmentProgressTable thead th:nth-child(1),
 .AssignmentProgressTable thead th:nth-child(2),
 .AssignmentProgressTable thead th:nth-child(3),
-.AssignmentProgressTable thead th:nth-child(4) {
+.AssignmentProgressTable thead th:nth-child(4),
+.AssignmentProgressTable thead th:nth-child(5) {
+  text-align: center;
+}
+
+.AssignmentProgressTable thead th:nth-child(1) {
   text-align: left;
 }
 
-.AssignmentProgressTable td:nth-child(4) {
+.AssignmentProgressTable td:nth-child(5) {
   font-variant-numeric: tabular-nums;
+}
+
+.AssignmentProgressGroupHeaderRow td {
+  padding-top: 0.9rem;
+  padding-bottom: 0.45rem;
+  border-top: 2px solid #d9e2ef;
+  background: #f3f6fb;
+}
+
+.AssignmentProgressGroupHeaderCell {
+  font-weight: 600;
+  color: #31425f;
 }
 
 .AssignmentProgressStudentName {
@@ -96,6 +145,13 @@
 
 .AssignmentProgressStudentMeta {
   overflow-wrap: anywhere;
+}
+
+.AssignmentProgressCompletionStat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
 }
 
 .AssignmentProgressTableWrap {

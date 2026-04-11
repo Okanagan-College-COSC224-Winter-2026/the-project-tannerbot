@@ -59,7 +59,7 @@ export default function AssignmentReviews() {
   return (
     <div className="AssignmentPage container-fluid py-4 px-3 px-md-4">
       <div className="AssignmentHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
-        <h2 className="h3 fw-bold mb-0">Assignment {assignmentId}</h2>
+        <h2 className="h3 fw-bold text-primary mb-0">Assignment {assignmentId}</h2>
         {canManageAssignment ? (
           <Button
             type="secondary"

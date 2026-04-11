@@ -474,12 +474,14 @@ def test_group_assignment_can_assign_peer_reviews_within_group(test_client, db, 
 
     student_a = seeded["reviewer"]
     student_b = seeded["other_student"]
+    student_c = seeded["reviewee"]
 
     seeded["assignment"].assignment_mode = "group"
     db.session.commit()
 
     enroll_user_in_course(student_a.id, seeded["course"].id)
     enroll_user_in_course(student_b.id, seeded["course"].id)
+    enroll_user_in_course(student_c.id, seeded["course"].id)
 
     group_one = CourseGroup(name="Team One", assignmentID=seeded["assignment"].id)
     db.session.add(group_one)
@@ -489,6 +491,7 @@ def test_group_assignment_can_assign_peer_reviews_within_group(test_client, db, 
         [
             Group_Members(userID=student_a.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
             Group_Members(userID=student_b.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_c.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
         ]
     )
     db.session.commit()
@@ -510,7 +513,7 @@ def test_group_assignment_can_assign_peer_reviews_within_group(test_client, db, 
     payload = assign_resp.get_json()
     assert payload["msg"] == "Peer reviews assigned"
     assert payload["review_type"] == "peer"
-    assert payload["created_count"] == 2
+    assert payload["created_count"] == 6
 
     created_pairs = {
         (review["reviewer"]["id"], review["reviewee"]["id"], review["review_type"])
@@ -518,15 +521,20 @@ def test_group_assignment_can_assign_peer_reviews_within_group(test_client, db, 
     }
     assert created_pairs == {
         (student_a.id, student_b.id, "peer"),
+        (student_a.id, student_c.id, "peer"),
         (student_b.id, student_a.id, "peer"),
+        (student_b.id, student_c.id, "peer"),
+        (student_c.id, student_a.id, "peer"),
+        (student_c.id, student_b.id, "peer"),
     }
 
     _login(test_client, student_a.email, "Password1!")
     list_resp = test_client.get(f"/review/my/assignment/{seeded['assignment'].id}")
     assert list_resp.status_code == 200
     my_reviews = list_resp.get_json()
-    assert len(my_reviews) == 1
-    assert my_reviews[0]["review_type"] == "peer"
+    assert len(my_reviews) == 2
+    assert all(review["review_type"] == "peer" for review in my_reviews)
+    assert {review["reviewee"]["id"] for review in my_reviews} == {student_b.id, student_c.id}
 
 
 def test_group_assignment_rejects_same_group_review_pair(test_client, db, enroll_user_in_course):
@@ -635,7 +643,69 @@ def test_reviewer_can_list_assigned_reviews_separated_by_type(test_client, db, e
     assert len(payload["group_reviews"]) == 1
     assert len(payload["peer_reviews"]) == 1
     assert payload["group_reviews"][0]["review_type"] == "group"
+    assert payload["group_reviews"][0]["reviewer_group_name"] == "Team One"
+    assert payload["group_reviews"][0]["reviewee_group_name"] == "Team Two"
     assert payload["peer_reviews"][0]["review_type"] == "peer"
+
+
+def test_group_review_payload_group_names_resolve_with_legacy_null_assignment_membership(
+    test_client,
+    db,
+    enroll_user_in_course,
+):
+    seeded = _seed_course_with_assignment_and_rubric(db)
+
+    student_a = seeded["reviewer"]
+    student_b = seeded["reviewee"]
+
+    seeded["assignment"].assignment_mode = "group"
+    db.session.commit()
+    _add_group_rubric_with_matching_criteria(db, seeded)
+
+    enroll_user_in_course(student_a.id, seeded["course"].id)
+    enroll_user_in_course(student_b.id, seeded["course"].id)
+
+    reviewer_group = CourseGroup(name="Alpha", assignmentID=seeded["assignment"].id)
+    reviewee_group = CourseGroup(name="Beta", assignmentID=seeded["assignment"].id)
+    db.session.add_all([reviewer_group, reviewee_group])
+    db.session.commit()
+
+    db.session.add_all(
+        [
+            Group_Members(userID=student_a.id, groupID=reviewer_group.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_b.id, groupID=reviewee_group.id, assignmentID=seeded["assignment"].id),
+        ]
+    )
+    db.session.commit()
+
+    _login(test_client, seeded["teacher"].email, "Password1!")
+    assign_resp = test_client.post(
+        "/review/assign",
+        data=json.dumps(
+            {
+                "assignmentID": seeded["assignment"].id,
+                "reviewType": "group",
+                "reviewerGroupID": reviewer_group.id,
+                "revieweeGroupID": reviewee_group.id,
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    assert assign_resp.status_code == 201
+
+    # Simulate legacy data where assignmentID is null but group links remain valid.
+    Group_Members.query.filter_by(userID=student_b.id, groupID=reviewee_group.id).update(
+        {"assignmentID": None}, synchronize_session=False
+    )
+    db.session.commit()
+
+    _login(test_client, student_a.email, "Password1!")
+    list_resp = test_client.get(f"/review/my/assignment/{seeded['assignment'].id}/separated")
+    assert list_resp.status_code == 200
+    payload = list_resp.get_json()
+    assert len(payload["group_reviews"]) == 1
+    assert payload["group_reviews"][0]["reviewer_group_name"] == "Alpha"
+    assert payload["group_reviews"][0]["reviewee_group_name"] == "Beta"
 
 
 def test_teacher_can_list_assignment_reviews_separated_by_type(test_client, db, enroll_user_in_course):
@@ -708,7 +778,7 @@ def test_teacher_can_list_assignment_reviews_separated_by_type(test_client, db, 
     assert all(review["review_type"] == "peer" for review in payload["peer_reviews"])
 
 
-def test_group_review_visible_and_markable_by_any_reviewer_group_member(
+def test_group_review_any_member_can_mark_until_completed_then_locks(
     test_client,
     db,
     enroll_user_in_course,
@@ -758,8 +828,110 @@ def test_group_review_visible_and_markable_by_any_reviewer_group_member(
     payload = assign_resp.get_json()
     assert payload["created_count"] == 1
 
-    # student_b is not the canonical reviewer row owner, but can still see/mark team group review.
+    # student_b is in the reviewer group but is not the canonical reviewer row owner.
     _login(test_client, student_b.email, "Password1!")
+    list_resp = test_client.get(f"/review/my/assignment/{seeded['assignment'].id}/separated")
+    assert list_resp.status_code == 200
+    list_payload = list_resp.get_json()
+    assert len(list_payload["group_reviews"]) == 1
+    assert list_payload["group_reviews"][0]["can_mark"] is True
+
+    created_review_id = payload["reviews"][0]["id"]
+    created_criteria = payload["reviews"][0]["criteria"]
+    mark_resp = test_client.patch(
+        f"/review/{created_review_id}/mark",
+        data=json.dumps(
+            {
+                "criteria": [
+                    {
+                        "criterionID": created_criteria[0]["id"],
+                        "grade": 4,
+                    },
+                    {
+                        "criterionID": created_criteria[1]["id"],
+                        "grade": 3,
+                    }
+                ]
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    assert mark_resp.status_code == 200
+
+    # Once completed by one group member, it should be locked for other members.
+    _login(test_client, student_a.email, "Password1!")
+    canonical_list_resp = test_client.get(f"/review/my/assignment/{seeded['assignment'].id}/separated")
+    assert canonical_list_resp.status_code == 200
+    canonical_payload = canonical_list_resp.get_json()
+    assert len(canonical_payload["group_reviews"]) == 1
+    assert canonical_payload["group_reviews"][0]["can_mark"] is False
+    assert canonical_payload["group_reviews"][0]["is_complete"] is True
+
+    canonical_mark_resp = test_client.patch(
+        f"/review/{created_review_id}/mark",
+        data=json.dumps(
+            {
+                "criteria": [
+                    {
+                        "criterionID": created_criteria[0]["id"],
+                        "grade": 3,
+                    }
+                ]
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    assert canonical_mark_resp.status_code == 403
+
+
+def test_canonical_group_reviewer_can_view_and_mark_group_review(
+    test_client,
+    db,
+    enroll_user_in_course,
+):
+    seeded = _seed_course_with_assignment_and_rubric(db)
+
+    student_a = seeded["reviewer"]
+    student_c = seeded["reviewee"]
+
+    seeded["assignment"].assignment_mode = "group"
+    db.session.commit()
+    _add_group_rubric_with_matching_criteria(db, seeded)
+
+    enroll_user_in_course(student_a.id, seeded["course"].id)
+    enroll_user_in_course(student_c.id, seeded["course"].id)
+
+    group_one = CourseGroup(name="Team One", assignmentID=seeded["assignment"].id)
+    group_two = CourseGroup(name="Team Two", assignmentID=seeded["assignment"].id)
+    db.session.add_all([group_one, group_two])
+    db.session.commit()
+
+    db.session.add_all(
+        [
+            Group_Members(userID=student_a.id, groupID=group_one.id, assignmentID=seeded["assignment"].id),
+            Group_Members(userID=student_c.id, groupID=group_two.id, assignmentID=seeded["assignment"].id),
+        ]
+    )
+    db.session.commit()
+
+    _login(test_client, seeded["teacher"].email, "Password1!")
+    assign_resp = test_client.post(
+        "/review/assign",
+        data=json.dumps(
+            {
+                "assignmentID": seeded["assignment"].id,
+                "reviewType": "group",
+                "reviewerGroupID": group_one.id,
+                "revieweeGroupID": group_two.id,
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    assert assign_resp.status_code == 201
+    payload = assign_resp.get_json()
+    assert payload["created_count"] == 1
+
+    _login(test_client, student_a.email, "Password1!")
     list_resp = test_client.get(f"/review/my/assignment/{seeded['assignment'].id}/separated")
     assert list_resp.status_code == 200
     list_payload = list_resp.get_json()

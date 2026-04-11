@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import {
   listMyReceivedSeparatedReviewsForAssignment,
@@ -6,6 +7,7 @@ import {
   markReview,
 } from "../util/api";
 import { formatDateTime } from "../util/dateUtils";
+import StatusMessage from "./StatusMessage";
 
 import "./StudentAssignedReviews.css";
 
@@ -61,6 +63,9 @@ interface Props {
 }
 
 export default function StudentAssignedReviews({ assignmentId }: Props) {
+  const location = useLocation();
+  const latestLoadId = useRef(0);
+  const assignedPanelRef = useRef<HTMLDivElement | null>(null);
   const [reviews, setReviews] = useState<ReviewAssignment[]>([]);
   const [receivedReviews, setReceivedReviews] = useState<ReviewAssignment[]>([]);
   const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
@@ -69,6 +74,8 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [assignedPanelHeight, setAssignedPanelHeight] = useState<number | null>(null);
+  const [isTwoColumnLayout, setIsTwoColumnLayout] = useState(false);
 
   const selectedReview = useMemo(
     () => reviews.find((review) => review.id === selectedReviewId) ?? null,
@@ -86,15 +93,39 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
   );
 
   const selectedReviewWindowMessage = selectedReview ? getReviewWindowMessage(selectedReview) : null;
+  const selectedReviewCanMark = selectedReview ? selectedReview.can_mark !== false : false;
+
+  const queryClassIdRaw = new URLSearchParams(location.search).get("classId");
+  const queryClassId = queryClassIdRaw ? Number(queryClassIdRaw) : null;
 
   const loadAssignedReviews = useCallback(async () => {
+    const shouldKeepReview = (review: ReviewAssignment) => {
+      const sameAssignment = Number(review.assignmentID) === assignmentId;
+      if (!sameAssignment) {
+        return false;
+      }
+
+      if (!Number.isFinite(queryClassId ?? NaN)) {
+        return true;
+      }
+
+      const reviewCourseId = review.assignment?.courseID;
+      if (typeof reviewCourseId !== "number") {
+        return true;
+      }
+
+      return reviewCourseId === queryClassId;
+    };
+
     if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
       setError("Invalid assignment ID.");
       setLoading(false);
       return;
     }
 
+    let loadId = 0;
     try {
+      loadId = ++latestLoadId.current;
       setLoading(true);
       setError("");
       setSuccess("");
@@ -102,7 +133,10 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       const assignedReviews: ReviewAssignment[] = [
         ...(Array.isArray(payload.group_reviews) ? payload.group_reviews : []),
         ...(Array.isArray(payload.peer_reviews) ? payload.peer_reviews : []),
-      ];
+      ].filter(shouldKeepReview);
+      if (loadId !== latestLoadId.current) {
+        return;
+      }
       setReviews(assignedReviews);
 
       const receivedPayload: SeparatedReviewAssignments =
@@ -110,7 +144,10 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       const allReceivedReviews: ReviewAssignment[] = [
         ...(Array.isArray(receivedPayload.group_reviews) ? receivedPayload.group_reviews : []),
         ...(Array.isArray(receivedPayload.peer_reviews) ? receivedPayload.peer_reviews : []),
-      ];
+      ].filter(shouldKeepReview);
+      if (loadId !== latestLoadId.current) {
+        return;
+      }
       setReceivedReviews(allReceivedReviews);
 
       const firstReview = assignedReviews[0] ?? null;
@@ -128,6 +165,9 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
         setDraft({});
       }
     } catch (err) {
+      if (loadId !== latestLoadId.current) {
+        return;
+      }
       const message = err instanceof Error ? err.message : "Failed to load assigned reviews";
       setError(message);
       setReviews([]);
@@ -135,13 +175,54 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       setSelectedReviewId(null);
       setDraft({});
     } finally {
-      setLoading(false);
+      if (loadId === latestLoadId.current) {
+        setLoading(false);
+      }
     }
-  }, [assignmentId]);
+  }, [assignmentId, queryClassId]);
 
   useEffect(() => {
     loadAssignedReviews();
   }, [loadAssignedReviews]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1101px)");
+    const updateLayoutMode = () => {
+      setIsTwoColumnLayout(mediaQuery.matches);
+    };
+
+    updateLayoutMode();
+    mediaQuery.addEventListener("change", updateLayoutMode);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateLayoutMode);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!assignedPanelRef.current) {
+      return;
+    }
+
+    const updateHeight = () => {
+      if (!assignedPanelRef.current) {
+        return;
+      }
+      setAssignedPanelHeight(assignedPanelRef.current.getBoundingClientRect().height);
+    };
+
+    updateHeight();
+
+    const observer = new ResizeObserver(() => {
+      updateHeight();
+    });
+
+    observer.observe(assignedPanelRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [loading, reviews.length, selectedReviewId, error, success, saving]);
 
   const handleReviewChange = (reviewId: number) => {
     setSelectedReviewId(reviewId);
@@ -181,6 +262,11 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
   const handleSubmit = async () => {
     if (!selectedReview) {
       setError("Select a review to submit.");
+      return;
+    }
+
+    if (!selectedReviewCanMark) {
+      setError("This group review has already been completed by a teammate.");
       return;
     }
 
@@ -253,11 +339,12 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
   };
 
   return (
-    <div className="card border-0 shadow-sm p-3 p-md-4 mt-3">
-      <h3 className="h5 mb-3">Your Assigned Peer Reviews</h3>
+    <div className="StudentReviewsLayout mt-3">
+      <div ref={assignedPanelRef} className="StudentAssignedReviewsPanel card border-0 shadow-sm p-3 p-md-4">
+        <h3 className="h5 mb-3 AssignedReviewsHeading">Your Assigned Peer Reviews</h3>
 
       {!loading ? (
-        <p className="mb-3 text-muted">
+        <p className="mb-3 text-muted AssignedReviewsSummary">
           Assigned reviews: {reviews.length} (Group: {groupReviews.length}, Peer: {peerReviews.length})
         </p>
       ) : null}
@@ -270,10 +357,9 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
 
       {!loading && reviews.length > 0 ? (
         <>
-          <div className="mb-3">
-            <label className="form-label">Choose Review To Grade</label>
+          <div className="mb-3 ReviewPickerWrap">
             <select
-              className="form-select"
+              className="form-select ReviewPickerSelect"
               value={selectedReviewId ?? ""}
               onChange={(event) => handleReviewChange(Number(event.target.value))}
             >
@@ -281,7 +367,7 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
                 <optgroup label="Group Reviews">
                   {groupReviews.map((review) => (
                     <option key={review.id} value={review.id}>
-                      {review.reviewee?.name ?? `student ${review.reviewee?.id}`} ({isReviewComplete(review) ? "Complete" : "Pending"})
+                      {review.reviewee_group_name ?? "Ungrouped"} ({isReviewComplete(review) ? "Complete" : "Pending"})
                     </option>
                   ))}
                 </optgroup>
@@ -300,10 +386,12 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
           </div>
 
           {selectedReview ? (
-            <div className="ReviewCriterionCard mb-3 p-3">
+            <div className="ReviewCriterionCard ReviewSummaryCard mb-3 p-3">
               <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
                 <h4 className="h6 mb-0">
-                  Reviewing: {selectedReview.reviewee?.name ?? `student ${selectedReview.reviewee?.id}`}
+                  Reviewing: {selectedReview.review_type === "group"
+                    ? selectedReview.reviewee_group_name ?? "Ungrouped"
+                    : selectedReview.reviewee?.name ?? `student ${selectedReview.reviewee?.id}`}
                 </h4>
                 <div className="d-flex gap-2">
                   <span className="badge text-bg-light text-uppercase">
@@ -330,7 +418,35 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
             </div>
           ) : null}
 
-          {selectedReviewWindowMessage ? <p className="text-warning mt-2">{selectedReviewWindowMessage}</p> : null}
+          {selectedReviewWindowMessage ? (
+            <StatusMessage
+              message={selectedReviewWindowMessage}
+              type="error"
+              className="ReviewAlertBox mt-2"
+            />
+          ) : null}
+          {selectedReview && selectedReview.can_mark === false ? (
+            <StatusMessage
+              message="This group review has already been completed by a teammate and is now locked."
+              type="error"
+              className="ReviewAlertBox mt-2"
+            />
+          ) : null}
+
+          {error ? (
+            <StatusMessage
+              message={error}
+              type="error"
+              className="ReviewAlertBox mt-2"
+            />
+          ) : null}
+          {success ? (
+            <StatusMessage
+              message={success}
+              type="success"
+              className="ReviewAlertBox mt-2"
+            />
+          ) : null}
 
           {selectedReview?.criteria?.map((criterion) => {
             const criterionRow = criterion.criterion_row;
@@ -338,7 +454,7 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
             const hasScore = criterionRow?.hasScore ?? true;
 
             return (
-              <div key={criterion.id} className="ReviewCriterionCard mb-3 p-3">
+              <div key={criterion.id} className="ReviewCriterionCard ReviewCriteriaCard mb-3 p-3">
                 <div className="d-flex justify-content-between align-items-start gap-3 mb-2">
                   <h4 className="h6 mb-0">{criterionRow?.question ?? "Criterion"}</h4>
                   {hasScore ? <span className="badge text-bg-light">Max {scoreMax}</span> : null}
@@ -373,51 +489,54 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
           })}
 
           <button
-            className="btn btn-primary"
+            className="btn btn-primary ReviewSubmitButton"
             onClick={handleSubmit}
-            disabled={saving || selectedReview?.review_window_open === false}
+            disabled={saving || selectedReview?.review_window_open === false || !selectedReviewCanMark}
           >
             {saving ? "Submitting..." : "Submit Review"}
           </button>
         </>
       ) : null}
 
-      {error ? <p className="text-danger mt-3 mb-0">{error}</p> : null}
-      {success ? <p className="text-success mt-3 mb-0">{success}</p> : null}
+      </div>
 
-      <hr className="my-4" />
-      <h3 className="h5 mb-3">Reviews About You</h3>
-      {receivedReviews.length === 0 ? (
-        <p className="mb-0 text-muted">No completed reviews about you yet.</p>
-      ) : (
-        <div className="d-grid gap-3">
-          {receivedReviews.map((review) => (
-            <div key={review.id} className="ReviewCriterionCard p-3">
-              <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                <h4 className="h6 mb-0">
-                  {review.review_type === "group" ? "Group Review" : "Peer Review"}
-                </h4>
-                <span className="badge text-bg-secondary">Reviewer: Anonymous</span>
-              </div>
+      <div
+        className="StudentReceivedReviewsPanel card border-0 shadow-sm p-3 p-md-4"
+        style={isTwoColumnLayout && assignedPanelHeight ? { maxHeight: `${assignedPanelHeight}px` } : undefined}
+      >
+        <h3 className="h5 mb-3 AssignedReviewsHeading">Reviews About You</h3>
+        {receivedReviews.length === 0 ? (
+          <p className="mb-0 text-muted">No completed reviews about you yet.</p>
+        ) : (
+          <div className="ReviewListStack">
+            {receivedReviews.map((review) => (
+              <div key={review.id} className="ReviewCriterionCard ReviewReceivedCard p-3">
+                <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                  <h4 className="h6 mb-0">
+                    {review.review_type === "group" ? "Group Review" : "Peer Review"}
+                  </h4>
+                  <span className="badge text-bg-secondary">Reviewer: Anonymous</span>
+                </div>
 
-              {review.criteria?.map((criterion) => {
-                const hasScore = criterion.criterion_row?.hasScore ?? true;
-                return (
-                  <div key={criterion.id} className="mb-2">
-                    <div className="fw-semibold">{criterion.criterion_row?.question ?? "Criterion"}</div>
-                    {hasScore ? (
-                      <div className="small">Score: {criterion.grade ?? "Not scored"}</div>
-                    ) : null}
-                    <div className="small text-muted">
-                      Comments: {criterion.comments?.trim() ? criterion.comments : "No comments"}
+                {review.criteria?.map((criterion) => {
+                  const hasScore = criterion.criterion_row?.hasScore ?? true;
+                  return (
+                    <div key={criterion.id} className="mb-2">
+                      <div className="fw-semibold">{criterion.criterion_row?.question ?? "Criterion"}</div>
+                      {hasScore ? (
+                        <div className="small">Score: {criterion.grade ?? "Not scored"}</div>
+                      ) : null}
+                      <div className="small text-muted">
+                        Comments: {criterion.comments?.trim() ? criterion.comments : "No comments"}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      )}
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

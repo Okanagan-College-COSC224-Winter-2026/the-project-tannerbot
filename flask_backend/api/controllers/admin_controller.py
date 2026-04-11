@@ -5,6 +5,7 @@ Only admin users can access these endpoints
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
 
 from ..models import User, UserSchema
@@ -128,7 +129,9 @@ def update_user_role(user_id):
 @bp.route("/users/<int:user_id>", methods=["DELETE"])
 @jwt_admin_required
 def delete_user(user_id):
-    """Delete a user (admin only)"""
+    """Delete a user (admin only). Supports cascade deletion via ?cascade=true query parameter"""
+    from flask import request
+    
     current_email = get_jwt_identity()
     current_user = User.get_by_email(current_email)
 
@@ -140,6 +143,49 @@ def delete_user(user_id):
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
-    user.delete()
+    # Check if cascade deletion was requested
+    cascade = request.args.get("cascade", "false").lower() == "true"
+    
+    if cascade:
+        # Perform cascade deletion
+        try:
+            user.cascade_delete()
+            return jsonify({"msg": "User and all associated records deleted successfully"}), 200
+        except Exception as e:
+            return (
+                jsonify({"msg": f"Error deleting user: {str(e)}"}),
+                500,
+            )
+    else:
+        # Normal delete with blocker check
+        blockers = user.get_delete_blockers()
+        blocking_references = {key: value for key, value in blockers.items() if value > 0}
+        if blocking_references:
+            associations = user.get_delete_associations()
+            return (
+                jsonify(
+                    {
+                        "msg": "Cannot delete user because they are still referenced by existing records",
+                        "blockers": blocking_references,
+                        "associations": associations,
+                    }
+                ),
+                409,
+            )
 
-    return jsonify({"msg": "User deleted successfully"}), 200
+        try:
+            user.delete()
+        except IntegrityError:
+            associations = user.get_delete_associations()
+            return (
+                jsonify(
+                    {
+                        "msg": "Cannot delete user because they are still referenced by existing records",
+                        "blockers": user.get_delete_blockers(),
+                        "associations": associations,
+                    }
+                ),
+                409,
+            )
+
+        return jsonify({"msg": "User deleted successfully"}), 200

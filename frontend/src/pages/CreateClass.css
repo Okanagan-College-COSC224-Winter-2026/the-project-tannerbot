@@ -1,4 +1,23 @@
-.CreateClass {
-  padding: 4rem;
-  width: 60%;
+.CreateClassPage {
+  width: 100%;
+}
+
+.CreateClassPanel {
+  border-radius: 1.2rem;
+  background: #ffffffd9;
+  backdrop-filter: blur(2px);
+}
+
+.CreateClassForm .form-control {
+  min-height: calc(1.5em + 1rem + 4px);
+}
+
+.CreateClassSubmitCol {
+  align-self: end;
+}
+
+@media (max-width: 640px) {
+  .CreateClassPage {
+    padding: 1rem;
+  }
 }

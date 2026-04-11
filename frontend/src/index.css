@@ -1,4 +1,5 @@
 @import "bootstrap/dist/css/bootstrap.min.css";
+@import "bootstrap-icons/font/bootstrap-icons.css";
 
 :root {
   font-family: "Segoe UI", "Trebuchet MS", Arial, sans-serif;
@@ -52,6 +53,7 @@ body {
   font-weight: 600;
   letter-spacing: 0.01em;
   border-width: 2px;
+  transition: none !important;
 }
 
 .btn-primary {
@@ -67,6 +69,14 @@ body {
   border-color: #b80045;
 }
 
+.btn-primary:focus,
+.btn-primary:active:focus {
+  background-color: #e10054;
+  border-color: #e10054;
+  outline: none;
+  box-shadow: 0 8px 20px rgba(225, 0, 84, 0.24) !important;
+}
+
 .btn-primary:active,
 .btn-primary.active,
 .show > .btn-primary.dropdown-toggle {
@@ -79,6 +89,12 @@ body {
   background-color: #e10054;
   border-color: #e10054;
   opacity: 0.65;
+}
+
+.btn:focus,
+.btn:focus-visible {
+  outline: none;
+  box-shadow: none !important;
 }
 
 .form-control,

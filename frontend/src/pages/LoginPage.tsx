@@ -35,7 +35,18 @@ export default function LoginPage() {
     } else {
       setError('Invalid email or password');
     }
-  } catch {
+  } catch (err) {
+    if (err instanceof Error) {
+      const normalized = err.message.toLowerCase();
+      if (normalized.includes('too many')) {
+        setError(err.message);
+        return;
+      }
+      if (normalized.includes('login failed with status')) {
+        setError('Unable to log in right now. Please try again shortly.');
+        return;
+      }
+    }
     setError('Invalid email or password');
   }
 };

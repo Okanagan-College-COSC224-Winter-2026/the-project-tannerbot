@@ -12,9 +12,9 @@ import {
   deleteAssignment,
 } from "../util/api";
 import TabNavigation from "../components/TabNavigation";
-import { importCSV } from "../util/csv";
 import StatusMessage from "../components/StatusMessage";
 import { isAdmin, isTeacher } from "../util/login";
+import StudentImportButton from "../components/StudentImportButton";
 
 export default function ClassHome() {
   const { id } = useParams();
@@ -178,14 +178,12 @@ export default function ClassHome() {
       <div className="ClassHomePage container-fluid py-4 px-3 px-md-4">
         <div className="ClassHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
           <div className="ClassHeaderLeft">
-            <h2 className="h3 fw-bold mb-0">{className || "Class"}</h2>
+            <h2 className="h3 fw-bold mb-0 text-primary">{className || "Class"}</h2>
           </div>
 
           <div className="ClassHeaderRight">
             {isTeacher() ? (
-              <Button onClick={() => importCSV(id as string)}>
-                Add Students via CSV
-              </Button>
+              <StudentImportButton classId={id} />
             ) : null}
           </div>
         </div>

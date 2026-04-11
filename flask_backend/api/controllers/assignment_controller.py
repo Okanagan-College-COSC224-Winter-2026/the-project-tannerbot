@@ -15,7 +15,7 @@ from .assignment_attachment_controller import (
     list_assignment_attachments,
     save_assignment_attachments,
 )
-from .helpers import get_teacher_managed_assignment
+from .helpers import can_access_course, get_teacher_managed_assignment
 
 bp = Blueprint("assignment", __name__, url_prefix="/assignment")
 VALID_ASSIGNMENT_MODES = {"solo", "group"}
@@ -113,7 +113,10 @@ def create_assignment():
         description=description,
     )
     Assignment.create(new_assignment)
-    saved_files = save_assignment_attachments(new_assignment.id)
+    try:
+        saved_files = save_assignment_attachments(new_assignment.id)
+    except ValueError as exc:
+        return jsonify({"msg": str(exc)}), 413
 
     return (
         jsonify(
@@ -226,6 +229,13 @@ def get_assignments(class_id):
     course = Course.get_by_id(class_id)
     if not course:
         return jsonify({"msg": "Class not found"}), 404
+
+    email = get_jwt_identity()
+    current_user = User.get_by_email(email)
+    if not current_user:
+        return jsonify({"msg": "User not found"}), 404
+    if not can_access_course(current_user, course):
+        return jsonify({"msg": "Insufficient permissions"}), 403
 
     assignments = Assignment.get_by_class_id(class_id)
     assignments_data = AssignmentSchema(many=True).dump(assignments)

@@ -1,13 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
 import TabNavigation from "../components/TabNavigation";
 import { useEffect, useState } from "react";
-import Button from "../components/Button";
-import { importCSV } from "../util/csv";
 import { listCourseMembers, listClasses } from "../util/api";
 import { getProfilePictureSrc } from "../util/profile";
+import StudentImportButton from "../components/StudentImportButton";
 
 import './ClassMembers.css'
-import { isTeacher } from "../util/login";
+import { isAdmin, isTeacher } from "../util/login";
 
 export default function ClassMembers() {
   const { id } = useParams()
@@ -16,6 +15,7 @@ export default function ClassMembers() {
   const [className, setClassName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     ;(async () => {
@@ -40,18 +40,21 @@ export default function ClassMembers() {
         setLoading(false)
       }
     })()
-  }, [id])  
+  }, [id, reloadKey])
 
   return (
     <div className="ClassMembersPage container-fluid py-4 px-3 px-md-4">
       <div className="ClassHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
         <div className="ClassHeaderLeft">
-          <h2 className="h3 fw-bold mb-0">{className || "Class"}</h2>
+          <h2 className="h3 fw-bold mb-0 text-primary">{className || "Class"}</h2>
         </div>
 
         <div className="ClassHeaderRight">
           {isTeacher() ? (
-            <Button onClick={() => importCSV(id as string)}>Add Students via CSV</Button>
+            <StudentImportButton
+              classId={id}
+              onImported={() => setReloadKey((currentValue) => currentValue + 1)}
+            />
           ) : null}
         </div>
       </div>
@@ -66,6 +69,14 @@ export default function ClassMembers() {
             label: "Members",
             path: `/classes/${id}/members`,
           },
+          ...(isTeacher() || isAdmin()
+            ? [
+                {
+                  label: "Reviews",
+                  path: `/classes/${id}/reviews`,
+                },
+              ]
+            : []),
         ]}
       />
 
