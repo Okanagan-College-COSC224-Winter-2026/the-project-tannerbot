@@ -97,25 +97,26 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
 
   const queryClassIdRaw = new URLSearchParams(location.search).get("classId");
   const queryClassId = queryClassIdRaw ? Number(queryClassIdRaw) : null;
-  const shouldKeepReview = (review: ReviewAssignment) => {
-    const sameAssignment = Number(review.assignmentID) === assignmentId;
-    if (!sameAssignment) {
-      return false;
-    }
-
-    if (!Number.isFinite(queryClassId ?? NaN)) {
-      return true;
-    }
-
-    const reviewCourseId = review.assignment?.courseID;
-    if (typeof reviewCourseId !== "number") {
-      return true;
-    }
-
-    return reviewCourseId === queryClassId;
-  };
 
   const loadAssignedReviews = useCallback(async () => {
+    const shouldKeepReview = (review: ReviewAssignment) => {
+      const sameAssignment = Number(review.assignmentID) === assignmentId;
+      if (!sameAssignment) {
+        return false;
+      }
+
+      if (!Number.isFinite(queryClassId ?? NaN)) {
+        return true;
+      }
+
+      const reviewCourseId = review.assignment?.courseID;
+      if (typeof reviewCourseId !== "number") {
+        return true;
+      }
+
+      return reviewCourseId === queryClassId;
+    };
+
     if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
       setError("Invalid assignment ID.");
       setLoading(false);
@@ -174,10 +175,9 @@ export default function StudentAssignedReviews({ assignmentId }: Props) {
       setSelectedReviewId(null);
       setDraft({});
     } finally {
-      if (loadId !== latestLoadId.current) {
-        return;
+      if (loadId === latestLoadId.current) {
+        setLoading(false);
       }
-      setLoading(false);
     }
   }, [assignmentId, queryClassId]);
 
