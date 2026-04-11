@@ -1,12 +1,41 @@
+import os
+import shutil
+import tempfile
+
 import pytest
 from werkzeug.security import generate_password_hash
 
 from api import create_app
+from api.controllers import auth_controller
 from api.models import User, Course, User_Course
 from api.models.db import db as _db
 
 base_url = "http://localhost:5000/assets"
 TEMP_PATH = "/tmp/sqlalchemy-media"
+
+
+def _reset_test_mutable_config(app):
+    """Reset config values that individual tests commonly override."""
+    app.config["MAX_SUBMISSION_FILE_SIZE_BYTES"] = 10 * 1024 * 1024
+    app.config["MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES"] = 10 * 1024 * 1024
+    app.config["RATE_LIMIT_TRUST_PROXY_HEADERS"] = False
+    app.config["LOGIN_ATTEMPT_WINDOW_SECONDS"] = 300
+    app.config["LOGIN_ATTEMPT_MAX_FAILURES"] = 5
+    app.config["LOGIN_LOCKOUT_SECONDS"] = 600
+    app.config["REGISTER_ATTEMPT_WINDOW_SECONDS"] = 300
+    app.config["REGISTER_ATTEMPT_MAX_ATTEMPTS"] = 10
+
+
+def _cleanup_assignment_upload_dirs(app):
+    configured_upload_root = app.config.get(
+        "ASSIGNMENT_UPLOAD_FOLDER",
+        os.path.join(app.instance_path, "assignment_uploads"),
+    )
+    fallback_upload_root = os.path.join(tempfile.gettempdir(), "peer_eval_assignment_uploads")
+
+    for upload_root in (configured_upload_root, fallback_upload_root):
+        if os.path.isdir(upload_root):
+            shutil.rmtree(upload_root, ignore_errors=True)
 
 
 @pytest.fixture(scope="session")
@@ -37,6 +66,12 @@ def app():
 def db(app):
     """Create a fresh database session for each test."""
     with app.app_context():
+        _reset_test_mutable_config(app)
+        _cleanup_assignment_upload_dirs(app)
+        auth_controller._failed_login_attempts.clear()
+        auth_controller._lockout_until.clear()
+        auth_controller._register_attempts.clear()
+
         # Clear all data from tables
         for table in reversed(_db.metadata.sorted_tables):
             _db.session.execute(table.delete())
@@ -46,6 +81,11 @@ def db(app):
 
         # Cleanup after test
         _db.session.rollback()
+        _reset_test_mutable_config(app)
+        auth_controller._failed_login_attempts.clear()
+        auth_controller._lockout_until.clear()
+        auth_controller._register_attempts.clear()
+        _cleanup_assignment_upload_dirs(app)
 
 
 @pytest.fixture(scope="function")
@@ -75,6 +115,20 @@ def make_admin():
         return user
 
     return _make_admin
+
+@pytest.fixture
+def make_teacher():
+    """Fixture to create a teacher user in the database."""
+
+    def _make_teacher(email="teacher@example.com", password="teacher", name="Teacher User"):
+        user = User(
+            name=name, email=email, hash_pass=generate_password_hash(password), role="teacher"
+        )
+        _db.session.add(user)
+        _db.session.commit()
+        return user
+
+    return _make_teacher
 
 @pytest.fixture
 def enroll_user_in_course():

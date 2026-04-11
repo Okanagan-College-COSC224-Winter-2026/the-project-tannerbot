@@ -1,49 +1,62 @@
-import { logout } from '../util/login'
+import { hasRole, logout, isAdmin } from '../util/login'
+import { NavLink } from 'react-router-dom'
 import './Sidebar.css'
 
+
 export default function Sidebar() {
-  // Check which page we are on
-  const location = window.location.pathname
-
   return (
-    <div className="Sidebar">
-      <div className="SidebarLogo">
-        <img src="/oc_logo.png" alt="OC Logo" />
+    <aside className="Sidebar d-flex flex-column border-end px-3 py-4">
+      <div className="SidebarLogo text-center mb-4">
+        <img src="/oc_logo.png" alt="OC Logo" className="img-fluid" />
       </div>
 
-      <div className="SidebarTop">
-        <SidebarRow
-          onClick={() => logout()}
-          href='#'
-          selected={false}
-        >
+      <div className="d-grid mb-3">
+        <button type="button" className="btn btn-outline-secondary" onClick={() => logout()}>
           Logout
-        </SidebarRow>
-
-        <SidebarRow selected={location === '/home'} href="/home">
-          Home
-        </SidebarRow>
-        
-        { /* TODO: make this ID match who is logged in */ }
-        <SidebarRow selected={location.includes('/profile')} href="/profile/1">
-          My Info
-        </SidebarRow>
+        </button>
       </div>
-    </div>
+
+      <nav className="nav nav-pills flex-column gap-2">
+        <SidebarRow href="/home">Home</SidebarRow>
+
+        {hasRole('student', 'teacher', 'admin') ? (
+          <SidebarRow href="/courses/search">Search Courses</SidebarRow>
+        ) : null}
+
+        <SidebarRow href="/profile">My Info</SidebarRow>
+
+        {isAdmin() && (
+          <SidebarRow href="/admin">
+            Admin Panel
+          </SidebarRow>
+        )}
+        {isAdmin() && (
+          <SidebarRow href="/admin/create-teacher">
+            Create Teacher
+          </SidebarRow>
+        )}
+      </nav>
+    </aside>
   )
 }
 
 interface SidebarRowProps {
-  selected: boolean
   href: string
   children: React.ReactNode
-  onClick?: () => void
 }
 
 function SidebarRow(props: SidebarRowProps) {
   return (
-    <div className={`SidebarRow ${props.selected ? 'selected' : ''}`} onClick={props.onClick}>
-      <a href={props.selected ? '#' : props.href}>{props.children}</a>
-    </div>
-  )
+    <NavLink
+      to={props.href}
+      end
+      className={({ isActive }) =>
+        `SidebarRow nav-link px-3 py-2 rounded-3 ${
+          isActive ? 'active' : 'text-dark'
+        }`
+      }
+    >
+      {props.children}
+    </NavLink>
+  );
 }

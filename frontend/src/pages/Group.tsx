@@ -1,346 +1,396 @@
 import { useEffect, useState } from "react";
-import {
-  createGroup,
-  getNextGroupID,
-  getUserId,
-  listCourseMembers,
-  listGroupMembers,
-  listGroups,
-  listStuGroup,
-  listUnassignedGroups,
-  saveGroups,
-  deleteGroup,
-} from "../util/api";
-import { useParams } from "react-router-dom";
-import "./Group.css";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+
+import Button from "../components/Button";
 import TabNavigation from "../components/TabNavigation";
-import StatusMessage from "../components/StatusMessage";
-import { isTeacher } from "../util/login";
-import Textbox from "../components/Textbox";
+import {
+  autoAssignAssignmentGroups,
+  createAssignmentGroup,
+  deleteAssignmentGroup,
+  getAssignmentGrouping,
+  setAssignmentGroupMembers,
+  updateAssignmentMode,
+} from "../util/api";
+import { isAdmin, isTeacher } from "../util/login";
 
-function fisherYates<T>(array: T[]): T[] {
-  let m = array.length, t, i;
-
-  while (m) {
-    i = Math.floor(Math.random() * m--);
-
-    t = array[m];
-    array[m] = array[i];
-    array[i] = t;
-  }
-
-  return array;
-}
+import "./Group.css";
 
 export default function Group() {
   const { id } = useParams();
-  const [classMembers, setclassMembers] = useState<User[]>([]);
-  const [stuGroup, setStuGroup] = useState<StudentGroups[]>([]);
-  const [groups, setGroups] = useState<CourseGroup[]>([]);
-  const [groupTable, setGroupTable] = useState<GroupTable>({});
-  const [selectedGroup, setSelectedGroup] = useState<number>(-1);
-  const [memberTable, setMemberTable] = useState<GroupTable>({});
-  const [groupName, setGroupName] = useState('');
-  const [statusMessage, setStatusMessage] = useState('');
-  const [statusType, setStatusType] = useState<'error' | 'success'>('error');
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const nameFromId = (id: number) => {
-    return classMembers.find((mem) => mem.id === id)?.name || 'N/A';
+  const canManageAssignment = isTeacher() || isAdmin();
+  const stateClassId = (location.state as { classId?: string | number } | null)?.classId;
+  const searchClassId = new URLSearchParams(location.search).get("classId");
+  const classId = stateClassId ?? searchClassId;
+  const classQuery = classId ? `?classId=${classId}` : "";
+  const assignmentId = Number(id);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [assignmentMode, setAssignmentMode] = useState<"solo" | "group">("solo");
+  const [groups, setGroups] = useState<AssignmentGroupingGroup[]>([]);
+  const [students, setStudents] = useState<AssignmentGroupingStudent[]>([]);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [studentAssignments, setStudentAssignments] = useState<Record<number, number | null>>({});
+
+  const loadGrouping = async () => {
+    if (!Number.isFinite(assignmentId)) {
+      setError("Invalid assignment id.");
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+    try {
+      const payload: AssignmentGroupingResponse = await getAssignmentGrouping(assignmentId);
+      const mode = payload.assignment.assignment_mode === "group" ? "group" : "solo";
+      setAssignmentMode(mode);
+      setGroups(payload.groups);
+      setStudents(payload.students);
+
+      setSelectedGroupId((current) => {
+        if (payload.groups.length === 0) {
+          return null;
+        }
+
+        if (current && payload.groups.some((group) => group.id === current)) {
+          return current;
+        }
+
+        return payload.groups[0].id;
+      });
+
+      const membershipMap: Record<number, number | null> = {};
+      payload.students.forEach((student) => {
+        membershipMap[student.id] = student.groupID ?? null;
+      });
+      setStudentAssignments(membershipMap);
+    } catch (loadError: unknown) {
+      console.error("Failed to load grouping data", loadError);
+      setError(loadError instanceof Error ? loadError.message : "Failed to load group management data.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const randomize = () => {
-    // remove every member from every group, save them
-    const members = []
-
-    for (const group of Object.values(groupTable)) {
-      for (const member of group) {
-        const n = { ...member }
-        n.groupID = -1
-
-        members.push(n)
-      }
-    }
-
-    // Also grab the members from the unassigned table
-    if (memberTable[-1]) {
-      for (const member of memberTable[-1]) {
-        const n = { ...member }
-        n.groupID = -1
-
-        members.push(n)
-      }
-    }
-
-    const membersPerGroup = members.length / Object.keys(groupTable).length
-    const gIds = Object.keys(groupTable)
-    // Shuffle the array, then sequentially add them to groups
-    const shuffled = fisherYates(members)
-    const newTable: GroupTable = {}
-
-    let i = 0
-    for (const group of gIds) {
-      for (let j = 0; j < membersPerGroup; j++) {
-        const g = Number(group)
-        const member = shuffled[i]
-        i++
-
-        // This will make a false entry if the amount of total people is uneven
-        if (!member) break
-
-        const n = { ...member }
-        n.groupID = Number(group)
-
-        newTable[g] = newTable[g] || []
-        newTable[g].push(n)
-      }
-    }
-
-    setGroupTable(newTable)
-    setMemberTable({})
-  }
-
   useEffect(() => {
-    (async () => {
-      const classMembers = await listCourseMembers(String(id));
-      setclassMembers(classMembers);
-      const groups = await listGroups(Number(id));
-      setGroups(groups);
-      const ua = await listUnassignedGroups(Number(id));
-      const stuId = await getUserId();
-      const stus = await listStuGroup(Number(id), stuId);
-      setStuGroup(stus);
+    if (!canManageAssignment) {
+      setIsLoading(false);
+      return;
+    }
+    loadGrouping();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignmentId, canManageAssignment]);
 
-      const groupMembers: {
-        [key: number]: GroupTableValue[];
-      } = {};
-      for (const g of groups) {
-        const members = await listGroupMembers(Number(id), g.id);
-        groupMembers[g.id] = members;
-      }
+  const saveAssignmentMode = async () => {
+    setIsSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      await updateAssignmentMode(assignmentId, assignmentMode);
+      await loadGrouping();
+      setSuccess("Assignment mode updated.");
+    } catch (saveError: unknown) {
+      console.error("Failed to save assignment mode", saveError);
+      setError(saveError instanceof Error ? saveError.message : "Failed to save assignment mode.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
-      const grLocal: GroupTable = {};
-      //build a table of group names and students
-      for (const gr of groups) {
-        grLocal[gr.id] = [];
-        for (const stu of groupMembers[gr.id]) {
-          if (stu.groupID === gr.id) {
-            grLocal[gr.id].push(stu);
-          }
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) {
+      setError("Enter a group name before creating.");
+      return;
+    }
+
+    setIsSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      await createAssignmentGroup(assignmentId, newGroupName.trim());
+      setNewGroupName("");
+      await loadGrouping();
+      setSuccess("Group created.");
+    } catch (createError: unknown) {
+      console.error("Failed to create group", createError);
+      setError(createError instanceof Error ? createError.message : "Failed to create group.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteGroup = async (groupId: number) => {
+    setIsSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      await deleteAssignmentGroup(assignmentId, groupId);
+      await loadGrouping();
+      setSuccess("Group deleted.");
+    } catch (deleteError: unknown) {
+      console.error("Failed to delete group", deleteError);
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete group.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSavePlacements = async () => {
+    setIsSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const membersByGroupId: Record<number, number[]> = {};
+      groups.forEach((group) => {
+        membersByGroupId[group.id] = [];
+      });
+
+      students.forEach((student) => {
+        const groupId = studentAssignments[student.id];
+        if (groupId && membersByGroupId[groupId]) {
+          membersByGroupId[groupId].push(student.id);
         }
-      }
-      setGroupTable(grLocal);
+      });
 
-      //build a table for unassigned students
-      const memLocal: GroupTable = {};
-      memLocal[-1] = [];
-      for (const stu of ua) {
-        memLocal[-1].push(stu);
+      for (const group of groups) {
+        await setAssignmentGroupMembers(assignmentId, group.id, membersByGroupId[group.id] || []);
       }
-      setMemberTable(memLocal);
-    })();
-  }, []);
+
+      await loadGrouping();
+      setSuccess("Student group assignments saved.");
+    } catch (placementError: unknown) {
+      console.error("Failed to save group placements", placementError);
+      setError(
+        placementError instanceof Error
+          ? placementError.message
+          : "Failed to save student group assignments.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAutoAssignPlacements = async () => {
+    setIsSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await autoAssignAssignmentGroups(assignmentId);
+      await loadGrouping();
+      setSuccess("Students were auto-assigned to groups.");
+    } catch (autoAssignError: unknown) {
+      console.error("Failed to auto-assign group placements", autoAssignError);
+      setError(
+        autoAssignError instanceof Error
+          ? autoAssignError.message
+          : "Failed to auto-assign student group assignments.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const assignmentTypeSection = (
+    <div className="GroupSection">
+      <label htmlFor="assignment-mode" className="GroupSectionLabel">
+        Assignment Type
+      </label>
+      <div className="GroupRow">
+        <select
+          id="assignment-mode"
+          value={assignmentMode}
+          onChange={(event) => setAssignmentMode(event.target.value as "solo" | "group")}
+          disabled={isSaving}
+        >
+          <option value="solo">Solo</option>
+          <option value="group">Group</option>
+        </select>
+        <Button onClick={saveAssignmentMode} disabled={isSaving}>
+          Save Type
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
-    <>
-      <div className="AssignmentHeader">
-        <h2>Assignment {id}</h2>
+    <div className="AssignmentPage container-fluid py-4 px-3 px-md-4">
+      <div className="AssignmentHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
+        <h2 className="h3 fw-bold text-primary mb-0">Assignment {id}</h2>
+        {canManageAssignment ? (
+          <Button
+            type="secondary"
+            onClick={() => navigate(classId ? `/classes/${classId}/home` : "/home")}
+          >
+            Return to Class
+          </Button>
+        ) : null}
       </div>
 
       <TabNavigation
         tabs={[
           {
-            label: "Home",
-            path: `/assignment/${id}`,
-          },
-          {
             label: "Group",
-            path: `/assignment/${id}/group`,
-          }
+            path: `/assignments/${id}/group${classQuery}`,
+          },
+          ...(canManageAssignment
+            ? [
+                {
+                  label: "Criteria",
+                  path: `/assignment/${id}/criteria${classQuery}`,
+                },
+                {
+                  label: "Reviews",
+                  path: `/assignments/${id}/reviews${classQuery}`,
+                },
+                {
+                  label: "Progress",
+                  path: `/assignments/${id}/progress${classQuery}`,
+                },
+              ]
+            : []),
         ]}
       />
 
-      <StatusMessage message={statusMessage} type={statusType} />
-
-      <div className="AssignmentPage">
-        {isTeacher() ? (
-          <>
-            <div className="assignmentTables">
-              <table className="table">
-                <tr>
-                  <th>Unassigned</th>
-                </tr>
-                {memberTable[-1]
-                  ? memberTable[-1].map((ua) => {
-                      return (
-                        <tr>
-                          <span className="StudentName">{nameFromId(ua.userID)}</span>
-                          <button
-                            onClick={() => {
-                              // These need to be deep copies, or it won't update properly
-                              const localMember = { ...memberTable };
-                              const localGroup = { ...groupTable };
-                              const memObj = localMember[-1].find(
-                                (mem) => ua.userID == mem.userID
-                              );
-
-                              if (memObj == undefined || selectedGroup == -1)
-                                return;
-
-                              localMember[-1] = localMember[-1].filter(
-                                (g) => memObj?.userID != g.userID
-                              );
-                              memObj.groupID = selectedGroup;
-
-                              if (memObj)
-                                localGroup[selectedGroup].push(memObj);
-                              else console.log("no unassigned users");
-
-                              setMemberTable(localMember);
-                              setGroupTable(localGroup);
-                            }}
-                          >
-                            Move
-                          </button>
-                        </tr>
-                      );
-                    })
-                  : null}
-              </table>
-
-              <table className="table">
-                <tr>
-                  <th>Groups</th>
-                </tr>
-                {Object.keys(groupTable).map((gId) => {
-                  return (
-                    <>
-                      <tr
-                        className={
-                          "groupNames " +
-                          (Number(gId) == selectedGroup ? "selected" : "")
-                        }
-                        onClick={() => setSelectedGroup(Number(gId))}
-                      >
-                        <div className="GroupArrow">
-                          <img src="/icons/arrow.svg" alt="arrow" />
-                        </div>
-                        {groups.find((gr) => gr.id === Number(gId))?.name}
-                      </tr>
-
-                      {selectedGroup !== -1 && selectedGroup == Number(gId)
-                        ? groupTable[selectedGroup].map((stu) => {
-                            return (
-                              <tr>
-                                <span className="StudentName">
-                                  {nameFromId(stu.userID)}
-                                </span>
-                                <button
-                                  onClick={() => {
-                                    // These need to be deep copies, or it won't update properly
-                                    const localMember = { ...memberTable };
-                                    const localGroup = { ...groupTable };
-                                    const memObj = localGroup[
-                                      selectedGroup
-                                    ].find((mem) => stu.userID == mem.userID);
-
-                                    if (memObj == undefined) return;
-
-                                    localGroup[selectedGroup] = localGroup[
-                                      selectedGroup
-                                    ].filter((g) => memObj?.userID != g.userID);
-                                    memObj.groupID = -1;
-
-                                    if (memObj) localMember[-1].push(memObj);
-                                    else console.log("shouldn't happen?");
-
-                                    setMemberTable(localMember);
-                                    setGroupTable(localGroup);
-                                  }}
-                                >
-                                  Move
-                                </button>
-                              </tr>
-                            );
-                          })
-                        : null}
-                    </>
-                  );
-                })}
-              </table>
-            </div>
-            <div>
-            <button
-              onClick={() => {
-                const groupMems = Object.values(groupTable);
-                const uaMems = Object.values(memberTable);
-                for (const group of groupMems) {
-                  for (const mem of group) {
-                    saveGroups(mem.groupID, mem.userID, mem.assignmentID);
-                  }
-                }
-                for (const group of uaMems) {
-                  for (const mem of group) {
-                    saveGroups(mem.groupID, mem.userID, mem.assignmentID);
-                  }
-                }
-
-                setStatusType('success');
-                setStatusMessage('Changes saved!');
-              }}
-            >
-              Confirm Changes
-            </button>
-
-            <button
-              style={{ backgroundColor: "var(--background-tertiary)" }}
-              onClick={randomize}
-            >
-              Randomize
-            </button>
-            <button
-              onClick={() => {
-                if (selectedGroup == -1) return;
-                const localGroup = { ...groupTable}
-                delete localGroup[selectedGroup];
-                setGroupTable(localGroup);
-                deleteGroup(selectedGroup);
-                setStatusType('success');
-                setStatusMessage('Group deleted!');
-              }}>
-              Delete Selected Group
-              </button>
-            </div>
-
-            <div>
-              <button
-                onClick={() =>{
-                  const nextGid = Number(getNextGroupID) + 1 ;
-                  createGroup(Number(id), groupName, Number(nextGid))           
-                }}
-                >
-                  Create New Group
-              </button>
-              <Textbox
-                placeholder="group name"
-                onInput={setGroupName}
-                className="groupNameInput"
-                >
-              </Textbox>
-            </div>
-          </>
+      <div className="card border-0 shadow-sm p-3 p-md-4 mt-3 GroupPageCard">
+        {!canManageAssignment ? (
+          <p className="mb-0 text-muted">Only teachers can manage assignment grouping.</p>
+        ) : isLoading ? (
+          <p className="mb-0 text-muted">Loading group settings...</p>
         ) : (
-          <div className="assignment">
-            <table className="studentTable">
-              <tr>
-                <th>My group</th>
-              </tr>
-              {stuGroup.map((stus) => {
-                return <tr>{stus.userID}</tr>;
-              })}
-            </table>
+          <div className="GroupManagementPanel">
+            {error ? <p className="GroupError">{error}</p> : null}
+            {success ? <p className="GroupSuccess">{success}</p> : null}
+
+            {assignmentMode === "group" ? (
+              <div className="GroupModeLayout">
+                <div className="GroupModeTopRow">
+                  {assignmentTypeSection}
+                  <div className="GroupSection">
+                    <label htmlFor="new-group-name" className="GroupSectionLabel">
+                      Create Group
+                    </label>
+                    <div className="GroupRow">
+                      <input
+                        id="new-group-name"
+                        type="text"
+                        value={newGroupName}
+                        onChange={(event) => setNewGroupName(event.target.value)}
+                        placeholder="Enter group name"
+                        disabled={isSaving}
+                      />
+                      <Button onClick={handleCreateGroup} disabled={isSaving || !newGroupName.trim()}>
+                        Add Group
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="GroupSection">
+                    <h4 className="GroupSectionLabel">Existing Groups</h4>
+                    {groups.length === 0 ? (
+                      <p className="text-muted mb-0">No groups created yet.</p>
+                    ) : (
+                      <div className="GroupList">
+                        <div className="GroupCard">
+                          <div className="GroupRow">
+                            <select
+                              id="existing-group-select"
+                              value={selectedGroupId ?? ""}
+                              onChange={(event) =>
+                                setSelectedGroupId(event.target.value ? Number(event.target.value) : null)
+                              }
+                              disabled={isSaving}
+                            >
+                              {groups.map((group) => (
+                                <option key={group.id} value={group.id}>
+                                  {group.name}
+                                </option>
+                              ))}
+                            </select>
+                            <Button
+                              type="secondary"
+                              onClick={() => selectedGroupId && handleDeleteGroup(selectedGroupId)}
+                              disabled={isSaving || !selectedGroupId}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="GroupModeBottom">
+                  <div className="GroupSection">
+                    <h4 className="GroupSectionLabel">Assign Students To Groups</h4>
+                    {students.length === 0 ? (
+                      <p className="text-muted mb-0">No enrolled students found in this class.</p>
+                    ) : (
+                      <div className="GroupStudentsTable">
+                        <div className="GroupStudentsHeader">
+                          <span>Student</span>
+                          <span>Group</span>
+                        </div>
+                        {students.map((student) => (
+                          <div key={student.id} className="GroupStudentsRow">
+                            <span>{student.name}</span>
+                            <select
+                              value={studentAssignments[student.id] ?? ""}
+                              onChange={(event) => {
+                                const value = event.target.value;
+                                setStudentAssignments((prev) => ({
+                                  ...prev,
+                                  [student.id]: value ? Number(value) : null,
+                                }));
+                              }}
+                              disabled={isSaving}
+                            >
+                              <option value="">Unassigned</option>
+                              {groups.map((group) => (
+                                <option key={group.id} value={group.id}>
+                                  {group.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="GroupActionsRow">
+                      <Button
+                        type="secondary"
+                        onClick={handleAutoAssignPlacements}
+                        disabled={isSaving || groups.length === 0 || students.length === 0}
+                      >
+                        Auto-Assign
+                      </Button>
+                      <Button onClick={handleSavePlacements} disabled={isSaving || groups.length === 0}>
+                        Save Student Placements
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {assignmentTypeSection}
+                <p className="mb-0 text-muted">
+                  Assignment is set to solo mode. Switch to group mode to create groups and assign students.
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

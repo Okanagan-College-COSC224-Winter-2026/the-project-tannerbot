@@ -2,9 +2,10 @@ import os
 
 import click
 from flask.cli import with_appcontext
+from sqlalchemy import inspect
 from werkzeug.security import generate_password_hash
 
-from ..models import User, Course, Assignment
+from ..models import Assignment, AssignmentAttachment, Course, User
 from ..models.db import db
 
 
@@ -165,6 +166,91 @@ def add_sample_courses_command():
 
     click.echo("Sample courses and assignments created successfully")
 
+#flask --app api migrate_add_start_date adds a startdate column to the Assignment table
+@click.command("migrate_add_start_date")
+@with_appcontext
+def migrate_add_start_date_command():
+    """Add start_date column to Assignment table if it doesn't exist"""
+    try:
+        # Check if column already exists by querying the table
+        inspector = inspect(db.engine)
+        columns = [col['name'] for col in inspector.get_columns('Assignment')]
+        
+        if 'start_date' in columns:
+            click.echo("Column 'start_date' already exists in Assignment table")
+            return
+        
+        # Add the column if it doesn't exist already
+        with db.engine.connect() as conn:
+            conn.execute(db.text("ALTER TABLE Assignment ADD COLUMN start_date DATETIME"))
+            conn.commit()
+        click.echo("Successfully added 'start_date' column to Assignment table")
+    except Exception as e:
+        click.echo(f"Error during migration: {e}", err=True)
+        raise
+
+#flask --app api migrate_remove_start_date removes the start_date column(reverses the migration)
+@click.command("migrate_remove_start_date")
+@with_appcontext
+def migrate_remove_start_date_command():
+    """Remove start_date column from Assignment table if it exists (REVERSES migrate_add_start_date)"""
+    try:
+        # Check if column exists
+        inspector = inspect(db.engine)
+        columns = [col['name'] for col in inspector.get_columns('Assignment')]
+        
+        if 'start_date' not in columns:
+            click.echo("Column 'start_date' does not exist in Assignment table (nothing to remove)")
+            return
+        
+        # Remove the column
+        with db.engine.connect() as conn:
+            conn.execute(db.text("ALTER TABLE Assignment DROP COLUMN start_date"))
+            conn.commit()
+        click.echo("Successfully removed 'start_date' column from Assignment table")
+    except Exception as e:
+        click.echo(f"Error during migration rollback: {e}", err=True)
+        raise
+
+# flask --app api migrate_add_assignment_attachments adds the AssignmentAttachment table for storing file attachments related to assignments
+@click.command("migrate_add_assignment_attachments")
+@with_appcontext
+def migrate_add_assignment_attachments_command():
+    """Create the AssignmentAttachment table if it does not already exist."""
+    try:
+        inspector = inspect(db.engine)
+        if "AssignmentAttachment" in inspector.get_table_names():
+            click.echo("Table 'AssignmentAttachment' already exists")
+            return
+
+        AssignmentAttachment.__table__.create(bind=db.engine, checkfirst=True)
+        click.echo("Successfully created 'AssignmentAttachment' table")
+    except Exception as e:
+        click.echo(f"Error creating attachment table: {e}", err=True)
+        raise
+
+
+@click.command("migrate_add_assignment_description")
+@with_appcontext
+def migrate_add_assignment_description_command():
+    """Add description column to Assignment table if it doesn't exist."""
+    try:
+        inspector = inspect(db.engine)
+        columns = [col["name"] for col in inspector.get_columns("Assignment")]
+
+        if "description" in columns:
+            click.echo("Column 'description' already exists in Assignment table")
+            return
+
+        with db.engine.connect() as conn:
+            conn.execute(db.text("ALTER TABLE Assignment ADD COLUMN description TEXT"))
+            conn.commit()
+
+        click.echo("Successfully added 'description' column to Assignment table")
+    except Exception as e:
+        click.echo(f"Error during description migration: {e}", err=True)
+        raise
+
 
 def init_app(app):
     """Register CLI commands with the Flask app"""
@@ -174,3 +260,7 @@ def init_app(app):
     app.cli.add_command(create_admin_command)
     app.cli.add_command(ensure_admin_command)
     app.cli.add_command(add_sample_courses_command)
+    app.cli.add_command(migrate_add_start_date_command)
+    app.cli.add_command(migrate_remove_start_date_command)
+    app.cli.add_command(migrate_add_assignment_attachments_command)
+    app.cli.add_command(migrate_add_assignment_description_command)

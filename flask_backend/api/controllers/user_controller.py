@@ -1,13 +1,13 @@
-"""
-User management endpoints
-"""
+"""User management endpoints."""
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from marshmallow import Schema, ValidationError, fields, validate
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..models import User, UserSchema
+from ..models.schemas import validate_password_strength
 
 bp = Blueprint("user", __name__, url_prefix="/user")
 
@@ -19,17 +19,37 @@ class UserUpdateSchema(Schema):
     """Schema for updating user information"""
 
     name = fields.Str(validate=validate.Length(min=1, max=255))
+    description = fields.Str(allow_none=True, validate=validate.Length(max=2000))
 
 
 user_update_schema = UserUpdateSchema()
+
+
+def _get_authenticated_user():
+    email = get_jwt_identity()
+    return User.get_by_email(email)
+
+
+def _can_view_user(requesting_user, requested_user):
+    # Own profile, teachers, and admins can always view
+    if requesting_user.id == requested_user.id or requesting_user.has_role("teacher", "admin"):
+        return True
+    # Students can view users who share at least one class, including class instructors.
+    requesting_enrolled_classes = {uc.courseID for uc in requesting_user.user_courses}
+    requesting_taught_classes = {course.id for course in requesting_user.teaching_courses}
+    requested_enrolled_classes = {uc.courseID for uc in requested_user.user_courses}
+    requested_taught_classes = {course.id for course in requested_user.teaching_courses}
+
+    requesting_classes = requesting_enrolled_classes | requesting_taught_classes
+    requested_classes = requested_enrolled_classes | requested_taught_classes
+    return bool(requesting_classes & requested_classes)
 
 
 @bp.route("/", methods=["GET"])
 @jwt_required()
 def get_current_user():
     """Get current authenticated user information"""
-    email = get_jwt_identity()
-    user = User.get_by_email(email)
+    user = _get_authenticated_user()
 
     if not user:
         return jsonify({"msg": "User not found"}), 404
@@ -40,8 +60,7 @@ def get_current_user():
 @jwt_required()
 def get_user_by_id(user_id):
     """Get user by ID (users can view their own info, teachers/admins can view anyone)"""
-    current_email = get_jwt_identity()
-    current_user = User.get_by_email(current_email)
+    current_user = _get_authenticated_user()
 
     if not current_user:
         return jsonify({"msg": "User not found"}), 404
@@ -50,8 +69,7 @@ def get_user_by_id(user_id):
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
-    # Users can view their own info, teachers and admins can view anyone
-    if current_user.id != user_id and not current_user.has_role("teacher", "admin"):
+    if not _can_view_user(current_user, user):
         return jsonify({"msg": "Insufficient permissions"}), 403
 
     return jsonify(user_schema.dump(user)), 200
@@ -70,8 +88,7 @@ def update_current_user():
     except ValidationError as err:
         return jsonify({"msg": "Validation error", "errors": err.messages}), 400
 
-    email = get_jwt_identity()
-    user = User.get_by_email(email)
+    user = _get_authenticated_user()
 
     if not user:
         return jsonify({"msg": "User not found"}), 404
@@ -79,6 +96,10 @@ def update_current_user():
     # Update allowed fields
     if "name" in data:
         user.name = data["name"]
+    if "description" in data:
+        if not user.is_student():
+            return jsonify({"msg": "Only students can edit profile descriptions"}), 403
+        user.description = data["description"]
 
     user.update()
 
@@ -89,8 +110,7 @@ def update_current_user():
 @jwt_required()
 def delete_user(user_id):
     """Delete user (admin only or own account)"""
-    current_email = get_jwt_identity()
-    current_user = User.get_by_email(current_email)
+    current_user = _get_authenticated_user()
 
     if not current_user:
         return jsonify({"msg": "User not found"}), 404
@@ -103,7 +123,35 @@ def delete_user(user_id):
     if current_user.id != user_id and not current_user.is_admin():
         return jsonify({"msg": "Insufficient permissions"}), 403
 
-    user.delete()
+    # Prevent admin users from deleting their own account via the generic user endpoint.
+    if current_user.id == user_id and current_user.is_admin():
+        return jsonify({"msg": "Cannot delete your own admin account"}), 400
+
+    blockers = user.get_delete_blockers()
+    blocking_references = {key: value for key, value in blockers.items() if value > 0}
+    if blocking_references:
+        return (
+            jsonify(
+                {
+                    "msg": "Cannot delete user because they are still referenced by existing records",
+                    "blockers": blocking_references,
+                }
+            ),
+            409,
+        )
+
+    try:
+        user.delete()
+    except IntegrityError:
+        return (
+            jsonify(
+                {
+                    "msg": "Cannot delete user because they are still referenced by existing records",
+                    "blockers": user.get_delete_blockers(),
+                }
+            ),
+            409,
+        )
 
     return jsonify({"msg": "User deleted successfully"}), 200
 
@@ -111,37 +159,38 @@ def delete_user(user_id):
 @bp.route("/password", methods=["PATCH"])
 @jwt_required()
 def change_password():
-    """Change current user's password (only if must_change_password is True)"""
+    """Change current user's password (allows changing at any time).
+    If `must_change_password` was set it will be cleared after a successful update.
+    """
     if not request.is_json:
         return jsonify({"msg": "Missing JSON in request"}), 400
 
-    current_password = request.json.get("current_password", None)
-    new_password = request.json.get("new_password", None)
+    data = request.get_json(silent=True) or {}
+    current_password = data.get("current_password", None)
+    new_password = data.get("new_password", None)
 
     if not current_password:
         return jsonify({"msg": "Current password is required"}), 400
     if not new_password:
         return jsonify({"msg": "New password is required"}), 400
-    if len(new_password) < 6:
-        return jsonify({"msg": "New password must be at least 6 characters"}), 400
+    try:
+        validate_password_strength(new_password)
+    except ValidationError as err:
+        return jsonify({"msg": str(err)}), 400
 
-    email = get_jwt_identity()
-    user = User.get_by_email(email)
+    user = _get_authenticated_user()
 
     if not user:
         return jsonify({"msg": "User not found"}), 404
-
-    # Security: Only allow password changes if must_change_password is True
-    if not user.must_change_password:
-        return jsonify({"msg": "Password change not required for this account"}), 403
 
     # Verify current password
     if not check_password_hash(user.hash_pass, current_password):
         return jsonify({"msg": "Current password is incorrect"}), 401
 
-    # Update password and clear must_change_password flag
+    # Update password and clear must_change_password flag if set
     user.hash_pass = generate_password_hash(new_password)
-    user.must_change_password = False
+    if user.must_change_password:
+        user.must_change_password = False
     user.update()
 
     return jsonify({"msg": "Password updated successfully"}), 200

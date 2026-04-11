@@ -1,137 +1,78 @@
-import { useEffect, useState, ChangeEvent } from "react";
-import { useParams } from "react-router-dom";
-import "./Assignment.css";
-import RubricCreator from "../components/RubricCreator";
-import RubricDisplay from "../components/RubricDisplay";
+import { useEffect } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+
+import Button from "../components/Button";
+import StudentSubmissionManager from "../components/StudentSubmissionManager";
 import TabNavigation from "../components/TabNavigation";
-import { isTeacher } from "../util/login";
+import StudentAssignedReviews from "../components/StudentAssignedReviews";
+import { isAdmin, isTeacher } from "../util/login";
 
-import { 
-  listStuGroup,
-  getUserId,
-  createReview,
-  createCriterion,
-  getReview
-} from "../util/api";
-
-interface SelectedCriterion {
-  row: number;
-  column: number;
-}
+import "./Assignment.css";
 
 export default function Assignment() {
   const { id } = useParams();
-  const [stuGroup, setStuGroup] = useState<StudentGroups[]>([]);
-  const [revieweeID, setRevieweeID] = useState<number>(0);
-  const [stuID, setStuID] = useState<number>(0);
-  const [selectedCriteria, setSelectedCriteria] = useState<SelectedCriterion[]>([]);
-  const [review, setReview] = useState<number[]>([]);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const assignmentId = Number(id);
+  const canManageAssignment = isTeacher() || isAdmin();
+  const stateClassId = (location.state as { classId?: string | number } | null)?.classId;
+  const searchClassId = new URLSearchParams(location.search).get("classId");
+  const classId = stateClassId ?? searchClassId;
+  const classQuery = classId ? `?classId=${classId}` : "";
 
   useEffect(() => {
-      (async () => {
-        const stuID = await getUserId();
-      setStuID(stuID);
-      const stus = await listStuGroup(Number(id), stuID);
-      setStuGroup(stus);
-        try {
-          const reviewResponse = await getReview(Number(id), stuID, revieweeID);
-          const reviewData = await reviewResponse.json();
-          setReview(reviewData.grades);
-          console.log("Review data:", reviewData);
-        } catch (error) {
-          console.error('Error fetching review:', error);
-        }
-      })();
-  }, [revieweeID, id, stuID]);
-
-  const handleCriterionSelect = (row: number, column: number) => {
-    // Check if this criterion is already selected
-    const existingIndex = selectedCriteria.findIndex(
-      criterion => criterion.row === row && criterion.column === column
-    );
-    
-    if (existingIndex >= 0) {
-      // If already selected, remove it (toggle off)
-      setSelectedCriteria(prev => 
-        prev.filter((_, index) => index !== existingIndex)
-      );
-    } else {
-      // Add the new criterion, removing any other selection in the same row
-      setSelectedCriteria(prev => {
-        // Remove any existing selection for this row
-        const filteredCriteria = prev.filter(criterion => criterion.row !== row);
-        // Add the new selection
-        return [...filteredCriteria, { row, column }];
-      });
+    if (!canManageAssignment || !id) {
+      return;
     }
-  };
 
-  function handleRadioChange(event: ChangeEvent<HTMLInputElement>): void {
-    const selectedID = Number(event.target.value);
-    setRevieweeID(selectedID);
-    console.log(`Selected group member ID: ${selectedID}`);
-  }
+    navigate(`/assignment/${id}/criteria${classQuery}`, { replace: true });
+  }, [canManageAssignment, id, classQuery, navigate]);
 
   return (
-    <>
-      <div className="AssignmentHeader">
-        <h2>Assignment {id}</h2>
+    <div className="AssignmentPage container-fluid py-4 px-3 px-md-4">
+      <div className="AssignmentHeader card border-0 shadow-sm mb-3 p-3 p-md-4">
+        <h2 className="h3 fw-bold mb-0 text-primary">Assignment {assignmentId}</h2>
+        <div className="AssignmentHeaderActions">
+          {classId ? (
+            <Button
+              type="secondary"
+              onClick={() => navigate(`/classes/${classId}/home`)}
+            >
+              Back to Class
+            </Button>
+          ) : null}
+          {!canManageAssignment ? <StudentSubmissionManager assignmentId={assignmentId} /> : null}
+        </div>
       </div>
 
       <TabNavigation
         tabs={[
-          {
-            label: "Home",
-            path: `/assignment/${id}`,
-          },
-          {
-            label: "Group",
-            path: `/assignment/${id}/group`,
-          }
+          ...(canManageAssignment
+            ? [
+                {
+                  label: "Group",
+                  path: `/assignments/${id}/group${classQuery}`,
+                },
+                {
+                  label: "Criteria",
+                  path: `/assignment/${id}/criteria${classQuery}`,
+                },
+                {
+                  label: "Reviews",
+                  path: `/assignments/${id}/reviews${classQuery}`,
+                },
+                {
+                  label: "Progress",
+                  path: `/assignments/${id}/progress${classQuery}`,
+                },
+              ]
+            : []),
         ]}
       />
 
-      <div className='assignmentRubricDisplay'>
-        <RubricDisplay rubricId={Number(id)} onCriterionSelect={handleCriterionSelect} grades={review} />
-      </div>
-      {
-        isTeacher() && 
-          <div className='assignmentRubric'>
-            <RubricCreator id={Number(id)}/>
-          </div>
-      }
-
-{
-      //List group members as radio buttons to select for given review
-      !isTeacher() && <div className='groupMembers'>
-        <h3>Select a group member to review</h3>
-          {stuGroup.map((stus) => {
-                return (
-                  <>
-                  <input type='radio' id={stus.userID.toString()} value={stus.userID} name='groupMembers' onChange={handleRadioChange}></input>
-                  <label htmlFor={stus.userID.toString()}>{stus.userID}</label>
-                  <br></br>
-                  </>
-                )
-              }
-            )
-          }
-          <button className='submitReview' onClick={async () => {
-            console.log("Submitting review with selected criteria:", selectedCriteria);
-            try {
-              const reviewResponse = await createReview(Number(id), stuID, revieweeID);
-              const reviewData = await reviewResponse.json();
-              console.log("Review response:", reviewData);
-              for (const criterion of selectedCriteria) {
-                await createCriterion(reviewData.id, criterion.row, criterion.column, "");
-              }
-              console.log('Review submitted successfully');
-            } catch (error) {
-              console.error('Error submitting review:', error);
-            }
-          }}>Submit Review</button>
-      </div>}
-    </>
+      {!canManageAssignment ? (
+        <StudentAssignedReviews assignmentId={assignmentId} />
+      ) : null}
+    </div>
   );
 }
-

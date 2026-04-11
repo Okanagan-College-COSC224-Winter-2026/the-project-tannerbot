@@ -2,8 +2,11 @@
 Assignment model for the peer evaluation app.
 """
 
-from .db import db
 from datetime import datetime, timezone
+
+from sqlalchemy import CheckConstraint
+
+from .db import db
 
 
 class Assignment(db.Model):
@@ -14,10 +17,13 @@ class Assignment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     courseID = db.Column(db.Integer, db.ForeignKey("Course.id"), index=True)
     name = db.Column(db.String(255), nullable=True)
+    description = db.Column(db.Text, nullable=True)
     rubric_text = db.Column("rubric", db.String(255), nullable=True)
+    assignment_mode = db.Column(db.String(16), nullable=False, default="solo")
 
     # NEW: due date field (acceptance criteria: edit/delete allowed before due date)
     due_date = db.Column(db.DateTime, nullable=True, index=True)
+    start_date = db.Column(db.DateTime, nullable=True)
 
     # relationships
     course = db.relationship("Course", back_populates="assignments", lazy="joined")
@@ -30,6 +36,12 @@ class Assignment(db.Model):
     submissions = db.relationship(
         "Submission", back_populates="assignment", cascade="all, delete-orphan", lazy="dynamic"
     )
+    attachments = db.relationship(
+        "AssignmentAttachment",
+        back_populates="assignment",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
     reviews = db.relationship(
         "Review", back_populates="assignment", cascade="all, delete-orphan", lazy="dynamic"
     )
@@ -37,11 +49,27 @@ class Assignment(db.Model):
         "Group_Members", back_populates="assignment", cascade="all, delete-orphan", lazy="dynamic"
     )
 
-    def __init__(self, courseID, name, rubric_text, due_date=None):
+    __table_args__ = (
+        CheckConstraint("assignment_mode IN ('solo', 'group')", name="check_assignment_mode"),
+    )
+
+    def __init__(
+        self,
+        courseID,
+        name,
+        rubric_text,
+        assignment_mode="solo",
+        due_date=None,
+        start_date=None,
+        description=None,
+    ):
         self.courseID = courseID
         self.name = name
         self.rubric_text = rubric_text
+        self.assignment_mode = assignment_mode or "solo"
         self.due_date = due_date
+        self.start_date = start_date
+        self.description = description
 
     def __repr__(self):
         return f"<Assignment id={self.id} name={self.name}>"

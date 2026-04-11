@@ -15,29 +15,82 @@
     margin-bottom: 20px;
 }
 
+.remaining-points {
+    margin: 0 0 14px 0;
+    color: #333;
+}
+
 .criteria-input-section {
-    display: flex;
-    gap: 10px;
-    align-items: center;
     margin-bottom: 15px;
-    padding: 10px;
-    background-color: white;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.criteria-input-block {
+    margin-bottom: 15px;
+}
+
+.criteria-input-block .criteria-input-section {
+    margin-bottom: 0;
+}
+
+.criteria-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 12px;
+    align-items: flex-end;
+}
+
+.criteria-input-section .card-body {
+    padding: 0.9rem;
 }
 
 .criteria-input-section input[type="text"] {
-    flex: 1;
+    flex: 1 1 260px;
+    min-width: 220px;
     padding: 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
 }
 
+.criteria-input-section input[type="text"]:focus {
+    border-color: #f06a9f;
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(225, 0, 84, 0.2);
+}
+
 .criteria-input-section input[type="number"] {
-    width: 100px;
+    width: 130px;
+    min-width: 120px;
+    flex: 0 0 auto;
     padding: 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
+}
+
+.criteria-input-section input[type="number"]:focus {
+    border-color: #f06a9f;
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(225, 0, 84, 0.2);
+}
+
+.criteria-row .Button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .criteria-row .Button {
+        width: 100%;
+    }
+}
+
+.criteria-input-section .invalid-input {
+    border-color: #c62828;
+    background-color: #fff5f5;
+}
+
+.criteria-row-error {
+    margin: 8px 0 0 0;
+    margin-bottom: 0;
 }
 
 .button-group {

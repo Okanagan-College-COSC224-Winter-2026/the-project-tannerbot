@@ -4,6 +4,10 @@ Tests for classes endpoints
 
 import json
 
+from werkzeug.security import check_password_hash
+
+from api.models import User
+
 
 def test_create_classes(test_client, make_admin):
     """
@@ -41,13 +45,13 @@ def test_create_class_not_teacher(test_client):
     test_client.post(
         "/auth/register",
         data=json.dumps(
-            {"name": "studentuser", "password": "123456", "email": "student@example.com"}
+            {"name": "studentuser", "password": "Password123!", "email": "student@example.com"}
         ),
         headers={"Content-Type": "application/json"},
     )
     test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "student@example.com", "password": "123456"}),
+        data=json.dumps({"email": "student@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     # Attempt to create class
@@ -164,12 +168,12 @@ def test_get_courses_for_student(test_client, make_admin, enroll_user_in_course)
     test_client.post(
         "/auth/register",
         data=json.dumps(
-            {"name": "studentuser", "password": "123456", "email": "student@example.com"}),
+            {"name": "studentuser", "password": "Password123!", "email": "student@example.com"}),
         headers={"Content-Type": "application/json"},
     )
     login_response = test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "student@example.com", "password": "123456"}),
+        data=json.dumps({"email": "student@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     student_id = login_response.json["id"]
@@ -193,12 +197,12 @@ def test_get_courses_for_student_not_enrolled(test_client):
     test_client.post(
         "/auth/register",
         data=json.dumps(
-            {"name": "studentuser2", "password": "123456", "email": "student2@example.com"}),
+            {"name": "studentuser2", "password": "Password123!", "email": "student2@example.com"}),
         headers={"Content-Type": "application/json"},
     )
     test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "student2@example.com", "password": "123456"}),
+        data=json.dumps({"email": "student2@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     # Get classes
@@ -206,6 +210,67 @@ def test_get_courses_for_student_not_enrolled(test_client):
     assert response.status_code == 200
     classes = response.json
     assert classes == []
+
+
+def test_get_courses_for_student_returns_only_enrolled_classes(
+    test_client, make_admin, enroll_user_in_course
+):
+    """
+    GIVEN a student enrolled in one of multiple classes
+    WHEN GET /class/classes is called
+    THEN only enrolled classes are returned
+    """
+    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    enrolled_course_resp = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "History 201"}),
+        headers={"Content-Type": "application/json"},
+    )
+    not_enrolled_course_resp = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "Physics 301"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    enrolled_course_id = enrolled_course_resp.json["class"]["id"]
+    not_enrolled_course_id = not_enrolled_course_resp.json["class"]["id"]
+
+    test_client.post(
+        "/auth/register",
+        data=json.dumps(
+            {"name": "studentuser", "password": "Password123!", "email": "student@example.com"}
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    login_response = test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "student@example.com", "password": "Password123!"}),
+        headers={"Content-Type": "application/json"},
+    )
+    student_id = login_response.json["id"]
+
+    enrollment = enroll_user_in_course(user_id=student_id, course_id=enrolled_course_id)
+    assert enrollment.userID == student_id and enrollment.courseID == enrolled_course_id
+
+    response = test_client.get("/class/classes", headers={"Content-Type": "application/json"})
+    assert response.status_code == 200
+
+    classes = response.json
+    class_ids = {course["id"] for course in classes}
+    class_names = {course["name"] for course in classes}
+
+    assert enrolled_course_id in class_ids
+    assert "History 201" in class_names
+    assert not_enrolled_course_id not in class_ids
+    assert "Physics 301" not in class_names
+
 
 def test_get_courses_not_logged_in(test_client):
     """
@@ -215,6 +280,106 @@ def test_get_courses_not_logged_in(test_client):
     """
     response = test_client.get("/class/classes", headers={"Content-Type": "application/json"})
     assert response.status_code == 401
+
+
+def test_get_class_members_for_teacher(test_client, make_admin, enroll_user_in_course):
+    """
+    GIVEN a teacher with an enrolled student in their class
+    WHEN POST /class/members is called
+    THEN the teacher receives the class member list including the student
+    """
+    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "COSC 404"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+
+    test_client.post(
+        "/auth/register",
+        data=json.dumps(
+            {
+                "name": "studentuser",
+                "password": "Password123!",
+                "email": "student@example.com",
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    student_login = test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "student@example.com", "password": "Password123!"}),
+        headers={"Content-Type": "application/json"},
+    )
+    student_id = student_login.json["id"]
+    enroll_user_in_course(user_id=student_id, course_id=class_id)
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    response = test_client.post(
+        "/class/members",
+        data=json.dumps({"id": class_id}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 200
+    members = response.json
+    assert any(m["email"] == "student@example.com" for m in members)
+
+# US19 test cases start (needs to be cleaned up)
+def test_get_class_members_returns_student_id_from_csv(test_client, make_admin):
+    """
+    GIVEN a teacher who enrolls students via CSV with student IDs
+    WHEN POST /class/members is called
+    THEN the student_id field is returned for enrolled students
+    """
+    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "COSC 404"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+
+    csv_text = (
+        "id,name,email\n"
+        "300325853,Gregory Bigglesworth,gbizzle@example.com\n"
+        "300325854,Sarah Connor,sconnor@example.com\n"
+    )
+    enroll_response = test_client.post(
+        "/class/enroll_students",
+        data=json.dumps({"class_id": class_id, "students": csv_text}),
+        headers={"Content-Type": "application/json"},
+    )
+    assert enroll_response.status_code == 200
+
+    members_response = test_client.post(
+        "/class/members",
+        data=json.dumps({"id": class_id}),
+        headers={"Content-Type": "application/json"},
+    )
+    assert members_response.status_code == 200
+
+    members_by_email = {member["email"]: member for member in members_response.json}
+    assert members_by_email["gbizzle@example.com"]["student_id"] == "300325853"
+    assert members_by_email["sconnor@example.com"]["student_id"] == "300325854"
 
 def test_enroll_in_class(test_client, make_admin):
     """
@@ -261,12 +426,12 @@ def test_enroll_in_class_not_teacher(test_client):
     test_client.post(
         "/auth/register",
         data=json.dumps(
-            {"name": "studentuser", "password": "123456", "email": "student@example.com"}),
+            {"name": "studentuser", "password": "Password123!", "email": "student@example.com"}),
         headers={"Content-Type": "application/json"},
     )
     test_client.post(
         "/auth/login",
-        data=json.dumps({"email": "student@example.com", "password": "123456"}),
+        data=json.dumps({"email": "student@example.com", "password": "Password123!"}),
         headers={"Content-Type": "application/json"},
     )
     # Attempt to enroll students
@@ -334,15 +499,15 @@ def test_enroll_in_class_not_found(test_client, make_admin):
     assert response.status_code == 404
     assert response.json["msg"] == "Class not found"
 
-def test_enroll_in_class_unauthorized(test_client, make_admin):
+def test_enroll_in_class_unauthorized(test_client, make_teacher):
     """
     GIVEN a logged-in teacher user who is not the teacher of the class
     WHEN POST /class/enroll_students is called
     THEN the request should return a 403 error
     """
-    # Set the admin user by default into the database
-    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
-    make_admin(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
+    # Create two teacher users (not admins, so unauthorized access returns 403)
+    make_teacher(email="teacher@example.com", password="teacher", name="teacheruser")
+    make_teacher(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
     # Login as teacher/admin
     test_client.post(
         "/auth/login",
@@ -504,6 +669,9 @@ def test_enroll_in_class_existing_student(test_client, make_admin):
     )
     assert response.status_code == 200
     assert response.json["msg"] == "0 students added to course Science 101"
+    assert response.json["added_count"] == 0
+    assert response.json["already_enrolled_count"] == 1
+    assert response.json["created_accounts_count"] == 0
 
 def test_enroll_in_class_invalid_email_format(test_client, make_admin):
     """
@@ -540,3 +708,90 @@ def test_enroll_in_class_invalid_email_format(test_client, make_admin):
     )
     assert response.status_code == 400
     assert response.json["msg"] == "Invalid email format: johndoeatexample.com"
+
+
+def test_enroll_students_preview_includes_account_status(test_client, make_admin):
+    """
+    GIVEN a logged-in teacher user and a mix of existing/new students
+    WHEN POST /class/enroll_students_preview is called
+    THEN the response includes account_exists and enrollment status per row
+    """
+    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
+    make_admin(email="existing@example.com", password="secret", name="Existing Student")
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "Science 101"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+
+    csv_text = (
+        "id,name,email\n"
+        "300325853,Existing Student,existing@example.com\n"
+        "300325854,Brand New,newstudent@example.com\n"
+    )
+    response = test_client.post(
+        "/class/enroll_students_preview",
+        data=json.dumps({"class_id": class_id, "students": csv_text}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 200
+    assert response.json["total_count"] == 2
+    assert response.json["existing_accounts_count"] == 1
+    assert response.json["new_accounts_count"] == 1
+
+    rows = {row["email"]: row for row in response.json["students"]}
+    assert rows["existing@example.com"]["account_exists"] is True
+    assert rows["existing@example.com"]["already_enrolled"] is False
+    assert rows["newstudent@example.com"]["account_exists"] is False
+    assert rows["newstudent@example.com"]["already_enrolled"] is False
+
+
+def test_enroll_students_uses_custom_default_password(test_client, make_admin):
+    """
+    GIVEN a logged-in teacher user and a custom default password
+    WHEN POST /class/enroll_students is called
+    THEN newly created student accounts use the custom default password
+    """
+    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "Science 101"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+
+    csv_text = "id,name,email\n300325855,New Student,new-pass@example.com\n"
+    custom_password = "teacher-set-pass"
+    response = test_client.post(
+        "/class/enroll_students",
+        data=json.dumps(
+            {
+                "class_id": class_id,
+                "students": csv_text,
+                "default_password": custom_password,
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 200
+
+    created_user = User.get_by_email("new-pass@example.com")
+    assert created_user is not None
+    assert check_password_hash(created_user.hash_pass, custom_password)

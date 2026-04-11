@@ -1,0 +1,175 @@
+.AdminPage {
+  margin: 1rem;
+  width: 100%;
+}
+
+.AdminPage h1 {
+  border-bottom: 1px solid var(--background-secondary);
+  padding-bottom: 0.5rem;
+}
+
+/* SEARCH BAR (FIXED) */
+.AdminSearchBar {
+  width: 96%;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 1rem;
+}
+
+.AdminSearchBar input {
+  width: 100%;
+}
+
+/* Table wrapper for spacing control */
+.AdminTableWrapper {
+  width: 96%;
+  margin-left: auto;
+  margin-right: auto;
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.AdminStatusMessage {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  border: 1px solid transparent;
+}
+
+.AdminStatusMessage.Error {
+  color: #b42318;
+  border-color: #fecdca;
+  background: #fef3f2;
+}
+
+.AdminStatusMessage.Success {
+  color: #027a48;
+  border-color: #abefc6;
+  background: #ecfdf3;
+}
+
+/* Main table */
+.AdminTable {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* Header */
+.AdminTable thead {
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--text-secondary);
+}
+
+.AdminTable th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+/* Rows */
+.AdminTable td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+/* Row hover */
+.AdminTable tbody tr:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Actions column */
+.AdminActions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.AdminDeleteCircleButton {
+  width: 2rem;
+  height: 2rem;
+  min-width: 2rem;
+  min-height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-width: 0;
+}
+
+.AdminDeleteCircleButton i {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+/* Optional role dropdown styling */
+.AdminRoleSelect {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--background-secondary);
+  background: white;
+}
+
+.AdminDeleteCircleButton:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.AdminTable th:nth-child(1),
+.AdminTable td:nth-child(1),
+.AdminTable th:nth-child(2),
+.AdminTable td:nth-child(2),
+.AdminTable th:nth-child(3),
+.AdminTable td:nth-child(3) {
+  text-align: left;
+}
+
+.AdminTable th:nth-child(4),
+.AdminTable td:nth-child(4),
+.AdminTable th:nth-child(5),
+.AdminTable td:nth-child(5) {
+  text-align: center;
+}
+
+.AdminTable td:nth-child(4) .badge {
+  min-width: 5.6rem;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.AdminTable td:nth-child(5) {
+  white-space: nowrap;
+}
+
+.AdminTable th:nth-child(1),
+.AdminTable td:nth-child(1) {
+  width: 10%;
+}
+
+.AdminTable th:nth-child(2),
+.AdminTable td:nth-child(2) {
+  width: 24%;
+}
+
+.AdminTable th:nth-child(3),
+.AdminTable td:nth-child(3) {
+  width: 34%;
+}
+
+.AdminTable th:nth-child(4),
+.AdminTable td:nth-child(4) {
+  width: 16%;
+}
+
+.AdminTable th:nth-child(5),
+.AdminTable td:nth-child(5) {
+  width: 16%;
+}

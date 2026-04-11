@@ -1,5 +1,6 @@
 import functools
 import os
+from datetime import timedelta
 
 from flask import Flask, jsonify
 from flask_cors import CORS
@@ -8,13 +9,44 @@ from flask_jwt_extended import JWTManager
 from .cli import init_app
 from .controllers import (
     admin_controller,
+    assignment_attachment_controller,
+    assignment_controller,
+    assignment_grouping_controller,
     auth_controller,
     class_controller,
+    class_enrollment_controller,
+    course_search_controller,
     fake_api_controller,
+    practice_tanner_controller,
+    profile_picture_controller,
+    review_controller,
+    rubric_controller,
+    submission_controller,
     user_controller,
-    assignment_controller,
 )
 from .models.db import db, ma
+from .startup_migrations import (
+    ensure_assignment_grouping_schema_for_sqlite,
+    ensure_profile_picture_columns_for_sqlite,
+    ensure_rubric_schema_for_sqlite,
+    ensure_review_schema_for_sqlite,
+)
+
+
+def _env_int(name, default_value, minimum=1):
+    raw_value = os.environ.get(name)
+    if raw_value is None:
+        return default_value
+
+    try:
+        parsed_value = int(raw_value)
+    except (TypeError, ValueError):
+        return default_value
+
+    if minimum is not None and parsed_value < minimum:
+        return default_value
+
+    return parsed_value
 
 
 def create_app(test_config=None):
@@ -27,6 +59,10 @@ def create_app(test_config=None):
         os.environ.get("FLASK_ENV") == "production"
         or os.environ.get("PRODUCTION", "false").lower() == "true"
     )
+
+    # Use an explicit access-token lifetime to avoid Flask-JWT-Extended's 15-minute
+    # default causing unexpected session expiration during normal app usage.
+    access_token_expires_seconds = _env_int("JWT_ACCESS_TOKEN_EXPIRES", 3600, minimum=1)
 
     # Validate required secrets in production
     if is_production:
@@ -47,6 +83,7 @@ def create_app(test_config=None):
         ),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         JWT_SECRET_KEY=os.environ.get("JWT_SECRET_KEY", "dev-jwt-secret"),
+        JWT_ACCESS_TOKEN_EXPIRES=timedelta(seconds=access_token_expires_seconds),
         # JWT Cookie settings - secure defaults for production, permissive for development
         JWT_TOKEN_LOCATION=["cookies"],
         JWT_COOKIE_SECURE=is_production,  # True in production (HTTPS required)
@@ -56,6 +93,18 @@ def create_app(test_config=None):
         ),  # Strict in production for maximum security
         JWT_ACCESS_COOKIE_PATH="/",
         JWT_COOKIE_DOMAIN=os.environ.get("JWT_COOKIE_DOMAIN", None),
+        MAX_SUBMISSION_FILE_SIZE_BYTES=_env_int("MAX_SUBMISSION_FILE_SIZE_BYTES", 10 * 1024 * 1024),
+        MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES=_env_int(
+            "MAX_ASSIGNMENT_ATTACHMENT_SIZE_BYTES", 10 * 1024 * 1024
+        ),
+        RATE_LIMIT_TRUST_PROXY_HEADERS=(
+            os.environ.get("RATE_LIMIT_TRUST_PROXY_HEADERS", "false").lower() == "true"
+        ),
+        LOGIN_ATTEMPT_WINDOW_SECONDS=_env_int("LOGIN_ATTEMPT_WINDOW_SECONDS", 300),
+        LOGIN_ATTEMPT_MAX_FAILURES=_env_int("LOGIN_ATTEMPT_MAX_FAILURES", 5),
+        LOGIN_LOCKOUT_SECONDS=_env_int("LOGIN_LOCKOUT_SECONDS", 600),
+        REGISTER_ATTEMPT_WINDOW_SECONDS=_env_int("REGISTER_ATTEMPT_WINDOW_SECONDS", 300),
+        REGISTER_ATTEMPT_MAX_ATTEMPTS=_env_int("REGISTER_ATTEMPT_MAX_ATTEMPTS", 10),
     )
 
     if test_config is None:
@@ -70,6 +119,11 @@ def create_app(test_config=None):
         os.makedirs(app.instance_path)
     except OSError:
         pass
+
+    ensure_profile_picture_columns_for_sqlite(app.config["SQLALCHEMY_DATABASE_URI"])
+    ensure_assignment_grouping_schema_for_sqlite(app.config["SQLALCHEMY_DATABASE_URI"])
+    ensure_review_schema_for_sqlite(app.config["SQLALCHEMY_DATABASE_URI"])
+    ensure_rubric_schema_for_sqlite(app.config["SQLALCHEMY_DATABASE_URI"])
 
     # Initialize extensions
     db.init_app(app)
@@ -104,9 +158,18 @@ def create_app(test_config=None):
     # Register blueprints
     app.register_blueprint(auth_controller.bp)
     app.register_blueprint(user_controller.bp)
+    app.register_blueprint(profile_picture_controller.bp)
     app.register_blueprint(admin_controller.bp)
     app.register_blueprint(class_controller.bp)
+    app.register_blueprint(class_enrollment_controller.bp)
+    app.register_blueprint(course_search_controller.bp)
     app.register_blueprint(assignment_controller.bp)
+    app.register_blueprint(assignment_grouping_controller.bp)
+    app.register_blueprint(review_controller.bp)
+    app.register_blueprint(rubric_controller.bp)
+    app.register_blueprint(assignment_attachment_controller.bp)
+    app.register_blueprint(submission_controller.bp)
     app.register_blueprint(fake_api_controller.fake)
+    app.register_blueprint(practice_tanner_controller.practice)
 
     return app

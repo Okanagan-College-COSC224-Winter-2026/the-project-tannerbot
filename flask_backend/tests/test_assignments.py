@@ -1,6 +1,10 @@
 """
 Tests for assignments endpoints
 """
+#line 641 for tests with a start_date
+#to run:
+#cd flask_backend
+#pytest tests/test_assignments.py -v
 
 import json
 import datetime
@@ -76,6 +80,7 @@ def test_create_assignment_missing_fields(test_client, make_admin):
     )
     assert response.status_code == 400
     assert response.json["msg"] == "Assignment name is required"
+
 
 def test_non_assigned_teacher_cannot_create_assignment(test_client, make_admin):
     """
@@ -187,7 +192,7 @@ def test_teacher_can_edit_assignment_before_due_date(test_client, make_admin):
                 "courseID": class_id,
                 "name": "Lab Report 1",
                 "rubric": "Completeness",
-                "due_date": datetime.datetime(2025, 12, 31, 23, 59, 59).isoformat(),
+                "due_date": datetime.datetime(2027, 12, 31, 23, 59, 59).isoformat(),
             }
         ),
         headers={"Content-Type": "application/json"},
@@ -200,7 +205,7 @@ def test_teacher_can_edit_assignment_before_due_date(test_client, make_admin):
             {
                 "name": "Updated Lab Report 1",
                 "rubric": "Thoroughness",
-                "due_date": datetime.datetime(2025, 11, 30, 23, 59, 59).isoformat(),
+                "due_date": datetime.datetime(2027, 11, 30, 23, 59, 59).isoformat(),
             }
         ),
         headers={"Content-Type": "application/json"},
@@ -209,7 +214,7 @@ def test_teacher_can_edit_assignment_before_due_date(test_client, make_admin):
     assert edit_response.json["msg"] == "Assignment updated"
     assert edit_response.json["assignment"]["name"] == "Updated Lab Report 1"
     assert edit_response.json["assignment"]["rubric_text"] == "Thoroughness"
-    assert edit_response.json["assignment"]["due_date"] == "2025-11-30T23:59:59"
+    assert edit_response.json["assignment"]["due_date"] == "2027-11-30T23:59:59"
 
 def test_teacher_cannot_edit_assignment_after_due_date(test_client, make_admin):
     """
@@ -260,15 +265,15 @@ def test_teacher_cannot_edit_assignment_after_due_date(test_client, make_admin):
     assert edit_response.status_code == 400
     assert edit_response.json["msg"] == "Assignment cannot be modified after its due date"
 
-def test_non_assigned_teacher_cannot_edit_assignment(test_client, make_admin):
+def test_non_assigned_teacher_cannot_edit_assignment(test_client, make_teacher):
     """
     GIVEN a teacher user who is not assigned to the class
     WHEN they try to edit an assignment for that class
     THEN the API should return a 403 error
     """
-    # Use make_admin fixture to create a teacher user
-    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
-    make_admin(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
+    # Create two teacher users
+    make_teacher(email="teacher@example.com", password="teacher", name="teacheruser")
+    make_teacher(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
     # Create a teacher user and log in
     test_client.post(
         "/auth/login",
@@ -449,15 +454,15 @@ def test_delete_assignment_after_due_date(test_client, make_admin):
     assert delete_response.status_code == 400
     assert delete_response.json["msg"] == "Assignment cannot be deleted after its due date"
 
-def test_non_assigned_teacher_cannot_delete_assignment(test_client, make_admin):
+def test_non_assigned_teacher_cannot_delete_assignment(test_client, make_teacher):
     """
     GIVEN a teacher user who is not assigned to the class
     WHEN they try to delete an assignment for that class
     THEN the API should return a 403 error
     """
-    # Use make_admin fixture to create a teacher user
-    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
-    make_admin(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
+    # Create two teacher users
+    make_teacher(email="teacher@example.com", password="teacher", name="teacheruser")
+    make_teacher(email="otherteacher@example.com", password="teacher", name="otherteacheruser")
     # Create a teacher user and log in
     test_client.post(
         "/auth/login",
@@ -633,3 +638,263 @@ def test_unauthenticated_user_cannot_get_assignments(test_client):
     # Attempt to retrieve assignments for a class without logging in
     assignments = test_client.get(f"/assignment/1")
     assert assignments.status_code == 401
+
+
+def test_non_member_cannot_get_assignments_for_other_class(test_client, make_teacher):
+    """Ensure assignment lists are not exposed across classes to unrelated users."""
+    make_teacher(email="teacher1@example.com", password="teacher1", name="Teacher One")
+    make_teacher(email="teacher2@example.com", password="teacher2", name="Teacher Two")
+
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher1@example.com", "password": "teacher1"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "Private Class"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+    test_client.post(
+        "/assignment/create_assignment",
+        data=json.dumps(
+            {
+                "courseID": class_id,
+                "name": "Private Assignment",
+                "rubric": "Confidential",
+                "due_date": (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=10)).isoformat(),
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    test_client.post("/auth/logout")
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher2@example.com", "password": "teacher2"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    response = test_client.get(f"/assignment/{class_id}")
+    assert response.status_code == 403
+    assert response.json["msg"] == "Insufficient permissions"
+
+# Test cases for assignments with start_date
+# pretty much just took one of the above test cases and added a start date line to it to check if it is stored correctly
+def test_teacher_can_create_assignment_with_start_date(test_client, make_admin):
+    """
+    GIVEN a teacher user
+    WHEN they create a new assignment with a start_date via POST /assignment/create_assignment
+    THEN the assignment should be created successfully with the start_date stored
+    """
+    # Use make_admin fixture to create a teacher user
+    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
+
+    # Log in as teacher
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+    
+    # Create a class
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "Computer Science 101"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+
+    # Create an assignment with start_date and due_date
+    start_date = datetime.datetime(2025, 1, 1, 0, 0, 0)
+    due_date = datetime.datetime(2025, 12, 31, 23, 59, 59)
+    
+    assignment_response = test_client.post(
+        "/assignment/create_assignment",
+        data=json.dumps({
+            "courseID": class_id,
+            "name": "Project 1",
+            "rubric": "Code quality and documentation",
+            "start_date": start_date.isoformat(),
+            "due_date": due_date.isoformat()
+        }),
+        headers={"Content-Type": "application/json"},
+    )
+    # Check if all data in the database is stored correctly, including the start_date
+    assert assignment_response.status_code == 201
+    assert assignment_response.json["msg"] == "Assignment created"
+    assert assignment_response.json["assignment"]["name"] == "Project 1"
+    assert assignment_response.json["assignment"]["start_date"] == "2025-01-01T00:00:00"
+    assert assignment_response.json["assignment"]["due_date"] == "2025-12-31T23:59:59"
+
+def test_teacher_can_create_assignment_without_start_date(test_client, make_admin):
+    """
+    GIVEN a teacher user
+    WHEN they create a new assignment without a start_date
+    THEN the assignment should be created successfully with start_date as None
+    """
+    # Use make_admin fixture to create a teacher user
+    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
+
+    # Log in as teacher
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+    
+    # Create a class
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "English 101"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+
+    # Create an assignment without start_date
+    due_date = datetime.datetime(2025, 12, 31, 23, 59, 59)
+    
+    assignment_response = test_client.post(
+        "/assignment/create_assignment",
+        data=json.dumps({
+            "courseID": class_id,
+            "name": "Essay 1",
+            "rubric": "Writing quality",
+            "due_date": due_date.isoformat()
+        }),
+        headers={"Content-Type": "application/json"},
+    )
+    
+    assert assignment_response.status_code == 201
+    assert assignment_response.json["msg"] == "Assignment created"
+    assert assignment_response.json["assignment"]["name"] == "Essay 1"
+    assert assignment_response.json["assignment"]["start_date"] is None
+    assert assignment_response.json["assignment"]["due_date"] == "2025-12-31T23:59:59"
+
+def test_teacher_can_edit_assignment_start_date(test_client, make_admin):
+    """
+    GIVEN a teacher user
+    WHEN they edit an assignment to add or change the start_date
+    THEN the assignment should be updated with the new start_date
+    """
+    # Use make_admin fixture to create a teacher user
+    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
+
+    # Log in as teacher
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+    
+    # Create a class
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "Mathematics 101"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+
+    # Create an assignment without start_date
+    due_date = datetime.datetime(2027, 12, 31, 23, 59, 59)
+    
+    assignment_response = test_client.post(
+        "/assignment/create_assignment",
+        data=json.dumps({
+            "courseID": class_id,
+            "name": "Homework 1",
+            "rubric": "Accuracy",
+            "due_date": due_date.isoformat()
+        }),
+        headers={"Content-Type": "application/json"},
+    )
+    
+    assignment_id = assignment_response.json["assignment"]["id"]
+    assert assignment_response.json["assignment"]["start_date"] is None
+    
+    # Now edit the assignment to add a start_date
+    start_date = datetime.datetime(2027, 1, 15, 8, 0, 0)
+    edit_response = test_client.patch(
+        f"/assignment/edit_assignment/{assignment_id}",
+        data=json.dumps({
+            "start_date": start_date.isoformat()
+        }),
+        headers={"Content-Type": "application/json"},
+    )
+    
+    assert edit_response.status_code == 200
+    assert edit_response.json["msg"] == "Assignment updated"
+    assert edit_response.json["assignment"]["start_date"] == "2027-01-15T08:00:00"
+    assert edit_response.json["assignment"]["name"] == "Homework 1"  # Other fields unchanged
+
+def test_get_assignment_with_start_date(test_client, make_admin):
+    """
+    GIVEN a teacher user
+    WHEN they retrieve assignments for a class
+    THEN assignments with start_date should include the start_date field
+    """
+    # Use make_admin fixture to create a teacher user
+    make_admin(email="teacher@example.com", password="teacher", name="teacheruser")
+
+    # Log in as teacher
+    test_client.post(
+        "/auth/login",
+        data=json.dumps({"email": "teacher@example.com", "password": "teacher"}),
+        headers={"Content-Type": "application/json"},
+    )
+    
+    # Create a class
+    class_response = test_client.post(
+        "/class/create_class",
+        data=json.dumps({"name": "Biology 101"}),
+        headers={"Content-Type": "application/json"},
+    )
+    class_id = class_response.json["class"]["id"]
+
+    # Create two assignments - one with start_date, one without
+    start_date = datetime.datetime(2025, 2, 1, 0, 0, 0)
+    due_date = datetime.datetime(2025, 12, 31, 23, 59, 59)
+    
+    test_client.post(
+        "/assignment/create_assignment",
+        data=json.dumps({
+            "courseID": class_id,
+            "name": "Lab Report 1",
+            "rubric": "Methodology",
+            "start_date": start_date.isoformat(),
+            "due_date": due_date.isoformat()
+        }),
+        headers={"Content-Type": "application/json"},
+    )
+    
+    test_client.post(
+        "/assignment/create_assignment",
+        data=json.dumps({
+            "courseID": class_id,
+            "name": "Lab Report 2",
+            "rubric": "Analysis",
+            "due_date": due_date.isoformat()
+        }),
+        headers={"Content-Type": "application/json"},
+    )
+    
+    # Retrieve assignments
+    get_response = test_client.get(f"/assignment/{class_id}")
+    
+    assert get_response.status_code == 200
+    assignments = get_response.json
+    assert len(assignments) == 2
+    
+    # Find assignments by name
+    lab1 = next((a for a in assignments if a["name"] == "Lab Report 1"), None)
+    lab2 = next((a for a in assignments if a["name"] == "Lab Report 2"), None)
+    
+    assert lab1 is not None
+    assert lab2 is not None
+    
+    # Lab Report 1 should have start_date
+    assert lab1["start_date"] == "2025-02-01T00:00:00"
+    
+    # Lab Report 2 should have None for start_date
+    assert lab2["start_date"] is None

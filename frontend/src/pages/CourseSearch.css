@@ -1,0 +1,64 @@
+.CourseSearchPage {
+  width: 100%;
+}
+
+.CourseSearchPanel {
+  border-radius: 1.2rem;
+  background: #ffffffd9;
+  backdrop-filter: blur(2px);
+}
+
+.CourseSearchHint {
+  font-size: 0.95rem;
+}
+
+.CourseSearchForm .form-control {
+  min-height: calc(1.5em + 1rem + 4px);
+}
+
+.CourseSearchResults ul {
+  display: contents;
+}
+
+.CourseResultCard {
+  border-radius: 0.95rem;
+  background: linear-gradient(180deg, #ffffff 0%, #fdf8fb 100%);
+}
+
+.CourseNameLink {
+  color: var(--button-primary);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.CourseNameLink:hover,
+.CourseNameLink:focus {
+  text-decoration: underline;
+}
+
+.CourseSearchStatus {
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.CourseSearchStatus.Error {
+  background: #ffecec;
+  color: #a11;
+  border: 1px solid #f2c1c1;
+}
+
+.CourseSearchStatus.Empty {
+  background: #f7f8fb;
+  color: #445061;
+  border: 1px solid #dde4ee;
+}
+
+.ResultCount {
+  font-size: 0.95rem;
+}
+
+@media (max-width: 640px) {
+  .CourseSearchPage {
+    padding: 1rem;
+  }
+}

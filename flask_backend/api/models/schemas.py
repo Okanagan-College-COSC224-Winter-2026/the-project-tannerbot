@@ -1,4 +1,6 @@
-from marshmallow import fields, validate
+import re
+
+from marshmallow import ValidationError, fields, validate
 
 from .assignment_model import Assignment
 from .course_group_model import CourseGroup
@@ -26,7 +28,7 @@ class UserSchema(ma.SQLAlchemyAutoSchema):
         load_instance = True
         include_fk = False  # Don't expose raw foreign keys
         sqla_session = db.session
-        exclude = ("hash_pass",)
+        exclude = ("hash_pass", "profile_picture", "profile_picture_mime_type")
 
     # Explicit fields for clarity and validation
     id = fields.Int(dump_only=True)
@@ -36,15 +38,42 @@ class UserSchema(ma.SQLAlchemyAutoSchema):
         dump_default="student", validate=validate.OneOf(["student", "teacher", "admin"])
     )
     must_change_password = fields.Bool(dump_default=False)
+    description = fields.Str(allow_none=True, validate=validate.Length(max=2000))
+    profile_picture_url = fields.Method("get_profile_picture_url", dump_only=True)
 
+    def get_profile_picture_url(self, obj):
+        if not obj.profile_picture or not obj.profile_picture_mime_type:
+            return None
+        return f"/user/{obj.id}/profile-picture"
+
+
+def validate_password_strength(password):
+    """Custom validator for password strength"""
+    if len(password) < 8:
+        raise ValidationError("Password must be at least 8 characters long")
+    if not re.search(r"[A-Z]", password):
+        raise ValidationError("Password must contain at least one uppercase letter")
+    if not re.search(r"[a-z]", password):
+        raise ValidationError("Password must contain at least one lowercase letter")
+    if not re.search(r"[0-9]", password):
+        raise ValidationError("Password must contain at least one number")
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        raise ValidationError("Password must contain at least one special character")
 
 class UserRegistrationSchema(ma.Schema):
     """Schema for user registration input"""
 
     name = fields.Str(required=True, validate=validate.Length(min=1, max=255))
     email = fields.Email(required=True)
-    password = fields.Str(required=True, load_only=True, validate=validate.Length(min=6))
-
+    
+    password = fields.Str(
+        required=True,
+        load_only=True,
+        validate=[
+            validate.Length(min=8),
+            validate_password_strength  # put it in a list instead of validate.And
+        ]
+    )
 
 class UserLoginSchema(ma.Schema):
     """Schema for login credentials"""

@@ -17,7 +17,26 @@ export const didExpire = (response: Response) => {
 
 export const getUserRole = (): string => {
   const user = JSON.parse(localStorage.getItem("user") || '{ "role": "student" }');
-  return user.role || "student";
+  if (typeof user.role === 'string') {
+    return user.role.trim().toLowerCase();
+  }
+  return "student";
+}
+
+export const getCurrentUserId = (): number | null => {
+  const user = JSON.parse(localStorage.getItem("user") || '{}');
+  const rawUserId = user.id ?? user.user_id;
+
+  if (typeof rawUserId === 'number') {
+    return rawUserId;
+  }
+
+  if (typeof rawUserId === 'string') {
+    const parsedUserId = Number(rawUserId);
+    return Number.isNaN(parsedUserId) ? null : parsedUserId;
+  }
+
+  return null;
 }
 
 export const isTeacher = () => {

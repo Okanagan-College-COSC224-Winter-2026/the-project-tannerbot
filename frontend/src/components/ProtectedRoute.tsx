@@ -1,36 +1,28 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-
-const BASE_URL = "http://localhost:5000";
+import { Navigate } from "react-router-dom";
 
 interface ProtectedRouteProps {
-    children: React.ReactNode;
+  children: React.ReactNode;
+  allowedRoles?: string[];
 }
 
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-    const navigate = useNavigate();
-    const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
+export default function ProtectedRoute({
+  children,
+  allowedRoles,
+}: ProtectedRouteProps) {
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem("user") || "null");
+  } catch {
+    user = null;
+  }
 
-    useEffect(() => {
-        ;(async () => {
-            try {
-                const response = await fetch(`${BASE_URL}/user`, {
-                    method: "GET",
-                    credentials: "include",
-                });
-                if (response.ok) {
-                    setIsAuthed(true);
-                } else {
-                    setIsAuthed(false);
-                    navigate("/");
-                }
-            } catch (error) {
-                console.error("Error checking authentication:", error);
-                setIsAuthed(false);
-                navigate("/");
-            }
-        })();
-    }, [navigate]);
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
 
-    return isAuthed ? <>{children}</> : null;
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/home" replace />;
+  }
+
+  return <>{children}</>;
 }
