@@ -45,12 +45,6 @@ def create_user():
     if not password:
         return jsonify({"msg": "Password is required"}), 400
     
-    # Validate password strength
-    try:
-        validate_password_strength(password)
-    except Exception as e:
-        return jsonify({"msg": str(e)}), 400
-    
     if not email:
         return jsonify({"msg": "Email is required"}), 400
 
